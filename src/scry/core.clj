@@ -1,0 +1,90 @@
+(ns scry.core
+  "Public entry point for scry, an in-process test runner for AI agents.
+
+   `run` executes clojure.test tests in-process and returns an inspectable
+   result map; the most recent result is also retained in `last-run` so it can
+   be inspected interactively after the run. The kaocha adapter lives in
+   `scry.kaocha` (loaded only when the :kaocha alias is present) and produces
+   the same result shape.
+
+   Result map shape:
+     :summary   {:test :pass :fail :error :duration-ms :var-count :fail-var-count}
+     :pass?     true when there were no failures or errors
+     :failures  [{:var :ns :status :assertions [...] :out :err}]
+   Each assertion: {:type :message :expected :actual :file :line :contexts}
+   (errors additionally carry :stacktrace)."
+  (:require
+   [clojure.string :as str]
+   [scry.capture :as capture]
+   [scry.clojure-test :as clojure-test]))
+
+(def last-run
+  "Atom holding the most recent run result, for post-run inspection."
+  (atom nil))
+
+(defn run
+  "Run clojure.test tests in-process and return the inspectable result map.
+
+   See `scry.clojure-test/run` for options. The result is also stored in
+   `last-run`."
+  ([] (run {}))
+  ([opts]
+   (reset! last-run (clojure-test/run opts))))
+
+(defn last-result
+  "Return the most recent run result, or nil if nothing has run."
+  []
+  @last-run)
+
+(defn failures
+  "Return the failure entries of `result` (defaults to the last run)."
+  ([] (failures (last-result)))
+  ([result] (:failures result)))
+
+(defn failed-test
+  "Return the failure entry for fully-qualified test var symbol `var-sym`."
+  ([var-sym] (failed-test (last-result) var-sym))
+  ([result var-sym]
+   (->> (:failures result)
+        (filter #(= var-sym (:var %)))
+        first)))
+
+(defn output
+  "Return {:out s :err s} captured for failed test var `var-sym`."
+  ([var-sym] (output (last-result) var-sym))
+  ([result var-sym]
+   (when-let [f (failed-test result var-sym)]
+     (select-keys f [:out :err]))))
+
+(defn- assertion-string
+  [{:keys [type message expected actual file line contexts stacktrace]}]
+  (str/join
+   "\n"
+   (cond-> [(str "  [" (name type) "] "
+                 (when (seq contexts) (str (str/join " / " contexts) " — "))
+                 (or message "")
+                 " (" file ":" line ")")
+            (str "    expected: " (pr-str expected))
+            (str "    actual:   " (pr-str actual))]
+     stacktrace (conj (str "    stacktrace:\n"
+                           (->> (str/split-lines stacktrace)
+                                (map #(str "      " %))
+                                (str/join "\n")))))))
+
+(defn- failure-string
+  [{:keys [var status assertions out err]}]
+  (str/join
+   "\n"
+   (cond-> [(str (name status) ": " var)]
+     (seq assertions) (into (map assertion-string assertions))
+     (seq out) (conj (str "  --- stdout ---\n" out))
+     (seq err) (conj (str "  --- stderr ---\n" err)))))
+
+(defn report-string
+  "Render a human/agent-readable report of `result` (defaults to last run)."
+  ([] (report-string (last-result)))
+  ([result]
+   (when result
+     (str/join
+      "\n\n"
+      (into [(capture/summary-line result)] (map failure-string (:failures result)))))))

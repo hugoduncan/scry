@@ -9,7 +9,6 @@ lambda: "λclj_tests. run(in_process) → inspect({:summary :pass? :failures}) �
 metadata:
   tags: ["clojure", "testing", "repl", "ai-agents", "structured-results"]
   language: "clojure"
-allowed-tools: bash read psi-tool
 ---
 
 # Scry
@@ -24,23 +23,11 @@ Use this skill when:
 - You need to know whether tests passed and which test vars failed.
 - You need failure details such as `:expected`, `:actual`, `:message`, `:file`, `:line`, testing contexts, or stack traces.
 - You need stdout/stderr captured for failing test vars.
-- You are debugging from a REPL or from an AI-agent shell command and want machine-readable results.
+- You are debugging from a REPL and want machine-readable results.
 
 Do **not** scrape terminal output if `scry` can provide the structured result directly.
 
-## Core command
-
-Run the current project's test suite through `scry`:
-
-```sh
-clojure -M:test -e "(require '[scry.core :as scry]) (println (scry/report-string (scry/run)))"
-```
-
-Inspect the raw result map:
-
-```sh
-clojure -M:test -e "(require '[scry.core :as scry]) (clojure.pprint/pprint (scry/run))"
-```
+## Result shape
 
 The top-level result shape is:
 
@@ -142,10 +129,12 @@ Debugging loop:
 
 ## Kaocha adapter
 
-If the project uses the optional Kaocha adapter, include the `:kaocha` alias:
+If the project uses the optional Kaocha adapter, require and run it from the REPL:
 
-```sh
-clojure -M:test:kaocha -e "(require '[scry.kaocha :as k]) (clojure.pprint/pprint (k/run))"
+```clojure
+(require '[scry.kaocha :as k])
+
+(def result (k/run))
 ```
 
 The adapter returns the same top-level result shape as `scry.core/run`.

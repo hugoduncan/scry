@@ -28,3 +28,8 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 verification (slices 4-5): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 240 assertions, 0 failures, 0 errors.
 
 2026-06-04 implementation pass (slice 6): Updated public and agent-facing docs for the additive CLI classification contract. `README.md` now documents `:scry.cli/outcome-kind`, the initial keyword vocabulary, synthetic suite-level progress/result-file names, and machine-caller guidance to inspect structured outcomes/result EDN rather than stderr. `SKILL.md` tells agents to inspect outcome kinds and `.scry-results/*.edn`; `AGENTS.md` mentions structured CLI outcome classification in final-verification guidance; `CHANGELOG.md` Unreleased records the user-visible classification and nil-var synthetic result-file fix.
+
+2026-06-04 final verification (slice 7): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 240 assertions, 0 failures, 0 errors.
+2026-06-04 final verification (slice 7): `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 4 tests, 29 assertions, 0 failures, 0 errors.
+2026-06-04 final verification (slice 7): `clojure -M:test -m scry.cli` passed: 85 tests, 517 assertions, 0 failures, 0 errors.
+2026-06-04 final verification (slice 7): `git diff --check` passed with no whitespace errors.

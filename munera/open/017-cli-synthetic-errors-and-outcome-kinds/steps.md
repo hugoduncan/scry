@@ -52,11 +52,11 @@
 
 ## Slice 7: Verification and task notes
 
-- [ ] Run focused core CLI tests and record the exact command/result in `implementation.md`.
-- [ ] Run optional Kaocha CLI focused tests if Kaocha-facing behavior or docs are touched, and record the exact command/result in `implementation.md`.
-- [ ] Run the appropriate documented final command-line verification for changed CLI surfaces and record the exact command/result in `implementation.md`.
-- [ ] Run `git diff --check` and record the result in `implementation.md`.
-- [ ] Update `steps.md` as implementation slices complete.
+- [x] Run focused core CLI tests and record the exact command/result in `implementation.md`.
+- [x] Run optional Kaocha CLI focused tests if Kaocha-facing behavior or docs are touched, and record the exact command/result in `implementation.md`.
+- [x] Run the appropriate documented final command-line verification for changed CLI surfaces and record the exact command/result in `implementation.md`.
+- [x] Run `git diff --check` and record the result in `implementation.md`.
+- [x] Update `steps.md` as implementation slices complete.
 
 ## Plan ambiguity review follow-up
 

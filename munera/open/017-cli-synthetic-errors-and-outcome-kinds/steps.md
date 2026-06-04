@@ -25,7 +25,7 @@
 
 ## Slice 4: Outcome classification
 
-- [ ] Add a classifier that returns `:scry.cli/outcome-kind` using the design precedence.
+- [ ] Add a classifier that returns `:scry.cli/outcome-kind` using the design precedence and make it authoritative for `:exit-code` (`:scry.cli/pass` => `0`, every other kind => non-zero).
 - [ ] Classify structured argument errors as `:scry.cli/argument-error` on `clojure -X`/direct structured surfaces.
 - [ ] Classify runner infrastructure errors, including malformed results without vector `:canonical-results`, as `:scry.cli/runner-error`.
 - [ ] Classify failing/erroring non-concrete canonical entries as `:scry.cli/load-error` once a valid canonical result vector exists.
@@ -33,7 +33,7 @@
 - [ ] Classify canonical `:unknown` entries as `:scry.cli/unknown-result` when no higher-precedence kind applies.
 - [ ] Classify no concrete executable var-backed entries as `:scry.cli/zero-tests` when no higher-precedence kind applies.
 - [ ] Classify successful runs with at least one concrete executable passing var and no non-zero signal as `:scry.cli/pass`.
-- [ ] Add focused tests for pass, normal test failure, synthetic load/suite error, unknown result, zero tests, runner error, and aggregate assertion failure classification.
+- [ ] Add focused tests for pass, normal test failure, synthetic load/suite error, unknown result, zero tests, runner error, aggregate assertion failure classification, and synthetic-only passing entries exiting non-zero as zero-tests.
 
 ## Slice 5: `clojure -X` propagation and parser boundary checks
 
@@ -60,5 +60,5 @@
 
 ## Plan ambiguity review follow-up
 
-- [ ] Pin whether `:scry.cli/outcome-kind` is authoritative for `:exit-code` (`:scry.cli/pass` yields `0`; every other kind yields non-zero), and update the implementation/test slices so synthetic-only passing entries cannot exit `0` through the old total-entry `var-count` logic.
-- [ ] Decide and document how CLI summary `:tests` counts and `:var-count` treat synthetic/non-var-backed canonical entries (count all result entries versus only concrete executable vars), including the expected stdout summary wording for synthetic load/unknown/zero-test cases.
+- [x] Pin whether `:scry.cli/outcome-kind` is authoritative for `:exit-code` (`:scry.cli/pass` yields `0`; every other kind yields non-zero), and update the implementation/test slices so synthetic-only passing entries cannot exit `0` through the old total-entry `var-count` logic.
+- [x] Decide and document how CLI summary `:tests` counts and `:var-count` treat synthetic/non-var-backed canonical entries (count all result entries versus only concrete executable vars), including the expected stdout summary wording for synthetic load/unknown/zero-test cases.

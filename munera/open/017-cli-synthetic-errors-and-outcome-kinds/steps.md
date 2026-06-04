@@ -72,3 +72,4 @@
 ## Test-shaper review follow-up
 
 - [x] Add focused outcome-kind coverage for mixed synthetic load-error plus concrete var failure results, asserting `:scry.cli/load-error` takes precedence over `:scry.cli/test-failure`.
+- [ ] Add focused synthetic result-file collision coverage where both the base synthetic filename and its `--2` suffix are already reserved, asserting assignment advances deterministically to `--3` instead of reusing a path.

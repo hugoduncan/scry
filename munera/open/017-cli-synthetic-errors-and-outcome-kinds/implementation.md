@@ -73,3 +73,5 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 verification (test-shaper follow-up): `clojure -M:test -m scry.cli` passed: 85 tests, 539 assertions, 0 failures, 0 errors.
 2026-06-04 verification (test-shaper follow-up): `bb clj-kondo:lint` passed with 0 errors and 0 warnings.
 2026-06-04 verification (test-shaper follow-up): `git diff --check` passed with no whitespace errors.
+
+2026-06-04 test-shaper review: Found one new actionable test-shaping issue. Synthetic result-file tests cover the first collision against a var-backed filename and the mixed load-error/test-failure precedence path, but they do not cover the deterministic collision-suffix loop beyond `--2`; add focused coverage where a base synthetic filename and its `--2` variant are both reserved so the test locks the documented `--3` fallback behavior.

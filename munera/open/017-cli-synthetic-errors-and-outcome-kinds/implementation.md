@@ -54,3 +54,9 @@ Created from psi integration feedback. No implementation yet.
 
 
 2026-06-04 implementation review: Found one new actionable issue. `bb clj-kondo:lint` reports an unused `result` binding in `scry.cli/classify-outcome`; the classifier no longer uses the runner result after the precedence follow-ups, so the stale parameter should be removed or intentionally marked to keep maintainer lint clean.
+
+2026-06-04 implementation-review follow-up: Completed the newly added lint follow-up. Removed the stale unused `result` parameter from `scry.cli/classify-outcome` and updated the single call site, preserving the existing outcome precedence and exit-code behavior. The review-added item in `steps.md` is checked.
+
+2026-06-04 verification (lint follow-up): `bb clj-kondo:lint` passed with 0 errors and 0 warnings.
+2026-06-04 verification (lint follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 258 assertions, 0 failures, 0 errors.
+2026-06-04 verification (lint follow-up): `git diff --check` passed with no whitespace errors.

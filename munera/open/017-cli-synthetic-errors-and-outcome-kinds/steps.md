@@ -67,4 +67,4 @@
 
 - [x] Align outcome classification with the documented precedence by removing or narrowing bare `:pass? false` test-failure classification, and add focused coverage that unknown/zero-test canonical results with no fail/error entries or aggregate fail/error counts still classify as `:scry.cli/unknown-result` / `:scry.cli/zero-tests`.
 - [x] Treat malformed canonical entries with missing or unrecognized `:status` as runner errors instead of allowing concrete-var entries with nil/invalid status to classify as `:scry.cli/pass`.
-- [ ] Remove or intentionally mark the unused `result` parameter in `scry.cli/classify-outcome` so `bb clj-kondo:lint` is clean.
+- [x] Remove or intentionally mark the unused `result` parameter in `scry.cli/classify-outcome` so `bb clj-kondo:lint` is clean.

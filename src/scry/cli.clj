@@ -449,7 +449,7 @@
       (positive-count? assertions :error)))
 
 (defn- classify-outcome
-  [result entries summary]
+  [entries summary]
   (cond
     (some load-error-entry? entries)
     :scry.cli/load-error
@@ -561,7 +561,7 @@
              entries (canonical-result-entries result)
              summary (cli-summary result entries)
              result-files (results/write-result-files! dir entries)
-             outcome-kind (classify-outcome result entries summary)
+             outcome-kind (classify-outcome entries summary)
              code (exit-code outcome-kind)]
          (write-summary! io-boundary summary)
          {:exit-code code

@@ -33,3 +33,5 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 final verification (slice 7): `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 4 tests, 29 assertions, 0 failures, 0 errors.
 2026-06-04 final verification (slice 7): `clojure -M:test -m scry.cli` passed: 85 tests, 517 assertions, 0 failures, 0 errors.
 2026-06-04 final verification (slice 7): `git diff --check` passed with no whitespace errors.
+
+2026-06-04 implementation review: Found one actionable issue. `scry.cli/classify-outcome` treats bare `:pass? false` as `:scry.cli/test-failure` before the unknown/zero-tests precedence steps. That can misclassify a valid runner result that has no concrete failures and no aggregate fail/error counts but reports `:pass? false` for unknown or zero executable results; the design defines test-failure from concrete failed/error entries or aggregate fail/error counts, not `:pass?` alone. A follow-up item was added to align classification/tests with the documented precedence.

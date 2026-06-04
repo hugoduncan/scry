@@ -62,3 +62,7 @@
 
 - [x] Pin whether `:scry.cli/outcome-kind` is authoritative for `:exit-code` (`:scry.cli/pass` yields `0`; every other kind yields non-zero), and update the implementation/test slices so synthetic-only passing entries cannot exit `0` through the old total-entry `var-count` logic.
 - [x] Decide and document how CLI summary `:tests` counts and `:var-count` treat synthetic/non-var-backed canonical entries (count all result entries versus only concrete executable vars), including the expected stdout summary wording for synthetic load/unknown/zero-test cases.
+
+## Implementation review follow-up
+
+- [ ] Align outcome classification with the documented precedence by removing or narrowing bare `:pass? false` test-failure classification, and add focused coverage that unknown/zero-test canonical results with no fail/error entries or aggregate fail/error counts still classify as `:scry.cli/unknown-result` / `:scry.cli/zero-tests`.

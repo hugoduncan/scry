@@ -16,6 +16,24 @@
 (def kaocha-src-dirs ["src-kaocha"])
 (def deps-file "deps.edn")
 (def kaocha-dependency 'lambdaisland/kaocha)
+(def project-url "https://github.com/hugoduncan/scry")
+(def scm-connection "scm:git:https://github.com/hugoduncan/scry.git")
+(def scm-developer-connection "scm:git:ssh://git@github.com/hugoduncan/scry.git")
+(def core-description
+  "An in-process Clojure test runner for AI agents and REPL-driven development.")
+(def kaocha-description
+  "Optional Kaocha adapter for scry's structured in-process test results.")
+(def license-metadata
+  {:name "Eclipse Public License 2.0"
+   :url "https://www.eclipse.org/legal/epl-2.0/"
+   :distribution "repo"
+   :comments "SPDX-License-Identifier: EPL-2.0"})
+(def developer-metadata
+  {:id "hugoduncan"
+   :name "Hugo Duncan"
+   :email "hugo@hugoduncan.org"
+   :url "https://github.com/hugoduncan"
+   :roles ["maintainer" "developer"]})
 
 (defn git-rev-count
   "Returns the repository commit count from Git.
@@ -67,6 +85,39 @@
   (b/pom-path {:lib kaocha-lib
                :class-dir kaocha-class-dir}))
 
+(defn- scm-tag
+  "Returns the deterministic SCM tag value for artifact version v."
+  [v]
+  (str "v" v))
+
+(defn- scm-metadata
+  "Returns shared SCM metadata for artifact version v."
+  [v]
+  {:url project-url
+   :connection scm-connection
+   :developerConnection scm-developer-connection
+   :tag (scm-tag v)})
+
+(defn- artifact-metadata
+  "Returns pinned public metadata for lib at artifact version v."
+  [lib-symbol v]
+  (case lib-symbol
+    org.hugoduncan/scry
+    {:name "scry"
+     :description core-description
+     :url project-url
+     :scm (scm-metadata v)
+     :license license-metadata
+     :developer developer-metadata}
+
+    org.hugoduncan/scry-kaocha
+    {:name "scry-kaocha"
+     :description kaocha-description
+     :url project-url
+     :scm (scm-metadata v)
+     :license license-metadata
+     :developer developer-metadata}))
+
 (defn clean
   "Delete all build output."
   [_]
@@ -114,9 +165,79 @@
          "      <version>" (xml-escape version) "</version>\n"
          "    </dependency>\n")))
 
+(defn- xml-element
+  [indent tag value]
+  (str indent "<" tag ">" (xml-escape value) "</" tag ">\n"))
+
+(defn- license-xml
+  [indent {:keys [name url distribution comments]}]
+  (str indent "<licenses>\n"
+       indent "  <license>\n"
+       (xml-element (str indent "    ") "name" name)
+       (xml-element (str indent "    ") "url" url)
+       (xml-element (str indent "    ") "distribution" distribution)
+       (xml-element (str indent "    ") "comments" comments)
+       indent "  </license>\n"
+       indent "</licenses>\n"))
+
+(defn- scm-xml
+  [indent {:keys [url connection developerConnection tag]}]
+  (str indent "<scm>\n"
+       (xml-element (str indent "  ") "url" url)
+       (xml-element (str indent "  ") "connection" connection)
+       (xml-element (str indent "  ") "developerConnection" developerConnection)
+       (xml-element (str indent "  ") "tag" tag)
+       indent "</scm>\n"))
+
+(defn- developer-xml
+  [indent {:keys [id name email url roles]}]
+  (str indent "<developers>\n"
+       indent "  <developer>\n"
+       (xml-element (str indent "    ") "id" id)
+       (xml-element (str indent "    ") "name" name)
+       (xml-element (str indent "    ") "email" email)
+       (xml-element (str indent "    ") "url" url)
+       (when (seq roles)
+         (str indent "    <roles>\n"
+              (apply str (map #(xml-element (str indent "      ") "role" %) roles))
+              indent "    </roles>\n"))
+       indent "  </developer>\n"
+       indent "</developers>\n"))
+
+(defn- pom-data
+  "Returns tools.build pom-data for shared public metadata."
+  [{:keys [description url license developer]}]
+  (let [roles (into [:roles]
+                    (map (fn [role] [:role role]))
+                    (:roles developer))]
+    [[:description description]
+     [:url url]
+     [:licenses
+      [:license
+       [:name (:name license)]
+       [:url (:url license)]
+       [:distribution (:distribution license)]
+       [:comments (:comments license)]]]
+     [:developers
+      [:developer
+       [:id (:id developer)]
+       [:name (:name developer)]
+       [:email (:email developer)]
+       [:url (:url developer)]
+       roles]]]))
+
+(defn- metadata-xml
+  [{:keys [description url license scm developer]}]
+  (str (xml-element "  " "description" description)
+       (xml-element "  " "url" url)
+       (license-xml "  " license)
+       (developer-xml "  " developer)
+       (scm-xml "  " scm)))
+
 (defn- pom-xml
   [{:keys [lib version dependencies]}]
-  (let [[group artifact] (lib-parts lib)]
+  (let [[group artifact] (lib-parts lib)
+        metadata (artifact-metadata lib version)]
     (str "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
          "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n"
          "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
@@ -125,7 +246,8 @@
          "  <groupId>" (xml-escape group) "</groupId>\n"
          "  <artifactId>" (xml-escape artifact) "</artifactId>\n"
          "  <version>" (xml-escape version) "</version>\n"
-         "  <name>" (xml-escape (str lib)) "</name>\n"
+         "  <name>" (xml-escape (:name metadata)) "</name>\n"
+         (metadata-xml metadata)
          (when (seq dependencies)
            (str "  <dependencies>\n"
                 (apply str (map dependency-xml dependencies))
@@ -172,15 +294,18 @@
 
 (defn- build-core-jar
   [v]
-  (b/copy-dir {:src-dirs src-dirs
-               :target-dir class-dir})
-  (b/write-pom {:class-dir class-dir
-                :lib lib
-                :version v
-                :basis basis
-                :src-dirs src-dirs})
-  (b/jar {:class-dir class-dir
-          :jar-file (jar-file v)})
+  (let [metadata (artifact-metadata lib v)]
+    (b/copy-dir {:src-dirs src-dirs
+                 :target-dir class-dir})
+    (b/write-pom {:class-dir class-dir
+                  :lib lib
+                  :version v
+                  :basis basis
+                  :src-dirs src-dirs
+                  :scm (:scm metadata)
+                  :pom-data (pom-data metadata)})
+    (b/jar {:class-dir class-dir
+            :jar-file (jar-file v)}))
   {:lib lib
    :version v
    :jar-file (jar-file v)

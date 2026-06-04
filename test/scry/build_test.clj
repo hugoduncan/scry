@@ -6,7 +6,11 @@
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]])
   (:import
-   (java.util.jar JarFile)))
+   (java.io StringReader)
+   (java.util.jar JarFile)
+   (javax.xml.parsers DocumentBuilderFactory)
+   (org.w3c.dom Node NodeList)
+   (org.xml.sax InputSource)))
 
 (defn build-tools-available? []
   (try
@@ -54,6 +58,103 @@
   (first (filter #(and (= group-id (:group-id %))
                        (= artifact-id (:artifact-id %)))
                  (pom-dependencies pom))))
+
+(defn parse-pom
+  [pom]
+  (let [factory (doto (DocumentBuilderFactory/newInstance)
+                  (.setNamespaceAware false)
+                  (.setFeature "http://apache.org/xml/features/disallow-doctype-decl" true))
+        builder (.newDocumentBuilder factory)]
+    (.parse builder (InputSource. (StringReader. pom)))))
+
+(defn element-name
+  [node]
+  (when (= Node/ELEMENT_NODE (.getNodeType node))
+    (.getNodeName node)))
+
+(defn node-list-seq
+  [^NodeList node-list]
+  (map #(.item node-list %) (range (.getLength node-list))))
+
+(defn child-elements
+  ([node]
+   (if node
+     (->> (node-list-seq (.getChildNodes node))
+          (filter #(= Node/ELEMENT_NODE (.getNodeType %))))
+     []))
+  ([node tag]
+   (filter #(= tag (element-name %)) (child-elements node))))
+
+(defn first-child-element
+  [node tag]
+  (first (child-elements node tag)))
+
+(defn child-element-text
+  [node tag]
+  (some-> (first-child-element node tag)
+          (.getTextContent)))
+
+(defn project-element
+  [document]
+  (.getDocumentElement document))
+
+(defn assert-absent-child-elements
+  [node tags]
+  (doseq [tag tags]
+    (is (nil? (first-child-element node tag))
+        (str "expected <" tag "> to be absent"))))
+
+(defn assert-public-pom-metadata
+  [pom {:keys [artifact-name description version]}]
+  (let [project (project-element (parse-pom pom))
+        license-containers (child-elements project "licenses")
+        license-elements (mapcat #(child-elements % "license") license-containers)
+        license (first license-elements)
+        scm (first-child-element project "scm")
+        developer-containers (child-elements project "developers")
+        developer-elements (mapcat #(child-elements % "developer") developer-containers)
+        developer (first developer-elements)
+        roles (first-child-element developer "roles")]
+    (testing "public project metadata"
+      (is (= artifact-name (child-element-text project "name")))
+      (is (= description (child-element-text project "description")))
+      (is (= "https://github.com/hugoduncan/scry"
+             (child-element-text project "url"))))
+    (testing "EPL-2.0 license metadata"
+      (is (= 1 (count license-containers))
+          "expected exactly one direct <licenses> container")
+      (is (= 1 (count license-elements))
+          "expected exactly one direct <license> entry across all direct <licenses> containers")
+      (is (= "Eclipse Public License 2.0" (child-element-text license "name")))
+      (is (= "https://www.eclipse.org/legal/epl-2.0/"
+             (child-element-text license "url")))
+      (is (= "repo" (child-element-text license "distribution")))
+      (is (= "SPDX-License-Identifier: EPL-2.0"
+             (child-element-text license "comments"))))
+    (testing "SCM metadata"
+      (is (= "https://github.com/hugoduncan/scry" (child-element-text scm "url")))
+      (is (= "scm:git:https://github.com/hugoduncan/scry.git"
+             (child-element-text scm "connection")))
+      (is (= "scm:git:ssh://git@github.com/hugoduncan/scry.git"
+             (child-element-text scm "developerConnection")))
+      (is (= (str "v" version) (child-element-text scm "tag"))))
+    (testing "developer metadata"
+      (is (= 1 (count developer-containers))
+          "expected exactly one direct <developers> container")
+      (is (= 1 (count developer-elements))
+          "expected exactly one direct <developer> entry across all direct <developers> containers")
+      (is (= "hugoduncan" (child-element-text developer "id")))
+      (is (= "Hugo Duncan" (child-element-text developer "name")))
+      (is (= "hugo@hugoduncan.org" (child-element-text developer "email")))
+      (is (= "https://github.com/hugoduncan" (child-element-text developer "url")))
+      (is (= ["maintainer" "developer"]
+             (mapv #(.getTextContent %) (child-elements roles "role")))))
+    (testing "intentionally omitted metadata"
+      (assert-absent-child-elements project ["organization" "properties"])
+      (assert-absent-child-elements developer ["organization"
+                                               "organizationUrl"
+                                               "timezone"
+                                               "properties"]))))
 
 (deftest version-uses-git-rev-count-test
   ;; The build version is fixed at major/minor 0.1 and uses the current Git
@@ -175,6 +276,7 @@
       (let [{:keys [version jar-file lib pom-file]} ((requiring-resolve 'build/jar) nil)
             entries (jar-entries jar-file)
             pom-entry "META-INF/maven/org.hugoduncan/scry/pom.xml"
+            filesystem-pom (slurp pom-file)
             pom (slurp-jar-entry jar-file pom-entry)]
         (testing "jar path and coordinate"
           (is (= 'org.hugoduncan/scry lib))
@@ -186,6 +288,16 @@
           (is (str/includes? pom "<groupId>org.hugoduncan</groupId>"))
           (is (str/includes? pom "<artifactId>scry</artifactId>"))
           (is (str/includes? pom (str "<version>" version "</version>"))))
+        (testing "filesystem pom public metadata"
+          (assert-public-pom-metadata filesystem-pom
+                                      {:artifact-name "scry"
+                                       :description "An in-process Clojure test runner for AI agents and REPL-driven development."
+                                       :version version}))
+        (testing "jar-embedded pom public metadata"
+          (assert-public-pom-metadata pom
+                                      {:artifact-name "scry"
+                                       :description "An in-process Clojure test runner for AI agents and REPL-driven development."
+                                       :version version}))
         (testing "generated pom keeps Kaocha optional boundary"
           (is (not (str/includes? pom "<groupId>lambdaisland</groupId>")))
           (is (not (str/includes? pom "<artifactId>kaocha</artifactId>")))
@@ -216,6 +328,7 @@
             {:keys [version jar-file lib pom-file]} (kaocha-jar nil)
             entries (jar-entries jar-file)
             pom-entry "META-INF/maven/org.hugoduncan/scry-kaocha/pom.xml"
+            filesystem-pom (slurp pom-file)
             pom (slurp-jar-entry jar-file pom-entry)
             core-dependency (pom-dependency pom "org.hugoduncan" "scry")
             kaocha-dependency (pom-dependency pom "lambdaisland" "kaocha")
@@ -239,6 +352,16 @@
           (is (str/includes? pom "<groupId>org.hugoduncan</groupId>"))
           (is (str/includes? pom "<artifactId>scry-kaocha</artifactId>"))
           (is (str/includes? pom (str "<version>" version "</version>")))
+          (testing "filesystem pom public metadata"
+            (assert-public-pom-metadata filesystem-pom
+                                        {:artifact-name "scry-kaocha"
+                                         :description "Optional Kaocha adapter for scry's structured in-process test results."
+                                         :version version}))
+          (testing "jar-embedded pom public metadata"
+            (assert-public-pom-metadata pom
+                                        {:artifact-name "scry-kaocha"
+                                         :description "Optional Kaocha adapter for scry's structured in-process test results."
+                                         :version version}))
           (is (= {:group-id "org.hugoduncan"
                   :artifact-id "scry"
                   :version version}

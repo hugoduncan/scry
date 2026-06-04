@@ -2,11 +2,16 @@
   (:require
    [clojure.test :refer [deftest is testing]]
    [scry.clojure-test :as ct]
+   [scry.core :as scry]
    [scry.fixtures.erroring]
    [scry.fixtures.failing]
    [scry.fixtures.fixtured]
    [scry.fixtures.output]
    [scry.fixtures.passing]))
+
+(defn not-a-test
+  []
+  :not-a-test)
 
 (defn- failure-for
   "Return the failure entry for a fully-qualified test var symbol."
@@ -16,7 +21,7 @@
        first))
 
 (deftest run-summary-test
-  ;; Running a mix of passing/failing/erroring namespaces produces accurate
+  ;; Running multiple namespaces produces compact suite results with accurate
   ;; counts and an overall pass? flag.
   (testing "run over mixed fixture namespaces"
     (let [result (ct/run {:namespaces ['scry.fixtures.passing
@@ -28,19 +33,28 @@
         (is (= 1 (get-in result [:summary :error]))))
       (testing "pass? is false when there are failures"
         (is (false? (:pass? result))))
-      (testing "only failing/erroring vars appear in :failures"
+      (testing "suite results are compact failing/erroring entries"
         (is (= 2 (get-in result [:summary :fail-var-count])))
         (is (= #{'scry.fixtures.failing/equality-fails
                  'scry.fixtures.erroring/throws-exception}
-               (set (map :var (:failures result)))))))))
+               (set (map :var (:results result)))))
+        (is (every? #(= #{:var :ns :status :assertion-summary}
+                        (set (keys %)))
+                    (:results result)))))))
 
-(deftest passing-run-is-clean-test
-  ;; A run with no failures reports pass? true and an empty :failures vector.
+(deftest passing-run-is-detailed-for-single-namespace-test
+  ;; A single namespace run includes passing vars and passing assertion detail.
   (testing "all-passing namespace"
-    (let [result (ct/run {:namespaces ['scry.fixtures.passing]})]
+    (let [result (ct/run {:namespaces ['scry.fixtures.passing]})
+          entry (first (:results result))]
       (is (true? (:pass? result)))
       (is (empty? (:failures result)))
-      (is (= 0 (get-in result [:summary :fail-var-count]))))))
+      (is (= 0 (get-in result [:summary :fail-var-count])))
+      (is (= 'scry.fixtures.passing/arithmetic-passes (:var entry)))
+      (is (= :pass (:status entry)))
+      (is (= [:pass :pass] (mapv :type (:assertions entry))))
+      (is (not (contains? entry :out)))
+      (is (not (contains? entry :err))))))
 
 (deftest captures-assertion-detail-test
   ;; Failed assertions retain expected/actual forms, message, location, and
@@ -70,24 +84,97 @@
       (is (string? (:stacktrace assertion)))
       (is (re-find #"Divide by zero" (:stacktrace assertion))))))
 
-(deftest captures-output-for-failed-tests-only-test
-  ;; stdout/stderr is captured per failing var; passing vars contribute no
-  ;; failure entry at all, and output never leaks across vars.
-  (testing "output capture"
-    (let [result (ct/run {:namespaces ['scry.fixtures.output]})
-          failure (failure-for result 'scry.fixtures.output/noisy-and-fails)]
-      (is (= "stdout from failing test\n" (:out failure)))
-      (is (= "stderr from failing test\n" (:err failure)))
-      (testing "passing noisy test produces no failure entry"
-        (is (nil? (failure-for result 'scry.fixtures.output/noisy-and-passes)))))))
+(deftest captures-output-for-single-var-only-test
+  ;; stdout/stderr is included by default for single-var scope but omitted from
+  ;; single-namespace scope entries.
+  (testing "single var output capture"
+    (let [result (ct/run {:vars [#'scry.fixtures.output/noisy-and-fails]})
+          entry (first (:results result))]
+      (is (= "stdout from failing test\n" (:out entry)))
+      (is (= "stderr from failing test\n" (:err entry)))
+      (is (= [entry] (:failures result)))))
+  (testing "single namespace omits output keys"
+    (let [result (ct/run {:namespaces ['scry.fixtures.output]})]
+      (is (every? #(not (contains? % :out)) (:results result)))
+      (is (nil? (failure-for result 'scry.fixtures.output/noisy-and-passes))))))
 
 (deftest run-explicit-vars-test
   ;; A run can target explicit vars, ignoring non-test vars.
-  (testing "explicit :vars"
+  (testing "explicit multiple :vars use suite scope"
     (let [result (ct/run {:vars [#'scry.fixtures.failing/equality-fails
                                  #'scry.fixtures.passing/arithmetic-passes]})]
       (is (= 2 (get-in result [:summary :test])))
-      (is (= 1 (get-in result [:summary :fail-var-count]))))))
+      (is (= 1 (get-in result [:summary :fail-var-count])))
+      (is (= 1 (count (:results result))))))
+  (testing "explicit single executable var uses var scope despite namespaces"
+    (let [result (ct/run {:vars [#'not-a-test
+                                 #'scry.fixtures.passing/arithmetic-passes]
+                          :namespaces ['scry.fixtures.failing]})]
+      (is (= 1 (count (:results result))))
+      (is (contains? (first (:results result)) :out))))
+  (testing "non-test vars fall back to namespace classification"
+    (let [result (ct/run {:vars [#'not-a-test]
+                          :namespaces ['scry.fixtures.passing]})]
+      (is (= :pass (:status (first (:results result)))))
+      (is (contains? (first (:results result)) :assertions))
+      (is (not (contains? (first (:results result)) :out)))
+      (is (not (contains? (first (:results result)) :err))))))
+
+(deftest discovered-single-namespace-is-suite-scope-test
+  ;; Discovery intent remains suite scope even when discovery finds one ns.
+  (testing "discovery with one matching fixture namespace"
+    (let [result (ct/run {:dirs ["test/scry/fixtures"]
+                          :ns-pattern #"scry\.fixtures\.passing"})]
+      (is (empty? (:results result)))
+      (is (= 1 (get-in result [:summary :var-count]))))))
+
+(deftest custom-formatting-test
+  ;; Result formatting can be configured independently per scope using
+  ;; state-based assertions on returned data.
+  (testing "custom suite top-level and entry keys"
+    (let [result (ct/run {:namespaces ['scry.fixtures.failing
+                                       'scry.fixtures.erroring]
+                          :result-format
+                          {:suite {:top-level-keys [:summary :results]
+                                   :entry-keys [:var :status :assertions]
+                                   :assertions? true}}})]
+      (is (= #{:summary :results} (set (keys result))))
+      (is (every? #(contains? % :assertions) (:results result)))))
+  (testing "custom namespace enables output"
+    (let [result (ct/run {:namespaces ['scry.fixtures.output]
+                          :result-format
+                          {:namespace {:entry-keys [:var :status]
+                                       :output? true}}})]
+      (is (every? #(contains? % :out) (:results result)))))
+  (testing "custom var disables assertions and output"
+    (let [result (ct/run {:vars [#'scry.fixtures.output/noisy-and-fails]
+                          :result-format
+                          {:var {:entry-keys [:var :status :assertions :out]
+                                 :assertions? false
+                                 :output? false}}})]
+      (is (= #{:var :status} (set (keys (first (:results result)))))))))
+
+(deftest core-helper-compatibility-test
+  ;; Public helpers prefer :failures, fall back to filtered :results, and
+  ;; tolerate formats that omit both result collections.
+  (testing "helpers on scoped defaults"
+    (let [result (scry/run {:vars [#'scry.fixtures.output/noisy-and-fails]})]
+      (is (= result (scry/last-result)))
+      (is (= 1 (count (scry/failures result))))
+      (is (= 'scry.fixtures.output/noisy-and-fails
+             (:var (scry/failed-test result 'scry.fixtures.output/noisy-and-fails))))
+      (is (= {:out "stdout from failing test\n"
+              :err "stderr from failing test\n"}
+             (scry/output result 'scry.fixtures.output/noisy-and-fails)))
+      (is (re-find #"fail: scry.fixtures.output/noisy-and-fails"
+                   (scry/report-string result)))))
+  (testing "helpers fall back to results and tolerate omitted collections"
+    (let [result {:summary {:test 1 :pass 0 :fail 1 :error 0}
+                  :pass? false
+                  :results [{:var 'x/y :status :fail}]}]
+      (is (= [{:var 'x/y :status :fail}] (scry/failures result)))
+      (is (nil? (scry/output {:summary {:test 0 :pass 0 :fail 0 :error 0}}
+                             'x/y))))))
 
 (deftest fixtures-are-honoured-test
   ;; clojure.test :once/:each fixtures run in the correct order, delegated to

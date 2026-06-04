@@ -3,8 +3,7 @@
 
    Kaocha already captures per-test clojure.test events and (via its
    capture-output plugin) per-test output. This adapter runs kaocha
-   programmatically and transforms its result tree into the same result shape
-   produced by `scry.clojure-test/run`, so callers get a uniform structure.
+   programmatically and transforms its result tree into scry's result model.
 
    Note: kaocha merges stdout and stderr into a single captured stream, so for
    kaocha results the combined output is placed in :out and :err is empty."
@@ -23,48 +22,62 @@
               [t]))
           testables))
 
-(defn- testable->failure
-  "Convert a failed/errored leaf testable into a scry failure entry, or nil if
-   it neither failed nor errored."
+(defn- status
+  [fail error pass]
+  (cond
+    (pos? error) :error
+    (pos? fail) :fail
+    (pos? pass) :pass
+    :else :unknown))
+
+(defn- testable->entry
+  "Convert a leaf testable into a canonical scry result entry."
   [t]
-  (let [fail (:kaocha.result/fail t 0)
+  (let [var-name (:kaocha.var/name t)
+        events (:kaocha.testable/events t)
+        assertions (mapv (fn [e]
+                           (capture/assertion
+                            e
+                            (vec (reverse (:testing-contexts e)))))
+                         (filter #(#{:pass :fail :error} (:type %)) events))
+        pass (:kaocha.result/pass t 0)
+        fail (:kaocha.result/fail t 0)
         error (:kaocha.result/error t 0)]
-    (when (pos? (+ fail error))
-      (let [var-name (:kaocha.var/name t)
-            events (:kaocha.testable/events t)
-            assertions (->> events
-                            (filter #(#{:fail :error} (:type %)))
-                            (mapv (fn [e]
-                                    (capture/assertion
-                                     e
-                                     (vec (reverse (:testing-contexts e)))))))]
-        {:var var-name
-         :ns (some-> var-name namespace symbol)
-         :status (if (pos? error) :error :fail)
-         :assertions assertions
-         :out (or (:kaocha.plugin.capture-output/output t) "")
-         :err ""}))))
+    {:var var-name
+     :ns (some-> var-name namespace symbol)
+     :status (status fail error pass)
+     :assertion-summary {:pass pass :fail fail :error error}
+     :assertions assertions
+     :out (or (:kaocha.plugin.capture-output/output t) "")
+     :err ""}))
 
 (defn result->scry
   "Transform a raw kaocha result map into scry's inspectable result shape.
 
-   `extra` may supply additional :summary entries (e.g. :duration-ms)."
+   `extra` may supply additional :summary entries (e.g. :duration-ms), :scope,
+   and :result-format. Kaocha defaults to :suite scope because this adapter does
+   not currently expose namespace/var selectors matching scry.clojure-test."
   ([kaocha-result] (result->scry kaocha-result nil))
   ([kaocha-result extra]
    (let [leaves (leaf-testables (:kaocha.result/tests kaocha-result))
-         sum (fn [k] (reduce + 0 (map #(get % k 0) leaves)))
-         fail (sum :kaocha.result/fail)
-         error (sum :kaocha.result/error)
-         failures (vec (keep testable->failure leaves))]
-     {:summary (merge {:test (count leaves)
-                       :pass (sum :kaocha.result/pass)
-                       :fail fail
-                       :error error
-                       :var-count (count leaves)
-                       :fail-var-count (count failures)}
-                      extra)
-      :pass? (zero? (+ fail error))
-      :failures failures})))
+         entries (mapv testable->entry leaves)
+         sum (fn [k] (reduce + 0 (map #(get-in % [:assertion-summary k] 0)
+                                      entries)))
+         fail (sum :fail)
+         error (sum :error)
+         failures (filterv #(contains? #{:fail :error} (:status %)) entries)
+         scope (or (:scope extra) :suite)
+         result-format (:result-format extra)
+         result {:summary (merge {:test (count leaves)
+                                  :pass (sum :pass)
+                                  :fail fail
+                                  :error error
+                                  :var-count (count leaves)
+                                  :fail-var-count (count failures)}
+                                 (dissoc extra :scope :result-format))
+                 :pass? (zero? (+ fail error))
+                 :canonical-results entries}]
+     (capture/format-result result scope result-format))))
 
 (def ^:private default-config
   {:source-paths ["src"]
@@ -89,16 +102,19 @@
   "Run kaocha tests in-process and return scry's inspectable result map.
 
    Options:
-     :config        a fully-formed kaocha config map (overrides the rest)
-     :source-paths  source dirs (default [\"src\"])
-     :test-paths    test dirs (default [\"test\"])
-     :ns-patterns   namespace-name regex strings (default [\"-test$\"])
+     :config         a fully-formed kaocha config map (overrides the rest)
+     :source-paths   source dirs (default [\"src\"])
+     :test-paths     test dirs (default [\"test\"])
+     :ns-patterns    namespace-name regex strings (default [\"-test$\"])
+     :result-format  suite-scope formatting overrides
 
-   Returns the same result shape as `scry.clojure-test/run`."
+   Returns the same scoped result model as `scry.core/run`."
   ([] (run {}))
   ([opts]
    (let [cfg (or (:config opts) (build-config opts))
          start (System/nanoTime)
          kaocha-result (api/run cfg)
          duration-ms (/ (- (System/nanoTime) start) 1e6)]
-     (result->scry kaocha-result {:duration-ms duration-ms}))))
+     (result->scry kaocha-result {:duration-ms duration-ms
+                                  :scope :suite
+                                  :result-format (:result-format opts)}))))

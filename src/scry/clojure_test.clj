@@ -46,7 +46,12 @@
   [{:keys [vars namespaces dirs ns-pattern]}]
   (cond
     (seq vars)
-    (filter #(:test (meta %)) vars)
+    (let [test-vars (filter #(:test (meta %)) vars)]
+      (if (seq test-vars)
+        test-vars
+        (when (seq namespaces)
+          (run! require namespaces)
+          (mapcat ns-test-vars namespaces))))
 
     (seq namespaces)
     (do (run! require namespaces)
@@ -58,25 +63,43 @@
       (run! require nses)
       (mapcat ns-test-vars nses))))
 
+(defn result-scope
+  "Classify the result scope from original run options and executable vars.
+
+   Explicit executable :vars take precedence. If explicit :vars resolve to no
+   executable tests, classification falls back to an explicit namespace selector
+   when present; discovered runs are always :suite."
+  [{:keys [vars namespaces]} _vars-to-run]
+  (let [explicit-test-var-count (when (seq vars)
+                                  (count (filter #(:test (meta %)) vars)))]
+    (cond
+      (seq vars)
+      (case explicit-test-var-count
+        0 (if (= 1 (count namespaces)) :namespace :suite)
+        1 :var
+        :suite)
+
+      (= 1 (count namespaces)) :namespace
+
+      :else :suite)))
+
 (defn run
   "Run clojure.test tests in-process and return an inspectable result map.
 
    Options:
-     :vars        explicit vars to run
-     :namespaces  namespace symbols to run
-     :dirs        source dirs to scan for test namespaces (default [\"test\"])
-     :ns-pattern  regex matched against namespace names during discovery
+     :vars           explicit vars to run
+     :namespaces     namespace symbols to run
+     :dirs           source dirs to scan for test namespaces (default [\"test\"])
+     :ns-pattern     regex matched against namespace names during discovery
+     :result-format  per-scope result formatting overrides
 
-   Result map:
-     :summary   {:test :pass :fail :error :duration-ms :var-count :fail-var-count}
-     :pass?     true when no failures or errors
-     :failures  [{:var :ns :status :assertions [...] :out :err}]
-   where each assertion is {:type :message :expected :actual :file :line
-   :contexts} (plus :stacktrace for errors)."
+   Results use :results as the canonical collection and may include :failures
+   as a filtered compatibility collection, depending on the selected format."
   ([] (run {}))
   ([opts]
    (let [state (capture/new-state)
-         vars-to-run (resolve-vars opts)
+         vars-to-run (vec (resolve-vars opts))
+         scope (result-scope opts vars-to-run)
          start (System/nanoTime)]
      ;; Reset the testing context/var stacks so that running inside an
      ;; enclosing clojure.test run (e.g. scry's own tests) does not leak
@@ -88,4 +111,6 @@
                *err* (capture/routing-writer state :err)]
        (test/test-vars vars-to-run))
      (let [duration-ms (/ (- (System/nanoTime) start) 1e6)]
-       (capture/build-result state {:duration-ms duration-ms})))))
+       (capture/build-result state {:duration-ms duration-ms
+                                    :scope scope
+                                    :result-format (:result-format opts)})))))

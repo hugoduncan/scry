@@ -13,11 +13,12 @@
       (report {:type :begin-test-var :var v})
       (binding [*out* (cap/routing-writer state :out)]
         (print "captured-out"))
-      (report {:type :pass})
+      (report {:type :pass :message "ok" :expected '(= 1 1)
+               :actual '(= 1 1) :file "x.clj" :line 6})
       (report {:type :fail :message "boom" :expected '(= 1 2)
                :actual '(not (= 1 2)) :file "x.clj" :line 7})
       (report {:type :end-test-var :var v})
-      (let [result (cap/build-result state {:duration-ms 3.0})]
+      (let [result (cap/build-result state {:duration-ms 3.0 :scope :var})]
         (testing "counts"
           (is (= 1 (get-in result [:summary :test])))
           (is (= 1 (get-in result [:summary :pass])))
@@ -25,12 +26,13 @@
           (is (= 3.0 (get-in result [:summary :duration-ms]))))
         (testing "pass? false"
           (is (false? (:pass? result))))
-        (testing "single failure with captured output and assertion"
+        (testing "single failure with captured output and assertions"
           (let [failure (first (:failures result))]
             (is (= 'scry.capture-test/report-fn-builds-result-test
                    (:var failure)))
             (is (= "captured-out" (:out failure)))
-            (is (= '(= 1 2) (:expected (first (:assertions failure)))))))))))
+            (is (= [:pass :fail] (mapv :type (:assertions failure))))
+            (is (= '(= 1 2) (:expected (second (:assertions failure)))))))))))
 
 (deftest routing-writer-routes-by-current-var-test
   ;; Output written while a var is current lands in that var's buffer; output
@@ -47,10 +49,26 @@
                :file "x.clj" :line 1})
       (report {:type :end-test-var :var v})
       (binding [*out* out] (print "more-orphan"))
-      (let [result (cap/build-result state {:duration-ms 1.0})]
+      (let [result (cap/build-result state {:duration-ms 1.0 :scope :var})]
         (is (= "var-text" (:out (first (:failures result))))
-            "var buffer holds only the var's output (failure entry only exists if events)")
+            "var buffer holds only the var's output")
         (is (= "orphan-textmore-orphan" (:out (cap/orphan-output state))))))))
+
+(deftest default-suite-format-is-compact-test
+  ;; Suite formatting keeps only failing/erroring vars and omits assertions and
+  ;; output from entries by default.
+  (testing "suite defaults"
+    (let [state (cap/new-state)
+          report (cap/report-fn state)
+          v #'scry.capture-test/default-suite-format-is-compact-test]
+      (report {:type :begin-test-var :var v})
+      (report {:type :pass})
+      (report {:type :fail :file "x.clj" :line 1})
+      (report {:type :end-test-var :var v})
+      (let [entry (first (:results (cap/build-result state {:duration-ms 1.0
+                                                            :scope :suite})))]
+        (is (= #{:var :ns :status :assertion-summary} (set (keys entry))))
+        (is (= {:pass 1 :fail 1 :error 0} (:assertion-summary entry)))))))
 
 (deftest summary-line-test
   ;; The terse summary line reflects the summary counts.

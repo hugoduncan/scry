@@ -6,12 +6,13 @@ Guidance for AI agents working in this repository.
 
 `scry` is an in-process Clojure test runner for AI agents and REPL-driven development. Its main value is returning structured, inspectable test results instead of requiring agents to scrape terminal output.
 
-The public API is centered on `scry.core/run`, which runs tests and returns:
+The public API is centered on `scry.core/run`, which runs tests and returns scoped structured results:
 
 ```clojure
 {:summary ...
  :pass? ...
- :failures ...}
+ :results ...   ;; canonical formatted collection
+ :failures ...} ;; compatibility failing/erroring subset when included
 ```
 
 ## Orientation
@@ -25,31 +26,60 @@ At the start of a session, read:
 
 If working a Munera task, keep task notes in that task's `implementation.md` and update `steps.md` as work progresses.
 
-## Common commands
+## Preferred test workflow: project REPL + scry
 
-Run the current test suite through scry:
+Prefer running tests through a live project REPL with `scry`, not through one-off command-line test invocations. The REPL workflow keeps code loaded, preserves `scry.core/last-result` for follow-up inspection, and returns structured data without scraping terminal output.
 
-```sh
-clojure -M:test -e "(require '[scry.core :as scry]) (println (scry/report-string (scry/run)))"
+In a project REPL, run the current test suite:
+
+```clojure
+(require '[scry.core :as scry])
+
+(def result (scry/run))
+(println (scry/report-string result))
 ```
 
 Inspect the raw result map:
 
-```sh
-clojure -M:test -e "(require '[scry.core :as scry]) (clojure.pprint/pprint (scry/run))"
+```clojure
+(scry/last-result)
+(:summary result)
+(:results result)
+(scry/failures result)
 ```
 
-Run the Kaocha adapter:
+Run targeted tests from the REPL while iterating:
 
-```sh
-clojure -M:test:kaocha -e "(require '[scry.kaocha :as k]) (clojure.pprint/pprint (k/run))"
+```clojure
+(scry/run {:namespaces ['my.project-test]})
+(scry/run {:vars [#'my.project-test/specific-test]})
 ```
 
-Start nREPL:
+Run the Kaocha adapter from the REPL when needed:
+
+```clojure
+(require '[scry.kaocha :as k])
+
+(def result (k/run))
+```
+
+Start nREPL if no project REPL is available:
 
 ```sh
 clojure -M:nrepl
 ```
+
+Use command-line `clojure -M:test ...` forms only as a fallback when a REPL is unavailable or unsuitable.
+
+## Result inspection guidance
+
+Default result detail depends on invocation scope:
+
+- Broad/discovered runs, multiple namespaces, and multiple vars use suite scope: compact failing/erroring entries only, no assertion detail or output.
+- Exactly one explicit namespace uses namespace scope: all executed vars, all assertions including passes, no output keys.
+- Exactly one explicit executable var uses var scope: one entry, all assertions, and captured `:out`/`:err`.
+
+Use `:results` as the canonical result collection. Use `scry/failures` or `:failures` when you only need failing/erroring entries. Helpers tolerate custom result formats but cannot inspect collections omitted by `:top-level-keys`.
 
 ## Development practices
 
@@ -65,8 +95,8 @@ clojure -M:nrepl
 Important namespaces:
 
 - `scry.core` — public entry point and convenience inspection helpers.
-- `scry.capture` — low-level capture state, `clojure.test/report` hook, output routing, and result construction.
-- `scry.clojure-test` — in-process `clojure.test` runner.
+- `scry.capture` — low-level capture state, `clojure.test/report` hook, output routing, result construction, and result formatting.
+- `scry.clojure-test` — in-process `clojure.test` runner and invocation scope classification.
 - `scry.kaocha` — optional Kaocha adapter.
 
 Dependency boundary:
@@ -79,12 +109,14 @@ Dependency boundary:
 For changes to the `clojure.test` runner or capture machinery, verify at least:
 
 - Passing runs return `:pass? true` and no failures.
+- Suite-scope broad runs are compact and omit output.
+- Single namespace runs include passing vars and passing assertion detail.
+- Single var runs include assertion detail and captured stdout/stderr.
 - Failing assertions include expected/actual/message/file/line/testing contexts.
 - Errors include stack traces.
-- stdout/stderr are captured per failing test var.
 - `:once` and `:each` fixtures still behave as normal `clojure.test` fixtures.
 
-For changes to the Kaocha adapter, verify it still returns the same top-level result shape as `scry.core/run`.
+For changes to the Kaocha adapter, verify it still returns the same scoped result model as `scry.core/run`; note that Kaocha currently defaults to suite scope and merges stdout/stderr.
 
 ## Documentation expectations
 

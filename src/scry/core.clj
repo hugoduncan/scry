@@ -4,15 +4,7 @@
    `run` executes clojure.test tests in-process and returns an inspectable
    result map; the most recent result is also retained in `last-run` so it can
    be inspected interactively after the run. The kaocha adapter lives in
-   `scry.kaocha` (loaded only when the :kaocha alias is present) and produces
-   the same result shape.
-
-   Result map shape:
-     :summary   {:test :pass :fail :error :duration-ms :var-count :fail-var-count}
-     :pass?     true when there were no failures or errors
-     :failures  [{:var :ns :status :assertions [...] :out :err}]
-   Each assertion: {:type :message :expected :actual :file :line :contexts}
-   (errors additionally carry :stacktrace)."
+   `scry.kaocha` (loaded only when the :kaocha alias is present)."
   (:require
    [clojure.string :as str]
    [scry.capture :as capture]
@@ -36,25 +28,36 @@
   []
   @last-run)
 
+(defn- failure-status?
+  [entry]
+  (contains? #{:fail :error} (:status entry)))
+
 (defn failures
-  "Return the failure entries of `result` (defaults to the last run)."
+  "Return failure/error entries of `result` (defaults to the last run).
+
+   Prefers the compatibility :failures collection when present and otherwise
+   filters canonical :results. Returns an empty vector when the selected result
+   format omits both collections."
   ([] (failures (last-result)))
-  ([result] (:failures result)))
+  ([result]
+   (vec (or (:failures result)
+            (filter failure-status? (:results result))
+            []))))
 
 (defn failed-test
-  "Return the failure entry for fully-qualified test var symbol `var-sym`."
+  "Return the failure/error entry for fully-qualified test var symbol `var-sym`."
   ([var-sym] (failed-test (last-result) var-sym))
   ([result var-sym]
-   (->> (:failures result)
+   (->> (failures result)
         (filter #(= var-sym (:var %)))
         first)))
 
 (defn output
-  "Return {:out s :err s} captured for failed test var `var-sym`."
+  "Return {:out s :err s} captured for failed test var `var-sym`, when present."
   ([var-sym] (output (last-result) var-sym))
   ([result var-sym]
    (when-let [f (failed-test result var-sym)]
-     (select-keys f [:out :err]))))
+     (not-empty (select-keys f [:out :err])))))
 
 (defn- assertion-string
   [{:keys [type message expected actual file line contexts stacktrace]}]
@@ -87,4 +90,5 @@
    (when result
      (str/join
       "\n\n"
-      (into [(capture/summary-line result)] (map failure-string (:failures result)))))))
+      (into [(capture/summary-line result)]
+            (map failure-string (failures result)))))))

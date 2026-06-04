@@ -6,10 +6,8 @@
    bind it to a closure over the state atom (`report-fn`) for the duration of a
    run. stdout/stderr are routed per test var by binding *out*/*err* to
    `routing-writer`s that consult the state atom for the currently executing
-   var.
-
-   Only failing/erroring assertions are retained as events; captured output is
-   kept per var and surfaced in the result for failed vars only."
+   var. Assertion events are retained per executed var so result formatting can
+   expose compact suite results or detailed namespace/var results."
   (:require
    [clojure.string :as str]
    [clojure.test :as test])
@@ -79,7 +77,7 @@
     (str sw)))
 
 (defn assertion
-  "Extract the inspectable subset of a clojure.test :fail/:error report map.
+  "Extract the inspectable subset of a clojure.test assertion report map.
 
    `contexts` is the vector of active `testing` strings, outermost first. For
    errors a rendered :stacktrace string is added."
@@ -119,10 +117,6 @@
   [state]
   (swap! state assoc :current nil))
 
-(defn- count!
-  [state k]
-  (swap! state update-in [:counts k] (fnil inc 0)))
-
 (defn- record-event!
   [state m]
   (let [event (assertion m (vec (reverse test/*testing-contexts*)))]
@@ -141,39 +135,110 @@
     (case (:type m)
       :begin-test-var (begin-var! state (:var m))
       :end-test-var (end-var! state)
-      :pass (count! state :pass)
+      :pass (record-event! state m)
       :fail (record-event! state m)
       :error (record-event! state m)
       nil)))
 
-;;; Result construction
+;;; Result formatting
+
+(def default-result-format
+  "Default scoped result-format configuration."
+  {:suite {:top-level-keys [:summary :pass? :results :failures]
+           :entry-keys [:var :ns :status :assertion-summary]
+           :assertions? false
+           :output? false}
+   :namespace {:top-level-keys [:summary :pass? :results :failures]
+               :entry-keys [:var :ns :status :assertions]
+               :assertions? true
+               :output? false}
+   :var {:top-level-keys [:summary :pass? :results :failures]
+         :entry-keys [:var :ns :status :assertions :out :err]
+         :assertions? true
+         :output? true}})
+
+(defn- status
+  [events]
+  (cond
+    (some #(= :error (:type %)) events) :error
+    (some #(= :fail (:type %)) events) :fail
+    (some #(= :pass (:type %)) events) :pass
+    :else :unknown))
+
+(defn- assertion-summary
+  [events]
+  (frequencies (map :type events)))
+
+(defn- failure-entry?
+  [entry]
+  (contains? #{:fail :error} (:status entry)))
+
+(defn- canonical-entry
+  [entry]
+  (let [events (:events entry)]
+    {:var (:var-symbol entry)
+     :ns (:ns entry)
+     :status (status events)
+     :assertion-summary (merge {:pass 0 :fail 0 :error 0}
+                               (assertion-summary events))
+     :assertions events
+     :out (str (:out entry))
+     :err (str (:err entry))}))
+
+(defn canonical-results
+  "Return unprojected result entries for every executed test var in state."
+  [state]
+  (let [s @state]
+    (mapv #(canonical-entry (get-in s [:vars %])) (:order s))))
+
+(defn- merge-result-format
+  [overrides]
+  (merge-with merge default-result-format (or overrides {})))
+
+(defn- format-entry
+  [{:keys [entry-keys assertions? output?]} entry]
+  (let [projected (select-keys entry entry-keys)]
+    (cond-> projected
+      assertions? (assoc :assertions (:assertions entry))
+      (false? assertions?) (dissoc :assertions)
+      output? (assoc :out (:out entry) :err (:err entry))
+      (false? output?) (dissoc :out :err))))
+
+(defn- scope-results
+  [scope entries]
+  (if (= :suite scope)
+    (filterv failure-entry? entries)
+    entries))
+
+(defn format-result
+  "Format a canonical result map for `scope` using optional result-format overrides."
+  [result scope result-format]
+  (let [fmt (get (merge-result-format result-format) scope)
+        canonical (:canonical-results result)
+        selected-results (mapv #(format-entry fmt %) (scope-results scope canonical))
+        selected-failures (mapv #(format-entry fmt %) (filter failure-entry? canonical))
+        values (assoc result
+                      :results selected-results
+                      :failures selected-failures)]
+    (select-keys values (:top-level-keys fmt))))
 
 (defn build-result
-  "Build the inspectable result map from captured `state`.
+  "Build the scoped result map from captured `state`.
 
-   Failures contain only the failing/erroring assertions plus captured
-   stdout/stderr for that var."
-  [state {:keys [duration-ms]}]
+   Options may include :duration-ms, :scope, and :result-format."
+  [state {:keys [duration-ms scope result-format]
+          :or {scope :suite}}]
   (let [s @state
         counts (:counts s)
-        failures (vec
-                  (for [v (:order s)
-                        :let [entry (get-in s [:vars v])]
-                        :when (seq (:events entry))]
-                    {:var (:var-symbol entry)
-                     :ns (:ns entry)
-                     :status (if (some #(= :error (:type %)) (:events entry))
-                               :error
-                               :fail)
-                     :assertions (:events entry)
-                     :out (str (:out entry))
-                     :err (str (:err entry))}))]
-    {:summary (assoc counts
-                     :duration-ms duration-ms
-                     :var-count (count (:order s))
-                     :fail-var-count (count failures))
-     :pass? (and (zero? (:fail counts 0)) (zero? (:error counts 0)))
-     :failures failures}))
+        canonical (canonical-results state)
+        failures (filterv failure-entry? canonical)
+        result {:summary (assoc counts
+                                :duration-ms duration-ms
+                                :var-count (count (:order s))
+                                :fail-var-count (count failures))
+                :pass? (and (zero? (:fail counts 0)) (zero? (:error counts 0)))
+                :canonical-results canonical}]
+    (format-result result scope result-format)))
 
 (defn orphan-output
   "Return output captured outside any test var as {:out s :err s}."

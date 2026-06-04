@@ -57,6 +57,7 @@ Project: scry
 - Task `012-add-public-installation-docs` is closed. README now has public Installation docs for `org.hugoduncan/scry` and optional `org.hugoduncan/scry-kaocha`, with copyable `:test` / `:kaocha` aliases using `"RELEASE"`, Git-count `0.1.N` pinning guidance, aligned CLI/Kaocha commands, and adapter transitive-dependency guidance.
 - Task `013-update-readme-public-status` is closed. README Status now accurately describes scry as initial public alpha / pre-1.0, notes the documented core runner/API, CLI, scoped results, nested capture isolation, build/release automation, and optional Kaocha adapter as usable/tested, and avoids implying 1.0 API/result-shape stability.
 - Task `014-add-public-pom-metadata` is closed. `build.clj` now emits public Maven POM metadata for both `org.hugoduncan/scry` and `org.hugoduncan/scry-kaocha`, including project descriptions, GitHub URL/SCM with deterministic `v${version}` tags, EPL-2.0 license metadata, and Hugo Duncan maintainer/developer metadata. Focused build tests verify filesystem and jar-embedded POMs for both artifacts while preserving dependency and packaging boundaries; focused build checks and `clojure -T:build jars` pass.
+- Task `015-run-public-history-secret-audit` is closed. The scoped public-history audit covered current `HEAD` plus reachable local branches/tags/remotes/stash; after adding narrow `.gitleaksignore` fingerprints for three audit-note false positives, `mise exec -- gitleaks detect --source . --redact --log-opts='--all'` exits 0 with no leaks found. Manual grep/history plus Munera/Mementum/.psi review found no blocking sensitive material; the repository is safe to make public from a secrets/history perspective within the declared scope.
 - Task `005-release-workflow-and-bb-task` has been created to add release automation: Babashka release task(s) for dry-run dispatch plus stamping changelog/tagging/pushing, and a GitHub Actions release workflow for dry-run verification, tag-triggered verification, Clojars deploy, and GitHub Release creation. The design draws simplified inspiration from `../../psi/psi-main` while preserving scry's core-only jar and `0.1.<git commit count>` versioning.
 - Task `005-release-workflow-and-bb-task` architecture review found no new actionable architectural-fit feedback. Review note is recorded in `implementation.md`; META.md and doc/architecture.md were absent, so review used AGENTS.md plus the task design.
 - Task `005-release-workflow-and-bb-task` ambiguity review follow-up is complete: `design.md` now pins dry-run local/remote ref-to-commit matching and exact expected-version computation, bracketed release changelog heading/extraction rules, and strict publishing tag format validation for `v0.1.<git-count>` tags with nonconforming `v*` tags failing before publish.
@@ -156,7 +157,8 @@ Project: scry
 - Project README: `README.md`
 - Agent guidance: `AGENTS.md`
 - Munera task plan: `munera/plan.md`
-- Open public-readiness tasks remain; see `munera/plan.md`.
+- No open Munera tasks are currently listed in `munera/plan.md`.
+- Closed public history secret audit task: `munera/closed/015-run-public-history-secret-audit/`
 - Closed public POM metadata task: `munera/closed/014-add-public-pom-metadata/`
 - Closed README public status task: `munera/closed/013-update-readme-public-status/`
 - Closed public installation docs task: `munera/closed/012-add-public-installation-docs/`

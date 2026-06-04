@@ -1,0 +1,5 @@
+# Known false positives from task 015 public-history audit pattern documentation.
+# These fingerprints point to regex command examples, not secret material.
+b4a3a84bb18fabb69961a4c472c139953fc9b0c6:munera/closed/015-run-public-history-secret-audit/implementation.md:private-key:92
+b4a3a84bb18fabb69961a4c472c139953fc9b0c6:munera/closed/015-run-public-history-secret-audit/implementation.md:private-key:101
+b4a3a84bb18fabb69961a4c472c139953fc9b0c6:munera/closed/015-run-public-history-secret-audit/implementation.md:private-key:104

@@ -26,20 +26,62 @@ At the start of a session, read:
 
 If working a Munera task, keep task notes in that task's `implementation.md` and update `steps.md` as work progresses.
 
-## Preferred test workflow: project REPL + scry
+## Test workflow: REPL during development, command line for final verification
 
-Prefer running tests through a live project REPL with `scry`, not through one-off command-line test invocations. The REPL workflow keeps code loaded, preserves `scry.core/last-result` for follow-up inspection, and returns structured data without scraping terminal output.
+During development, prefer running tests through a live project REPL with `scry`, not through one-off command-line test invocations. The REPL workflow keeps code loaded, preserves `scry.core/last-result` for follow-up inspection, and returns structured data without scraping terminal output.
 
-In a project REPL, run the current test suite:
+For final verification before handing off, reviewing, or closing work, use the documented command-line checks. Command-line verification exercises process exit behavior, CLI output/result-file behavior where relevant, classpath aliases, build tasks, and the same shell commands used by CI/release automation.
+
+Use focused, explicit REPL slices as the canonical all-green development checks. This keeps long-lived REPL runs deterministic and avoids mixing intentional failure fixtures, optional adapter namespaces, generated temporary-project namespaces, and stale process-global state.
+
+Core-only slice (`clojure -M:test:nrepl` or an equivalent `:test` REPL):
 
 ```clojure
 (require '[scry.core :as scry])
 
-(scry/run)
+(scry/run {:namespaces ['scry.capture-test
+                        'scry.clojure-test-test
+                        'scry.cli-test]})
 (println (scry/report-string (scry/last-result)))
+(:summary (scry/last-result))
 ```
 
-Inspect the raw result map:
+Optional Kaocha adapter and Kaocha CLI slice (`clojure -M:test:kaocha:nrepl` or an equivalent `:test:kaocha` REPL):
+
+```clojure
+(require '[clojure.test :as ct]
+         '[scry.kaocha-test]
+         '[scry.cli-kaocha-test])
+
+(let [adapter-result (ct/run-tests 'scry.kaocha-test)
+      cli-result (ct/run-tests 'scry.cli-kaocha-test)]
+  (and (ct/successful? adapter-result)
+       (ct/successful? cli-result)))
+```
+
+Use `clojure.test/run-tests` for this slice because these tests intentionally run failing inner Kaocha projects; an outer `scry/run` would capture those intentional nested reports as failures of the verification run.
+
+Focused build slice (`clojure -M:test:build:nrepl` or an equivalent `:test:build` REPL):
+
+```clojure
+(require '[scry.core :as scry])
+
+(scry/run {:namespaces ['scry.build-test]})
+(println (scry/report-string (scry/last-result)))
+(:summary (scry/last-result))
+```
+
+Focused release-helper slice (`clojure -M:test:release-test:nrepl` or an equivalent `:test:release-test` REPL):
+
+```clojure
+(require '[scry.core :as scry])
+
+(scry/run {:namespaces ['scry.release-test]})
+(println (scry/report-string (scry/last-result)))
+(:summary (scry/last-result))
+```
+
+Inspect the raw result map after any REPL run:
 
 ```clojure
 (scry/last-result)
@@ -48,12 +90,14 @@ Inspect the raw result map:
 (scry/failures)
 ```
 
-Run targeted tests from the REPL while iterating:
+Run narrower targeted tests from the REPL while iterating:
 
 ```clojure
 (scry/run {:namespaces ['my.project-test]})
 (scry/run {:vars [#'my.project-test/specific-test]})
 ```
+
+Broad discovery with bare `(scry/run)` is smoke/discovery coverage only. Prefer running it in a fresh process when you specifically want to check namespace discovery; do not treat it as the canonical all-green REPL check.
 
 Run the Kaocha adapter from the REPL when needed. It loads `tests.edn` from the current project when present and supports REPL suite selection:
 
@@ -74,7 +118,7 @@ Start nREPL if no project REPL is available:
 clojure -M:nrepl
 ```
 
-Use command-line forms only as a fallback when a REPL is unavailable or unsuitable. Prefer the dedicated CLI for shell/CI-style runs because it returns process status, prints live per-var progress, and writes structured failure EDN under `.scry-results/`:
+For shell/CI-style runs and final local verification, prefer the dedicated CLI because it returns process status, prints live per-var progress, and writes structured failure EDN under `.scry-results/`:
 
 ```sh
 clojure -M:test -m scry.cli
@@ -105,6 +149,17 @@ Default result detail depends on invocation scope:
 - Exactly one explicit executable var uses var scope: one entry, all assertions, and captured `:out`/`:err`.
 
 Use `:results` as the canonical result collection. Use `scry/failures` or `:failures` when you only need failing/erroring entries. Helpers tolerate custom result formats but cannot inspect collections omitted by `:top-level-keys`.
+
+## Final verification expectations
+
+Before reporting implementation complete, run the appropriate command-line checks for the changed surface area and record the commands/results in the task's `implementation.md`. At minimum:
+
+- For runner/capture/API changes, run the core command-line test suite.
+- For CLI changes, run focused CLI checks and at least one dedicated CLI command-line invocation when practical.
+- For Kaocha adapter changes, run the focused Kaocha adapter checks with `:kaocha`.
+- For build/release changes, run focused build/release checks and the relevant `clojure -T:build ...` task.
+
+REPL runs are encouraged while iterating, but they do not replace final command-line verification.
 
 ## Development practices
 

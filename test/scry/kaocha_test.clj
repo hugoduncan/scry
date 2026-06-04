@@ -2,7 +2,8 @@
   (:require
    [clojure.java.io :as io]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing]]))
+   [clojure.test :refer [deftest is testing]]
+   [scry.temp-ns :as temp-ns]))
 
 (defmacro when-kaocha-available
   [& body]
@@ -45,6 +46,27 @@
             "scry-kaocha-test-"
             (make-array java.nio.file.attribute.FileAttribute 0))))
 
+(defn- delete-recursive!
+  [file]
+  (when (.exists file)
+    (when (.isDirectory file)
+      (doseq [child (.listFiles file)]
+        (delete-recursive! child)))
+    (.delete file)))
+
+(defmacro with-temp-project
+  [[sym] & body]
+  `(let [~sym (temp-project)]
+     (try
+       ~@body
+       (finally
+         (delete-recursive! ~sym)))))
+
+(defn- remove-namespaces!
+  [ns-syms]
+  (doseq [ns-sym ns-syms]
+    (remove-ns ns-sym)))
+
 (defmacro with-user-dir
   [dir & body]
   `(let [old-dir# (System/getProperty "user.dir")]
@@ -53,6 +75,25 @@
        ~@body
        (finally
          (System/setProperty "user.dir" old-dir#)))))
+
+(defmacro with-user-dir-and-ns-cleanup
+  [dir ns-syms & body]
+  `(let [old-dir# (System/getProperty "user.dir")
+         ns-syms# ~ns-syms]
+     (System/setProperty "user.dir" (.getAbsolutePath (io/file ~dir)))
+     (try
+       ~@body
+       (finally
+         (System/setProperty "user.dir" old-dir#)
+         (remove-namespaces! ns-syms#)))))
+
+(defn- unique-ns
+  [prefix leaf]
+  (temp-ns/unique-ns prefix leaf))
+
+(defn- exact-ns-pattern
+  [ns-name]
+  (java.util.regex.Pattern/quote (str ns-name)))
 
 (defn- write-suite-test-ns
   [project ns-name pass?]
@@ -197,49 +238,52 @@
   ;; tests.edn loading uses the current user.dir, runs configured suites by
   ;; default, and suite selection runs only the chosen configured suite.
   (when-kaocha-available
-    (let [project (temp-project)]
-      (write-suite-test-ns project "demo.unit-test" true)
-      (write-suite-test-ns project "demo.integration-test" false)
-      (write-tests-edn
-       project
-       "#kaocha/v1
-        {:tests [{:id :unit
-                  :type :kaocha.type/clojure.test
-                  :test-paths [\"test\"]
-                  :ns-patterns [\"demo\\\\.unit-test\"]}
-                 {:id :integration
-                  :type :kaocha.type/clojure.test
-                  :test-paths [\"test\"]
-                  :ns-patterns [\"demo\\\\.integration-test\"]}]} ")
-      (with-user-dir project
-        (testing "unselected run uses configured tests.edn suites"
-          (let [result (kaocha-run)]
-            (is (false? (:pass? result)))
-            (is (= 2 (get-in result [:summary :test])))
-            (is (= 1 (get-in result [:summary :fail])))))
-        (testing "plural suite selection runs only the requested suite"
-          (let [result (kaocha-run {:suites [:unit]})]
-            (is (true? (:pass? result)))
-            (is (= 1 (get-in result [:summary :test])))
-            (is (= 0 (get-in result [:summary :fail])))))
-        (testing "single-suite convenience selection runs only the requested suite"
-          (let [result (kaocha-run {:suite :integration})]
-            (is (false? (:pass? result)))
-            (is (= 1 (get-in result [:summary :test])))
-            (is (= 1 (get-in result [:summary :fail])))))))))
+    (with-temp-project [project]
+      (let [unit-ns (unique-ns "demo" "unit-test")
+            integration-ns (unique-ns "demo" "integration-test")]
+        (write-suite-test-ns project unit-ns true)
+        (write-suite-test-ns project integration-ns false)
+        (write-tests-edn
+         project
+         (str "#kaocha/v1\n"
+              "{:tests [{:id :unit\n"
+              "          :type :kaocha.type/clojure.test\n"
+              "          :test-paths [\"test\"]\n"
+              "          :ns-patterns [" (pr-str (exact-ns-pattern unit-ns)) "]}\n"
+              "         {:id :integration\n"
+              "          :type :kaocha.type/clojure.test\n"
+              "          :test-paths [\"test\"]\n"
+              "          :ns-patterns [" (pr-str (exact-ns-pattern integration-ns)) "]}]}"))
+        (with-user-dir-and-ns-cleanup project [unit-ns integration-ns]
+          (testing "unselected run uses configured tests.edn suites"
+            (let [result (kaocha-run)]
+              (is (false? (:pass? result)))
+              (is (= 2 (get-in result [:summary :test])))
+              (is (= 1 (get-in result [:summary :fail])))))
+          (testing "plural suite selection runs only the requested suite"
+            (let [result (kaocha-run {:suites [:unit]})]
+              (is (true? (:pass? result)))
+              (is (= 1 (get-in result [:summary :test])))
+              (is (= 0 (get-in result [:summary :fail])))))
+          (testing "single-suite convenience selection runs only the requested suite"
+            (let [result (kaocha-run {:suite :integration})]
+              (is (false? (:pass? result)))
+              (is (= 1 (get-in result [:summary :test])))
+              (is (= 1 (get-in result [:summary :fail]))))))))))
 
 (deftest no-tests-edn-fallback-test
   ;; Projects without tests.edn still use the synthetic :unit fallback config
   ;; with caller-provided source/test/ns-pattern options.
   (when-kaocha-available
-    (let [project (temp-project)]
-      (write-suite-test-ns project "fallback.sample-test" true)
-      (with-user-dir project
-        (let [result (kaocha-run {:test-paths ["test"]
-                                  :ns-patterns ["fallback\\.sample-test"]})]
-          (is (true? (:pass? result)))
-          (is (= 1 (get-in result [:summary :test])))
-          (is (= 1 (get-in result [:summary :pass]))))))))
+    (with-temp-project [project]
+      (let [sample-ns (unique-ns "fallback" "sample-test")]
+        (write-suite-test-ns project sample-ns true)
+        (with-user-dir-and-ns-cleanup project [sample-ns]
+          (let [result (kaocha-run {:test-paths ["test"]
+                                    :ns-patterns [(exact-ns-pattern sample-ns)]})]
+            (is (true? (:pass? result)))
+            (is (= 1 (get-in result [:summary :test])))
+            (is (= 1 (get-in result [:summary :pass])))))))))
 
 (deftest result-formatting-test
   ;; Kaocha adapter results continue to use scry's scoped result model and

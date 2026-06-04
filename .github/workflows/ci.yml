@@ -27,13 +27,14 @@ jobs:
         with:
           cli: latest
 
-      - name: Run core tests
+      - name: Run focused core tests
         run: |
-          clojure -M:test -e "(require '[scry.core :as scry]) (let [result (scry/run)] (println (scry/report-string result)) (when-not (:pass? result) (System/exit 1)))"
+          clojure -M:test -e "(require '[scry.core :as scry]) (let [result (scry/run {:namespaces ['scry.capture-test 'scry.clojure-test-test 'scry.cli-test]})] (println (scry/report-string result)) (when-not (:pass? result) (System/exit 1)))"
 
-      - name: Run Kaocha adapter tests
+      - name: Run optional Kaocha slice
         run: |
           clojure -M:test:kaocha -e "(require '[scry.kaocha-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.kaocha-test)] (when-not (ct/successful? result) (System/exit 1)))"
+          clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? result) (System/exit 1)))"
 
       - name: Run focused build checks
         run: |

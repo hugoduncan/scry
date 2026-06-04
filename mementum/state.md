@@ -167,12 +167,14 @@ Project: scry
 - Task `009-replaceable-capture-context` docs-review follow-up is complete: CHANGELOG.md Unreleased mentions the nested/reentrant capture fix, README.md documents nested in-process runner isolation and same-thread/cooperative limits, SKILL.md now describes the local fixture-preserving `clojure.test/test-var` loop, and all docs-review steps are checked.
 - Task `009-replaceable-capture-context` is closed. It refactored capture around dynamically replaceable/disabled contexts with intended-var allow-listing, owned/ignored frame stacks, per-var output ownership, fixture-preserving local `clojure.test/test-var` execution, raw nested `clojure.test` counter preservation without outer leakage, and Kaocha adapter isolation. Focused core, plain clojure.test, CLI, and optional Kaocha verification passed after implementation/test/docs/code-shaper reviews.
 
+- Task `017-cli-synthetic-errors-and-outcome-kinds` has been created from psi integration feedback. It will fix CLI handling for nil-var synthetic/suite-level Kaocha load errors and add machine-readable CLI outcome classification so callers do not need to parse stderr text for fallback policy.
+
 ## Useful links
 
 - Project README: `README.md`
 - Agent guidance: `AGENTS.md`
 - Munera task plan: `munera/plan.md`
-- No open Munera tasks are currently listed in `munera/plan.md`.
+- Open CLI synthetic errors/outcome kinds task: `munera/open/017-cli-synthetic-errors-and-outcome-kinds/`
 - Closed public history secret audit task: `munera/closed/015-run-public-history-secret-audit/`
 - Closed public POM metadata task: `munera/closed/014-add-public-pom-metadata/`
 - Closed README public status task: `munera/closed/013-update-readme-public-status/`

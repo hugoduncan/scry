@@ -186,6 +186,7 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest implementation review found no new actionable implementation-quality issues. Reviewed CLI implementation, synthetic progress/result-file handling, outcome classification, `clojure -X` propagation, focused tests, and docs; `bb clj-kondo:lint`, focused core CLI tests, and optional Kaocha CLI tests pass.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` test review found no new actionable test-quality issues. Focused core CLI tests and optional Kaocha CLI tests pass; no follow-up steps were added.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` test-shaper follow-up is complete: focused CLI outcome-kind coverage now includes mixed synthetic nil-var load error plus concrete var-backed failure results and asserts `:scry.cli/load-error` takes precedence over `:scry.cli/test-failure`. Focused core CLI tests pass (42 tests, 262 assertions), full `clojure -M:test -m scry.cli` passes (85 tests, 539 assertions), `bb clj-kondo:lint` passes, and `git diff --check` passes.
+- Task `017-cli-synthetic-errors-and-outcome-kinds` latest test-shaper follow-up is complete: synthetic result-file assignment coverage now reserves both a suite-level base filename and its `--2` collision suffix, then asserts the synthetic nil-var error advances deterministically to `loader.demo__suite-error-1--3.edn`. Focused core CLI tests pass (42 tests, 263 assertions), full `clojure -M:test -m scry.cli` passes (85 tests, 540 assertions), and `git diff --check` passes.
 
 ## Useful links
 

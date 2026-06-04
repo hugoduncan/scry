@@ -77,3 +77,9 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 test-shaper review: Found one new actionable test-shaping issue. Synthetic result-file tests cover the first collision against a var-backed filename and the mixed load-error/test-failure precedence path, but they do not cover the deterministic collision-suffix loop beyond `--2`; add focused coverage where a base synthetic filename and its `--2` variant are both reserved so the test locks the documented `--3` fallback behavior.
 
 2026-06-04 latest architecture review: No new actionable architectural-fit feedback. The evolved design remains CLI-local, keeps `scry.core/run` result shapes stable, classifies outcomes from canonical structured data rather than stderr text, preserves var-backed result-file/progress behavior, and maintains the optional Kaocha dependency boundary by using structural nil/non-concrete-var recognition instead of Kaocha-specific coupling. META.md and doc/architecture.md were absent, so review used AGENTS.md plus design.md.
+
+2026-06-04 test-shaper follow-up: Completed the newly added synthetic result-file collision coverage. `result-file-assignments-synthetic-entries-test` now reserves both the base synthetic filename and its `--2` suffix with concrete var-backed entries, then asserts the synthetic suite-level error receives `loader.demo__suite-error-1--3.edn` deterministically. The review-added item in `steps.md` is checked.
+
+2026-06-04 verification (synthetic collision follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 263 assertions, 0 failures, 0 errors.
+2026-06-04 verification (synthetic collision follow-up): `clojure -M:test -m scry.cli` passed: 85 tests, 540 assertions, 0 failures, 0 errors.
+2026-06-04 verification (synthetic collision follow-up): `git diff --check` passed with no whitespace errors.

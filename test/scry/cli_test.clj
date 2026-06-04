@@ -347,6 +347,17 @@
                     :status :error}]
           assignments (cli-results/result-file-assignments entries)]
       (is (= ["loader.demo__suite-error-1--2.edn"]
+             (mapv :filename assignments)))))
+  (testing "synthetic filename collisions advance past reserved suffixes"
+    (let [entries [{:var 'loader.demo/suite-error-1
+                    :status :pass}
+                   {:var 'loader.demo/suite-error-1--2
+                    :status :pass}
+                   {:var nil
+                    :ns 'loader.demo
+                    :status :error}]
+          assignments (cli-results/result-file-assignments entries)]
+      (is (= ["loader.demo__suite-error-1--3.edn"]
              (mapv :filename assignments))))))
 
 (deftest run-cli-synthetic-nil-var-results-test

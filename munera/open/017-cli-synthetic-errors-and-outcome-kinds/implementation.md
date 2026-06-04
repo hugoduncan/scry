@@ -51,3 +51,6 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 verification (malformed canonical status follow-up): `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 4 tests, 29 assertions, 0 failures, 0 errors.
 2026-06-04 verification (malformed canonical status follow-up): `clojure -M:test -m scry.cli` passed: 85 tests, 535 assertions, 0 failures, 0 errors.
 2026-06-04 verification (malformed canonical status follow-up): `git diff --check` passed with no whitespace errors.
+
+
+2026-06-04 implementation review: Found one new actionable issue. `bb clj-kondo:lint` reports an unused `result` binding in `scry.cli/classify-outcome`; the classifier no longer uses the runner result after the precedence follow-ups, so the stale parameter should be removed or intentionally marked to keep maintainer lint clean.

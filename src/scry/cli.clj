@@ -429,17 +429,57 @@
   (.write out (summary-text summary))
   (.flush out))
 
+(defn- positive-count?
+  [m k]
+  (pos? (long (or (get m k) 0))))
+
+(defn- load-error-entry?
+  [entry]
+  (and (results/failure-entry? entry)
+       (not (results/concrete-var-backed-entry? entry))))
+
+(defn- concrete-failure-entry?
+  [entry]
+  (and (results/failure-entry? entry)
+       (results/concrete-var-backed-entry? entry)))
+
+(defn- aggregate-failure?
+  [{:keys [assertions]}]
+  (or (positive-count? assertions :fail)
+      (positive-count? assertions :error)))
+
+(defn- classify-outcome
+  [result entries summary]
+  (cond
+    (some load-error-entry? entries)
+    :scry.cli/load-error
+
+    (or (some concrete-failure-entry? entries)
+        (aggregate-failure? summary)
+        (false? (:pass? result)))
+    :scry.cli/test-failure
+
+    (some #(= :unknown (:status %)) entries)
+    :scry.cli/unknown-result
+
+    (not-any? results/concrete-var-backed-entry? entries)
+    :scry.cli/zero-tests
+
+    :else
+    :scry.cli/pass))
+
 (defn- exit-code
-  [{:keys [assertions tests var-count]} result]
-  (if (and (not (false? (:pass? result)))
-           (pos? var-count)
-           (zero? (:fail assertions 0))
-           (zero? (:error assertions 0))
-           (zero? (:fail tests 0))
-           (zero? (:error tests 0))
-           (zero? (:unknown tests 0)))
+  [outcome-kind]
+  (if (= :scry.cli/pass outcome-kind)
     0
     1))
+
+(defn- error-outcome-kind
+  [^Throwable e]
+  (case (:type (ex-data e))
+    :scry.cli/argument-error :scry.cli/argument-error
+    :scry.cli/runner-error :scry.cli/runner-error
+    :scry.cli/runner-error))
 
 (defn- canonical-result-entries
   [result]
@@ -505,29 +545,34 @@
              entries (canonical-result-entries result)
              summary (cli-summary result entries)
              result-files (results/write-result-files! dir entries)
-             code (exit-code summary result)]
+             outcome-kind (classify-outcome result entries summary)
+             code (exit-code outcome-kind)]
          (write-summary! io-boundary summary)
          {:exit-code code
+          :scry.cli/outcome-kind outcome-kind
           :result result
           :summary summary
           :result-files result-files
           :error nil})
        (catch Throwable e
-         (.write (:err io-boundary) (str "scry CLI error: " (.getMessage e) "\n"))
-         (.flush (:err io-boundary))
-         {:exit-code 1
-          :result nil
-          :summary nil
-          :result-files []
-          :error {:message (.getMessage e)
-                  :data (ex-data e)
-                  :exception e}})))))
+         (let [outcome-kind (error-outcome-kind e)]
+           (.write (:err io-boundary) (str "scry CLI error: " (.getMessage e) "\n"))
+           (.flush (:err io-boundary))
+           {:exit-code (exit-code outcome-kind)
+            :scry.cli/outcome-kind outcome-kind
+            :result nil
+            :summary nil
+            :result-files []
+            :error {:message (.getMessage e)
+                    :data (ex-data e)
+                    :exception e}}))))))
 
 (defn- non-zero-exception
   [message outcome]
   (ex-info message
            {:type :scry.cli/non-zero
             :exit-code (:exit-code outcome)
+            :scry.cli/outcome-kind (:scry.cli/outcome-kind outcome)
             :summary (:summary outcome)
             :error (:error outcome)
             :outcome outcome}))
@@ -535,6 +580,7 @@
 (defn- argument-error-outcome
   [^Throwable e]
   {:exit-code 1
+   :scry.cli/outcome-kind :scry.cli/argument-error
    :result nil
    :summary nil
    :result-files []

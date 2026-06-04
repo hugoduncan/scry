@@ -266,6 +266,7 @@
     (let [outcome (run-cli-in dir (cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.passing/arithmetic-passes]}))]
       (is (= 0 (:exit-code outcome)))
+      (is (= :scry.cli/pass (:scry.cli/outcome-kind outcome)))
       (is (= ".Assertions: 2 passed, 0 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
              (:stdout outcome)))
       (is (= "" (:stderr outcome)))
@@ -393,6 +394,7 @@
                      (slurp (io/file dir ".scry-results"
                                      "suite-fail-1.edn")))]
       (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 1 failed, 1 errored, 1 unknown\n"
              (:stdout outcome)))
       (is (= "loader.demo/suite-error-1\nsuite-fail-1\nloader.demo/suite-unknown-1\n"
@@ -415,6 +417,7 @@
           failure-file (io/file dir ".scry-results" "scry.fixtures.failing__equality-fails.edn")
           failure-data (edn/read-string (slurp failure-file))]
       (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
       (is (= ".Assertions: 1 passed, 1 failed, 0 errored\nTests: 1 passed, 1 failed, 0 errored\n"
              (:stdout outcome)))
       (is (= "equality-fails\n" (:stderr outcome)))
@@ -569,6 +572,7 @@
     (let [outcome (run-cli-in dir (cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.unknown/no-assertions]}))]
       (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
              (:stdout outcome)))
       (is (= "no-assertions\n" (:stderr outcome)))
@@ -585,6 +589,61 @@
                :out ""
                :err ""}]
              (:canonical-results (:result outcome)))))))
+
+(deftest run-cli-outcome-classification-test
+  ;; Outcome-kind classification is machine-readable and authoritative for
+  ;; exit code across synthetic and malformed runner-result edges.
+  (testing "synthetic-only passing entries are zero executable tests"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        (runner-result [{:var nil
+                                         :ns 'loader.demo
+                                         :status :pass
+                                         :assertion-summary {:pass 1 :fail 0 :error 0}
+                                         :assertions []}]))})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
+        (is (= {:pass 1 :fail 0 :error 0}
+               (get-in outcome [:summary :assertions])))
+        (is (= {:pass 1 :fail 0 :error 0 :unknown 0}
+               (get-in outcome [:summary :tests]))))))
+  (testing "aggregate assertion failures classify as test failures"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 1 :pass 1 :fail 1 :error 0}
+                         :pass? false
+                         :canonical-results [{:var 'scry.fixtures.passing/arithmetic-passes
+                                              :ns 'scry.fixtures.passing
+                                              :status :pass
+                                              :assertion-summary {:pass 1 :fail 0 :error 0}
+                                              :assertions []}]})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+        (is (= {:pass 1 :fail 1 :error 0}
+               (get-in outcome [:summary :assertions])))
+        (is (= [] (result-files dir))))))
+  (testing "malformed runner results are runner errors"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 0 :pass 0 :fail 0 :error 0}
+                         :pass? true
+                         :canonical-results nil})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (str/includes? (:stderr outcome)
+                           "Runner result did not include :canonical-results"))))))
 
 (deftest run-cli-core-runner-does-not-resolve-kaocha-test
   ;; Core runner execution is independent of optional Kaocha resolution: a
@@ -623,6 +682,7 @@
         (let [outcome (run-cli-in dir (cli/normalize-exec-opts
                                        {:namespaces ['scry.fixtures.asserting-fixtures]}))]
           (is (= 1 (:exit-code outcome)))
+          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
           (is (= ".Assertions: 3 passed, 2 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
                  (:stdout outcome)))
           (is (= "" (:stderr outcome)))
@@ -648,6 +708,7 @@
   (with-temp-dir [dir]
     (let [outcome (run-cli-in dir (cli/normalize-exec-opts {:namespaces ['clojure.core]}))]
       (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored\n"
              (:stdout outcome)))
       (is (= [] (result-files dir)))))
@@ -661,6 +722,7 @@
                                 :out out
                                 :err err})]
       (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (= [] (result-files dir)))
       (is (str/includes? (str err) "scry CLI error:"))
       (is (instance? java.io.FileNotFoundException (-> outcome :error :exception)))))
@@ -675,6 +737,7 @@
       (is (= 1 (:exit-code outcome)))
       (is (= "" (:stdout outcome)))
       (is (= [] (result-files dir)))
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (:stderr outcome)
                          "scry CLI error: Kaocha CLI mode requires the optional scry.kaocha adapter"))
       (is (= {:type :scry.cli/runner-error :runner :kaocha}
@@ -691,6 +754,7 @@
       (is (= 1 (:exit-code outcome)))
       (is (= "" (:stdout outcome)))
       (is (= [] (result-files dir)))
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (:stderr outcome)
                          "scry CLI error: Could not load Kaocha CLI runner"))
       (is (= {:type :scry.cli/runner-error :runner :kaocha}
@@ -707,6 +771,7 @@
           (is (= 1 (:exit-code outcome)))
           (is (= "" (:stdout outcome)))
           (is (= [] (result-files dir)))
+          (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
           (is (str/includes? (:stderr outcome)
                              "scry CLI error: Resolved Kaocha CLI runner is not invokable"))
           (is (= {:type :scry.cli/runner-error :runner :kaocha}
@@ -721,6 +786,7 @@
           outcome (cli/run {:vars ['scry.fixtures.passing/arithmetic-passes]}
                            {:cwd (.getPath dir) :out out :err err})]
       (is (= 0 (:exit-code outcome)))
+      (is (= :scry.cli/pass (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (str out) "Assertions: 2 passed"))
       (is (= "" (str err)))))
   (with-temp-dir [dir]
@@ -734,6 +800,10 @@
       (is (some? thrown))
       (is (= :scry.cli/non-zero (:type (ex-data thrown))))
       (is (= 1 (:exit-code (ex-data thrown))))
+      (is (= :scry.cli/test-failure
+             (:scry.cli/outcome-kind (ex-data thrown))))
+      (is (= :scry.cli/test-failure
+             (get-in (ex-data thrown) [:outcome :scry.cli/outcome-kind])))
       (is (= {:pass 0 :fail 1 :error 0}
              (get-in (ex-data thrown) [:summary :assertions])))
       (is (str/includes? (str err) "equality-fails"))))
@@ -746,6 +816,10 @@
       (is (= :scry.cli/non-zero (:type (ex-data thrown))))
       (is (= 1 (:exit-code (ex-data thrown))))
       (is (nil? (:summary (ex-data thrown))))
+      (is (= :scry.cli/argument-error
+             (:scry.cli/outcome-kind (ex-data thrown))))
+      (is (= :scry.cli/argument-error
+             (get-in (ex-data thrown) [:outcome :scry.cli/outcome-kind])))
       (is (= :scry.cli/argument-error
              (get-in (ex-data thrown) [:error :data :type])))
       (is (str/includes? (get-in (ex-data thrown) [:error :message])

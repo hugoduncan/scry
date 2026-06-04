@@ -25,23 +25,23 @@
 
 ## Slice 4: Outcome classification
 
-- [ ] Add a classifier that returns `:scry.cli/outcome-kind` using the design precedence and make it authoritative for `:exit-code` (`:scry.cli/pass` => `0`, every other kind => non-zero).
-- [ ] Classify structured argument errors as `:scry.cli/argument-error` on `clojure -X`/direct structured surfaces.
-- [ ] Classify runner infrastructure errors, including malformed results without vector `:canonical-results`, as `:scry.cli/runner-error`.
-- [ ] Classify failing/erroring non-concrete canonical entries as `:scry.cli/load-error` once a valid canonical result vector exists.
-- [ ] Classify concrete var-backed failures/errors or aggregate failing/erroring assertion counts as `:scry.cli/test-failure`.
-- [ ] Classify canonical `:unknown` entries as `:scry.cli/unknown-result` when no higher-precedence kind applies.
-- [ ] Classify no concrete executable var-backed entries as `:scry.cli/zero-tests` when no higher-precedence kind applies.
-- [ ] Classify successful runs with at least one concrete executable passing var and no non-zero signal as `:scry.cli/pass`.
-- [ ] Add focused tests for pass, normal test failure, synthetic load/suite error, unknown result, zero tests, runner error, aggregate assertion failure classification, and synthetic-only passing entries exiting non-zero as zero-tests.
+- [x] Add a classifier that returns `:scry.cli/outcome-kind` using the design precedence and make it authoritative for `:exit-code` (`:scry.cli/pass` => `0`, every other kind => non-zero).
+- [x] Classify structured argument errors as `:scry.cli/argument-error` on `clojure -X`/direct structured surfaces.
+- [x] Classify runner infrastructure errors, including malformed results without vector `:canonical-results`, as `:scry.cli/runner-error`.
+- [x] Classify failing/erroring non-concrete canonical entries as `:scry.cli/load-error` once a valid canonical result vector exists.
+- [x] Classify concrete var-backed failures/errors or aggregate failing/erroring assertion counts as `:scry.cli/test-failure`.
+- [x] Classify canonical `:unknown` entries as `:scry.cli/unknown-result` when no higher-precedence kind applies.
+- [x] Classify no concrete executable var-backed entries as `:scry.cli/zero-tests` when no higher-precedence kind applies.
+- [x] Classify successful runs with at least one concrete executable passing var and no non-zero signal as `:scry.cli/pass`.
+- [x] Add focused tests for pass, normal test failure, synthetic load/suite error, unknown result, zero tests, runner error, aggregate assertion failure classification, and synthetic-only passing entries exiting non-zero as zero-tests.
 
 ## Slice 5: `clojure -X` propagation and parser boundary checks
 
-- [ ] Add top-level `:scry.cli/outcome-kind` to every `run-cli` outcome map.
-- [ ] Add top-level `:scry.cli/outcome-kind` to `:scry.cli/non-zero` ex-data produced by `scry.cli/run`.
-- [ ] Verify the embedded `:outcome` in non-zero ex-data contains the same outcome kind.
-- [ ] Add focused tests for `clojure -X` argument-error ex-data classification.
-- [ ] Add or update focused tests confirming `-m` parser errors remain process-oriented human stderr plus non-zero exit code, without requiring structured outcome maps.
+- [x] Add top-level `:scry.cli/outcome-kind` to every `run-cli` outcome map.
+- [x] Add top-level `:scry.cli/outcome-kind` to `:scry.cli/non-zero` ex-data produced by `scry.cli/run`.
+- [x] Verify the embedded `:outcome` in non-zero ex-data contains the same outcome kind.
+- [x] Add focused tests for `clojure -X` argument-error ex-data classification.
+- [x] Add or update focused tests confirming `-m` parser errors remain process-oriented human stderr plus non-zero exit code, without requiring structured outcome maps.
 
 ## Slice 6: Documentation
 

@@ -76,4 +76,4 @@
 
 ## Latest test-shaper review follow-up
 
-- [ ] Add focused `scry.cli/run` (`clojure -X`) coverage for an injected synthetic nil/non-concrete-var load-error result, asserting top-level and embedded non-zero ex-data classify as `:scry.cli/load-error` and preserving synthetic result-file behavior where practical.
+- [x] Add focused `scry.cli/run` (`clojure -X`) coverage for an injected synthetic nil/non-concrete-var load-error result, asserting top-level and embedded non-zero ex-data classify as `:scry.cli/load-error` and preserving synthetic result-file behavior where practical.

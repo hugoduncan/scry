@@ -906,6 +906,47 @@
       (is (= {:pass 0 :fail 1 :error 0}
              (get-in (ex-data thrown) [:summary :assertions])))
       (is (str/includes? (str err) "equality-fails"))))
+  (testing "synthetic load errors use the structured non-zero -X contract"
+    (with-temp-dir [dir]
+      (let [out (string-writer)
+            err (string-writer)
+            synthetic-error {:var nil
+                             :ns 'loader.demo
+                             :status :error
+                             :assertion-summary {:pass 0 :fail 0 :error 1}
+                             :assertions [{:type :error
+                                           :message "could not load tests"}]
+                             :out "load out\n"
+                             :err "load err\n"}
+            thrown (try
+                     (cli/run {}
+                              {:cwd (.getPath dir)
+                               :out out
+                               :err err
+                               :run-clojure-test
+                               (fn [opts]
+                                 ((:progress-callback opts) synthetic-error)
+                                 (runner-result [synthetic-error]))})
+                     nil
+                     (catch clojure.lang.ExceptionInfo e e))
+            data (ex-data thrown)
+            result-file (io/file dir ".scry-results" "loader.demo__suite-error-1.edn")
+            result-data (edn/read-string (slurp result-file))]
+        (is (some? thrown))
+        (is (= :scry.cli/non-zero (:type data)))
+        (is (= 1 (:exit-code data)))
+        (is (= :scry.cli/load-error (:scry.cli/outcome-kind data)))
+        (is (= :scry.cli/load-error
+               (get-in data [:outcome :scry.cli/outcome-kind])))
+        (is (= {:pass 0 :fail 0 :error 1}
+               (get-in data [:summary :assertions])))
+        (is (= [(.getPath result-file)]
+               (get-in data [:outcome :result-files])))
+        (is (= ["loader.demo__suite-error-1.edn"] (result-files dir)))
+        (is (= :error (:status result-data)))
+        (is (= nil (:var result-data)))
+        (is (= 'loader.demo (:ns result-data)))
+        (is (str/includes? (str err) "loader.demo/suite-error-1")))))
   (testing "argument errors use the structured non-zero -X contract"
     (let [thrown (try
                    (cli/run {:runner :unknown})

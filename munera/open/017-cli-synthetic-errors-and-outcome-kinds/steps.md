@@ -45,10 +45,10 @@
 
 ## Slice 6: Documentation
 
-- [ ] Update `README.md` command-line usage to document `:scry.cli/outcome-kind`, initial keyword vocabulary, and machine-caller guidance to inspect structured outcomes/result files instead of stderr text.
-- [ ] Update top-level `SKILL.md` CLI guidance to tell agents to inspect `:scry.cli/outcome-kind` for `-X` outcomes/non-zero ex-data and `.scry-results/*.edn` for failure detail.
-- [ ] Update `AGENTS.md` final-verification/CLI guidance to mention structured CLI outcome classification for agents.
-- [ ] Update `CHANGELOG.md` Unreleased with the CLI outcome classification and synthetic suite-level result-file handling.
+- [x] Update `README.md` command-line usage to document `:scry.cli/outcome-kind`, initial keyword vocabulary, and machine-caller guidance to inspect structured outcomes/result files instead of stderr text.
+- [x] Update top-level `SKILL.md` CLI guidance to tell agents to inspect `:scry.cli/outcome-kind` for `-X` outcomes/non-zero ex-data and `.scry-results/*.edn` for failure detail.
+- [x] Update `AGENTS.md` final-verification/CLI guidance to mention structured CLI outcome classification for agents.
+- [x] Update `CHANGELOG.md` Unreleased with the CLI outcome classification and synthetic suite-level result-file handling.
 
 ## Slice 7: Verification and task notes
 

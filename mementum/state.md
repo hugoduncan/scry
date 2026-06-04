@@ -18,6 +18,7 @@ Project: scry
 - Task `002-kaocha-tests-edn-suite-selection` implementation is complete: `scry.kaocha/run` loads `tests.edn` from `user.dir`, supports `:suite`/`:suites` selection for loaded, supplied, and fallback configs, preserves full `:config`, applies quiet runtime defaults, and ignores skipped Kaocha suites in scry summaries/results. Focused Kaocha adapter tests and core `scry/run` verification pass. Implementation review and test review found no new actionable issues. README, AGENTS.md, and SKILL.md document the REPL-first Kaocha API.
 - Task `002-kaocha-tests-edn-suite-selection` docs-review follow-up is complete: `CHANGELOG.md` Unreleased documents the user-visible Kaocha adapter changes, and the review-added steps item is checked.
 - Task `002-kaocha-tests-edn-suite-selection` code-shaper review found no new actionable code-quality issues; the review note is recorded in `implementation.md`.
+- Task `002-kaocha-tests-edn-suite-selection` is closed. It made `scry.kaocha/run` load `tests.edn`, support `:suite`/`:suites` selection, preserve full `:config`, and document the REPL-first Kaocha API.
 - Task `003-tools-build-jar` architecture review found no new actionable architectural-fit feedback. Review note is recorded in `implementation.md`; META.md and doc/architecture.md were absent, so review used AGENTS.md plus the task design.
 - Task `003-tools-build-jar` ambiguity review found no new actionable ambiguity feedback. Review note is recorded in `implementation.md`; no `design-steps.md` was created because there were no follow-up items.
 - Task `003-tools-build-jar` inconsistency review found no new actionable inconsistency feedback. Review note is recorded in `implementation.md`; no `design-steps.md` was created because there were no follow-up items.
@@ -34,17 +35,37 @@ Project: scry
 - Task `003-tools-build-jar` docs review found one actionable docs issue: `CHANGELOG.md` Unreleased does not mention the new tools.build jar workflow/artifact; a follow-up item was added to `steps.md`.
 - Task `003-tools-build-jar` docs-review follow-up is complete: `CHANGELOG.md` Unreleased now documents the `clojure -T:build jar` workflow for `org.hugoduncan/scry`, Git-derived `0.1.<git-revcount>` versions, and core-only packaging with optional Kaocha exclusion.
 - Task `003-tools-build-jar` code-shaper review found no new actionable code-quality issues; focused build checks and core tests pass, and the review note is recorded in `implementation.md`.
+- Task `003-tools-build-jar` is closed. It added a `tools.build` jar workflow for coordinate `org.hugoduncan/scry`, versioned as `0.1.<git-revcount>`, with a core-only artifact that excludes the optional Kaocha adapter.
+- Task `004-github-ci-tests` has been created to add a GitHub Actions workflow running core tests, Kaocha adapter tests, focused build checks, and the jar build on PRs and pushes to `master`.
+- Task `004-github-ci-tests` design now requires `actionlint` validation; `mise.toml` provides actionlint for local workflow linting.
+- Task `004-github-ci-tests` architecture review found no new actionable architectural-fit feedback. Review note is recorded in `implementation.md`; META.md and doc/architecture.md were absent, so review used AGENTS.md plus the task design.
+- Task `004-github-ci-tests` ambiguity follow-up is complete: `design.md` now clarifies that `actionlint` is required as local/static validation during implementation and is not required as a GitHub Actions CI job/step for this task; the review-added item is checked in `design-steps.md`.
+- Task `004-github-ci-tests` inconsistency review found no new actionable inconsistency feedback. Review note is recorded in `implementation.md`; no new design follow-up items were added.
+- Task `004-github-ci-tests` plan and steps have been created from the stable design. The plan uses a simple single-job GitHub Actions workflow with full-history checkout, pinned Java/Clojure setup, sequential core/Kaocha/build/jar verification, developer-visible docs, and local `actionlint` validation.
+- Task `004-github-ci-tests` plan ambiguity review found actionable follow-up: specify the exact setup action/version pinning policy for Java and Clojure CLI setup, since the plan currently says pinned but not whether major tag, full version tag, or SHA is expected.
+- Task `004-github-ci-tests` plan ambiguity follow-up and implementation are complete: `plan.md` now specifies `actions/setup-java@v4` with Temurin JDK 21 and `DeLaGuardo/setup-clojure@13.4`; `.github/workflows/ci.yml` runs core tests, Kaocha adapter tests, focused build checks, and `clojure -T:build jar` on PRs and pushes to `master`; AGENTS.md and CHANGELOG.md document the CI workflow; `actionlint`, core tests, Kaocha tests, build checks, and jar build pass locally.
+- Task `004-github-ci-tests` plan inconsistency review found one actionable follow-up: remove or update the stale opening `implementation.md` sentence saying "No implementation yet." now that later notes and steps show implementation is complete.
+- Task `004-github-ci-tests` plan inconsistency follow-up is complete: `implementation.md` no longer opens with "No implementation yet.", and all checklist items in `steps.md` are checked.
 
+- Task `004-github-ci-tests` implementation review found one actionable issue: Clojure CI test steps currently print result maps but do not force a non-zero process exit when tests/checks report failures or errors, so GitHub Actions could pass a failing test run. A follow-up item was added to `steps.md`.
+- Task `004-github-ci-tests` implementation-review follow-up is complete: `.github/workflows/ci.yml` now exits non-zero when core `scry/run` returns `:pass? false` or when Kaocha/build `clojure.test/run-tests` results are not `ct/successful?`; `actionlint`, core tests, Kaocha tests, build checks, and jar build pass locally.
+- Task `004-github-ci-tests` follow-up implementation review found no new actionable implementation-quality issues; `actionlint`, core tests, focused Kaocha tests, focused build checks, and jar build pass locally.
+- Task `004-github-ci-tests` test-shaper review found no new actionable test-quality issues; `actionlint`, core tests, focused Kaocha adapter tests, and focused build checks pass locally.
+- Task `004-github-ci-tests` docs review found no new actionable documentation issues; README remains public-API focused, AGENTS.md documents CI maintenance guidance, CHANGELOG.md documents the developer-visible CI workflow, and no `doc/` directory is present.
+- Task `004-github-ci-tests` code-shaper review found no new actionable code-quality issues; the single-job workflow is simple and locally comprehensible, result-aware Clojure checks fail non-zero, and `actionlint` passes.
+- Task `004-github-ci-tests` is closed. It added GitHub Actions CI for PRs and pushes to `master`, running core tests, focused Kaocha adapter tests, focused build checks, and the jar build with full Git history for Git-derived versioning.
 ## Active focus
 
-- Open task `003-tools-build-jar`: latest code-shaper review found no new actionable code-quality issues after the docs follow-up.
+- No open tasks.
 
 ## Useful links
 
 - Project README: `README.md`
 - Agent guidance: `AGENTS.md`
 - Munera task plan: `munera/plan.md`
-- Open Kaocha suite-selection task: `munera/open/002-kaocha-tests-edn-suite-selection/`
+- Closed GitHub CI task: `munera/closed/004-github-ci-tests/`
+- Closed Kaocha suite-selection task: `munera/closed/002-kaocha-tests-edn-suite-selection/`
+- Closed build jar task: `munera/closed/003-tools-build-jar/`
 - Closed scoped-format task: `munera/closed/001-result-format-by-invocation-scope/`
 - Mementum memories: `mementum/memories/`
 - Mementum knowledge: `mementum/knowledge/`

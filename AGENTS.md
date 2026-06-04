@@ -100,6 +100,10 @@ Use `:results` as the canonical result collection. Use `scry/failures` or `:fail
 - Avoid parsing human-oriented terminal output when a structured result is available.
 - Keep README examples synchronized with the actual API.
 
+## Maintainer CI workflow
+
+GitHub Actions CI is configured in `.github/workflows/ci.yml` for pull requests and pushes to `master`. Keep its verification commands aligned with the local commands documented below, and use `actions/checkout` with full Git history because the jar version is derived from Git commit count.
+
 ## Maintainer build workflow
 
 Build tasks use `tools.build` through the `:build` alias:

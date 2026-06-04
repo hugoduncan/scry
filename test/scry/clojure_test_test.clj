@@ -6,6 +6,7 @@
    [scry.fixtures.erroring]
    [scry.fixtures.failing]
    [scry.fixtures.fixtured]
+   [scry.fixtures.mixed]
    [scry.fixtures.output]
    [scry.fixtures.passing]))
 
@@ -127,6 +128,26 @@
                           :ns-pattern #"scry\.fixtures\.passing"})]
       (is (empty? (:results result)))
       (is (= 1 (get-in result [:summary :var-count]))))))
+
+(deftest progress-callback-test
+  ;; The optional progress callback reports each completed var in execution
+  ;; order with final canonical status and error-over-fail precedence.
+  (testing "progress callback entries"
+    (let [entries (atom [])
+          result (ct/run {:vars [#'scry.fixtures.passing/arithmetic-passes
+                                 #'scry.fixtures.mixed/pass-then-fail
+                                 #'scry.fixtures.mixed/fail-then-error]
+                          :progress-callback #(swap! entries conj %)})]
+      (is (= [:pass :fail :error] (mapv :status @entries)))
+      (is (= ['scry.fixtures.passing/arithmetic-passes
+              'scry.fixtures.mixed/pass-then-fail
+              'scry.fixtures.mixed/fail-then-error]
+             (mapv :var @entries)))
+      (is (= {:pass 1 :fail 1 :error 0}
+             (:assertion-summary (second @entries))))
+      (is (= {:pass 0 :fail 1 :error 1}
+             (:assertion-summary (nth @entries 2))))
+      (is (= 3 (get-in result [:summary :test]))))))
 
 (deftest custom-formatting-test
   ;; Result formatting can be configured independently per scope using

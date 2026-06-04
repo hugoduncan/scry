@@ -74,7 +74,22 @@ Start nREPL if no project REPL is available:
 clojure -M:nrepl
 ```
 
-Use command-line `clojure -M:test ...` forms only as a fallback when a REPL is unavailable or unsuitable:
+Use command-line forms only as a fallback when a REPL is unavailable or unsuitable. Prefer the dedicated CLI for shell/CI-style runs because it returns process status, prints live per-var progress, and writes structured failure EDN under `.scry-results/`:
+
+```sh
+clojure -M:test -m scry.cli
+clojure -M:test -m scry.cli --var my.project-test/specific-test
+clojure -X:test scry.cli/run :vars '[my.project-test/specific-test]'
+```
+
+The CLI clears and recreates `.scry-results/` at run start, prints `.` to stdout for passing vars, prints failing/erroring unqualified var names to stderr, writes namespace-prefixed `.edn` files for failing/erroring vars, and exits non-zero for failures, errors, unknown status, argument/runner errors, or zero executable tests. Kaocha CLI mode requires the optional adapter classpath:
+
+```sh
+clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
+clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
+```
+
+If you need raw API inspection from a one-off command, call `scry.core/run` explicitly:
 
 ```sh
 clojure -M:test -e "(require '[scry.core :as scry]) (println (scry/report-string (scry/run)))"
@@ -154,7 +169,8 @@ clojure -M:test:release-test -e "(require '[scry.release-test :as t] '[clojure.t
 
 Important namespaces:
 
-- `scry.core` — public entry point and convenience inspection helpers.
+- `scry.core` — public REPL/API entry point and convenience inspection helpers.
+- `scry.cli` — command-line entry points and CLI-specific progress, result-file, summary, and exit-code behavior; it dynamically loads Kaocha support only when requested.
 - `scry.capture` — low-level capture state, `clojure.test/report` hook, output routing, result construction, and result formatting.
 - `scry.clojure-test` — in-process `clojure.test` runner and invocation scope classification.
 - `scry.kaocha` — optional Kaocha adapter.
@@ -162,6 +178,7 @@ Important namespaces:
 Dependency boundary:
 
 - `scry.core` must not require Kaocha.
+- `scry.cli` is part of the core jar, but must not require `scry.kaocha` at namespace load time; Kaocha CLI mode uses dynamic loading and requires the optional adapter jar/alias.
 - Kaocha support belongs under `src-kaocha/` and is available only with the `:kaocha` alias.
 
 ## Testing expectations
@@ -175,6 +192,13 @@ For changes to the `clojure.test` runner or capture machinery, verify at least:
 - Failing assertions include expected/actual/message/file/line/testing contexts.
 - Errors include stack traces.
 - `:once` and `:each` fixtures still behave as normal `clojure.test` fixtures.
+
+For changes to the CLI, run focused core and optional Kaocha CLI checks:
+
+```sh
+clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"
+clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"
+```
 
 For changes to the Kaocha adapter, verify it still returns the same scoped result model as `scry.core/run`; note that Kaocha currently defaults to suite scope and merges stdout/stderr. Focused Kaocha adapter tests require the optional alias:
 

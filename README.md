@@ -45,6 +45,46 @@ Basic REPL usage:
 (println (scry/report-string (scry/last-result)))
 ```
 
+## Command-line usage
+
+`scry` also provides a dedicated command-line runner for shell and CI use. The CLI is separate from `scry.core/run`: REPL/API calls stay quiet and structured, while the CLI prints live progress, writes failure details, and returns process-oriented status.
+
+Run with either `-m` or `-X`:
+
+```sh
+clojure -M:test -m scry.cli
+clojure -X:test scry.cli/run
+```
+
+Core `clojure.test` selectors are available from both entry points:
+
+```sh
+clojure -M:test -m scry.cli --dir test --ns-pattern '.*-test$'
+clojure -M:test -m scry.cli --namespace my.project-test
+clojure -M:test -m scry.cli --var my.project-test/specific-test
+
+clojure -X:test scry.cli/run :dirs '["test"]' :namespaces '[my.project-test]'
+clojure -X:test scry.cli/run :vars '[my.project-test/specific-test]'
+```
+
+While tests run, the CLI prints one progress item per test var: `.` to stdout for passing vars and the unqualified test name to stderr for failing or erroring vars. After the run it prints a stdout summary with passed, failed, and errored assertion and test-var counts.
+
+At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Passing runs may leave `.scry-results/` as an empty directory.
+
+The CLI exits `0` only when at least one selected/executed test var runs and all vars pass. It exits non-zero for failures, errors, unknown var status, argument/runner errors, or zero executable tests. The `-X` entry point returns the successful outcome map; on non-zero outcomes it throws `ex-info` with structured `:exit-code`, `:summary`, `:error`, and `:outcome` data.
+
+Kaocha CLI mode is available when the optional adapter is on the classpath:
+
+```sh
+clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
+clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit --suite integration
+clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
+```
+
+Kaocha CLI mode accepts Kaocha suite/config options and fallback `:source-paths`, `:test-paths`, and `:ns-patterns` options. `--dir` / `:dirs` maps to fallback `:test-paths` when no explicit Kaocha `:config` is supplied. Core-only namespace, var, and `:ns-pattern` selectors are rejected in Kaocha mode. As with the adapter API, Kaocha-captured stdout/stderr are preserved as merged `:out` with empty `:err` in result files unless the adapter supplies separate streams.
+
+Use `clojure -M:test -m scry.cli --help` for supported main-style flags.
+
 ## `clojure.test` runner
 
 The default runner is implemented in `scry.clojure-test` and supports:

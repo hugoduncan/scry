@@ -185,6 +185,15 @@
      :out (str (:out entry))
      :err (str (:err entry))}))
 
+(defn current-var-result
+  "Return the canonical result entry for the currently executing test var.
+
+   This is intended for end-of-var progress callbacks while output buffers and
+   assertion events for the var are still available in the capture state."
+  [state]
+  (when-let [v (:current @state)]
+    (canonical-entry (get-in @state [:vars v]))))
+
 (defn canonical-results
   "Return unprojected result entries for every executed test var in state."
   [state]

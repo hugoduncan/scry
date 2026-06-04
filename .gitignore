@@ -1,5 +1,6 @@
 .cpcache/
 target/
+.scry-results/
 .nrepl-port
 .psi/metrics.edn
 .psi/project.local.edn

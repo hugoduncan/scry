@@ -139,11 +139,17 @@
     (tests-edn-exists?) (load-tests-edn-config)
     :else (build-fallback-config opts)))
 
+(defn- plugin-id
+  [plugin]
+  (if (map? plugin)
+    (:kaocha.plugin/id plugin)
+    plugin))
+
 (defn- ensure-capture-output-plugin
   [plugins]
   (let [plugins (vec plugins)]
     (cond-> plugins
-      (not (some #{:kaocha.plugin/capture-output} plugins))
+      (not (some #{:kaocha.plugin/capture-output} (map plugin-id plugins)))
       (conj :kaocha.plugin/capture-output))))
 
 (defn- apply-runtime-defaults
@@ -152,6 +158,53 @@
       (update :kaocha/plugins ensure-capture-output-plugin)
       (assoc :kaocha/reporter []
              :kaocha/color? false)))
+
+(defn- event-var-symbol
+  [event]
+  (when-let [v (:var event)]
+    (symbol (str (ns-name (:ns (meta v))))
+            (str (:name (meta v))))))
+
+(defn- progress-reporter
+  [callback]
+  (let [current-var (atom nil)
+        counts (atom {})]
+    (fn [event]
+      (case (:type event)
+        :begin-test-var
+        (let [var-symbol (event-var-symbol event)]
+          (reset! current-var var-symbol)
+          (swap! counts assoc var-symbol {:pass 0 :fail 0 :error 0}))
+
+        :pass
+        (when-let [var-symbol @current-var]
+          (swap! counts update-in [var-symbol :pass] (fnil inc 0)))
+
+        :fail
+        (when-let [var-symbol @current-var]
+          (swap! counts update-in [var-symbol :fail] (fnil inc 0)))
+
+        :error
+        (when-let [var-symbol @current-var]
+          (swap! counts update-in [var-symbol :error] (fnil inc 0)))
+
+        :end-test-var
+        (let [var-symbol (event-var-symbol event)
+              {:keys [pass fail error] :as summary} (get @counts var-symbol
+                                                          {:pass 0 :fail 0 :error 0})]
+          (callback {:var var-symbol
+                     :ns (some-> var-symbol namespace symbol)
+                     :status (status fail error pass)
+                     :assertion-summary summary})
+          (reset! current-var nil))
+
+        nil))))
+
+(defn- apply-progress-reporter
+  [cfg progress-callback]
+  (cond-> cfg
+    progress-callback
+    (update :kaocha/reporter conj (progress-reporter progress-callback))))
 
 (defn- valid-suites-collection?
   [suites]
@@ -223,13 +276,14 @@
   "Run kaocha tests in-process and return scry's inspectable result map.
 
    Options:
-     :config         a fully-formed kaocha config map (overrides loading tests.edn)
-     :suite          a single suite selector
-     :suites         a collection of suite selectors
-     :source-paths   fallback source dirs when no :config or tests.edn exists
-     :test-paths     fallback test dirs when no :config or tests.edn exists
-     :ns-patterns    fallback namespace-name regex strings
-     :result-format  suite-scope formatting overrides
+     :config             a fully-formed kaocha config map (overrides loading tests.edn)
+     :suite              a single suite selector
+     :suites             a collection of suite selectors
+     :source-paths       fallback source dirs when no :config or tests.edn exists
+     :test-paths         fallback test dirs when no :config or tests.edn exists
+     :ns-patterns        fallback namespace-name regex strings
+     :result-format      suite-scope formatting overrides
+     :progress-callback  optional function called after each completed test var
 
    Returns the same scoped result model as `scry.core/run`."
   ([] (run {}))
@@ -237,7 +291,8 @@
    (let [cfg (-> opts
                  resolve-config
                  (select-suites (suite-selectors opts))
-                 apply-runtime-defaults)
+                 apply-runtime-defaults
+                 (apply-progress-reporter (:progress-callback opts)))
          start (System/nanoTime)
          kaocha-result (binding [clojure.test/*report-counters* (ref type/initial-counters)]
                          (api/run cfg))

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added `scry.cli` command-line entry points for `clojure -M -m` and `clojure -X` runs, with live per-test-var progress, stdout summaries, non-zero exits for failures/errors/no executable tests, and detailed `.scry-results/*.edn` files for failed or erroring vars.
+- Added command-line selector support for core `clojure.test` dirs, namespaces, vars, and namespace patterns, plus optional Kaocha CLI mode for suite/config/fallback options when the Kaocha adapter is on the classpath.
 - Added an optional `org.hugoduncan/scry-kaocha` adapter artifact built from `src-kaocha`, released at the same version as `org.hugoduncan/scry`, with release builds/deploys/GitHub Releases now carrying both jars while keeping the core jar free of Kaocha code and dependencies.
 - Added Babashka release tasks and a GitHub Actions release workflow for safe dry-run verification, strict `v0.1.<git-count>` tag publishing, Clojars deploy, and GitHub Release creation.
 - Added a GitHub Actions CI workflow for pull requests and pushes to `master` that runs core tests, optional Kaocha adapter tests, focused build checks, and the jar build.

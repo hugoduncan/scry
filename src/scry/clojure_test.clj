@@ -87,11 +87,13 @@
   "Run clojure.test tests in-process and return an inspectable result map.
 
    Options:
-     :vars           explicit vars to run
-     :namespaces     namespace symbols to run
-     :dirs           source dirs to scan for test namespaces (default [\"test\"])
-     :ns-pattern     regex matched against namespace names during discovery
-     :result-format  per-scope result formatting overrides
+     :vars               explicit vars to run
+     :namespaces         namespace symbols to run
+     :dirs               source dirs to scan for test namespaces (default [\"test\"])
+     :ns-pattern         regex matched against namespace names during discovery
+     :result-format      per-scope result formatting overrides
+     :progress-callback  optional function called with each canonical var entry
+                         after that var's final status is known
 
    Results use :results as the canonical collection and may include :failures
    as a filtered compatibility collection, depending on the selected format."
@@ -100,11 +102,21 @@
    (let [state (capture/new-state)
          vars-to-run (vec (resolve-vars opts))
          scope (result-scope opts vars-to-run)
+         report (capture/report-fn state)
+         progress-callback (:progress-callback opts)
+         report-with-progress
+         (fn [m]
+           (if (= :end-test-var (:type m))
+             (let [entry (capture/current-var-result state)]
+               (report m)
+               (when (and progress-callback entry)
+                 (progress-callback entry)))
+             (report m)))
          start (System/nanoTime)]
      ;; Reset the testing context/var stacks so that running inside an
      ;; enclosing clojure.test run (e.g. scry's own tests) does not leak
      ;; ambient `testing` contexts into captured assertions.
-     (binding [test/report (capture/report-fn state)
+     (binding [test/report report-with-progress
                test/*testing-contexts* (list)
                test/*testing-vars* (list)
                *out* (capture/routing-writer state :out)

@@ -25,7 +25,8 @@ A caller also had to infer fallback policy from stderr text such as `scry CLI er
   - test load failure / synthetic suite-level load error when representable in canonical results
   - normal test assertion failure/error
   - zero executable tests
-  - argument errors if applicable
+  - argument errors on structured option-normalization surfaces
+- `-m scry.cli` parser errors remain process-oriented: they return non-zero status and human stderr, but do not expose a structured outcome map or outcome kind. Machine callers that need argument-error classification should use `clojure -X scry.cli/run`, direct `scry.cli/run`, or direct option-normalization APIs rather than parsing `-m` stderr.
 - The existing human-oriented stderr line can remain for compatibility, but callers should not need to parse it.
 - Keep public result map shapes stable except for additive keys on CLI outcomes/ex-data.
 
@@ -40,29 +41,29 @@ The CLI outcome classification is an additive public CLI contract, not a change 
 
 Initial vocabulary:
 
-- `:scry.cli/pass` — at least one executable test var ran and all aggregate assertions and canonical result entries passed.
+- `:scry.cli/pass` — at least one concrete executable test-var entry ran, no higher-precedence non-zero signal applies, all aggregate assertions passed, and all concrete canonical result entries passed. Synthetic/non-var-backed entries never make a run executable.
 - `:scry.cli/argument-error` — CLI option parsing or option normalization failed before runner execution.
 - `:scry.cli/runner-error` — runner infrastructure failed before yielding a valid result with `:canonical-results`, including inability to load the optional Kaocha runner, runner exceptions, or malformed runner results.
 - `:scry.cli/load-error` — the runner returned one or more failing/erroring canonical entries that are not attributable to a concrete test var; this covers synthetic suite-level/test-load errors such as Kaocha load failures represented as entries with nil or absent `:var`.
 - `:scry.cli/test-failure` — one or more concrete var-backed canonical entries failed or errored, or aggregate runner assertion counts report failures/errors attributable to the executed run.
 - `:scry.cli/unknown-result` — one or more canonical entries have `:status :unknown`, with no higher-precedence classification.
-- `:scry.cli/zero-tests` — runner execution completed without runner infrastructure error, but no executable canonical test-var entries were produced and no higher-precedence non-zero signal applies.
+- `:scry.cli/zero-tests` — runner execution completed without runner infrastructure error, but no concrete executable canonical test-var entries were produced and no higher-precedence non-zero signal applies. Aggregate pass counts or synthetic/non-var-backed entries do not by themselves make a run executable.
 
 ## Classification precedence and recognition
 
 Classification is a run-level aggregation. When multiple non-zero signals are present, choose the first matching kind in this order:
 
-1. `:scry.cli/argument-error` for parse/normalization errors before `run-cli`, including `-m` parser errors and `-X` normalization errors converted into the non-zero ex-info contract.
+1. `:scry.cli/argument-error` for structured parse/normalization errors before runner execution, including `clojure -X` normalization errors converted into the non-zero ex-info contract. Main-style `-m` parser errors are intentionally outside the structured outcome contract because `main-outcome` returns only an exit code and `-main` exits the process after writing human stderr.
 2. `:scry.cli/runner-error` for exceptions while resolving or invoking the selected runner, failure to create/clear `.scry-results/`, missing or non-vector `:canonical-results`, or other CLI infrastructure exceptions before a valid canonical entry collection can be inspected.
 3. `:scry.cli/load-error` for any failing/erroring canonical entry whose `:var` is nil, absent, or not a concrete var symbol with both namespace and name. This is recognized structurally from canonical result data; do not parse stderr or assertion message text. If such an entry also has `:ns`, it is still synthetic/non-var-backed for classification purposes.
 4. `:scry.cli/test-failure` for concrete var-backed `:fail` or `:error` entries, or for aggregate `:summary` assertion `:fail`/`:error` counts when no higher-precedence kind applies.
 5. `:scry.cli/unknown-result` for canonical entries with `:status :unknown` when no higher-precedence kind applies.
-6. `:scry.cli/zero-tests` when the run has no executable canonical test-var entries and no higher-precedence kind applies.
-7. `:scry.cli/pass` when the computed exit code is zero.
+6. `:scry.cli/zero-tests` when the run has no concrete executable canonical test-var entries and no higher-precedence kind applies.
+7. `:scry.cli/pass` when the run has at least one concrete executable canonical test-var entry and no non-zero classification applies.
 
 Runner infrastructure errors are distinguished from representable load errors by whether the selected runner produced an inspectable result with vector `:canonical-results`. Once a valid canonical entry collection exists, nil/absent-var failing or erroring entries are treated as `:scry.cli/load-error` rather than `:scry.cli/runner-error`.
 
-A concrete var-backed entry is one whose `:var` is a symbol with a namespace and name. Ordinary assertion failures/errors keep their normal `:scry.cli/test-failure` classification even if their assertion message mentions loading or requiring code.
+A concrete var-backed entry is one whose `:var` is a symbol with a namespace and name. Only concrete var-backed canonical entries count as executable test vars for the `:scry.cli/pass` versus `:scry.cli/zero-tests` decision. Synthetic/non-var-backed entries never count as executable, even if their status is `:pass`; if the run has only synthetic passing entries and no higher-precedence signal, classify it as `:scry.cli/zero-tests`. Aggregate assertion `:pass` counts alone also do not make a run executable, though aggregate assertion `:fail`/`:error` counts still classify as `:scry.cli/test-failure` at the precedence step above. Ordinary assertion failures/errors keep their normal `:scry.cli/test-failure` classification even if their assertion message mentions loading or requiring code.
 
 ## Synthetic entry progress and result-file naming
 

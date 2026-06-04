@@ -123,6 +123,31 @@ Run focused build checks with:
 clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (ct/run-tests 'scry.build-test)"
 ```
 
+## Maintainer release workflow
+
+Release automation uses Babashka locally and `.github/workflows/release.yml` in GitHub Actions.
+
+Local commands:
+
+```sh
+bb release --dry-run        # dispatch a non-publishing workflow_dispatch dry run
+bb release --dry-run --ref master
+bb release:tag              # stamp CHANGELOG.md, commit, and create a local vVERSION tag
+bb release                  # create/reuse the local tag, then push master and the tag
+```
+
+Dry runs are safe: they require a clean tree, a GitHub `origin`, an available/authenticated `gh` CLI, and a selected local commit that matches a pushed `origin` ref. The task passes `ref`, exact `sha`, and `expected_version` to the workflow; the workflow checks out full history, verifies the SHA when supplied, runs tests/build checks, builds the jar, checks the expected version, and never deploys or creates a GitHub Release on `workflow_dispatch`.
+
+Real releases must be cut from clean `master`. Because versions are `0.1.<git rev-list --count HEAD>`, `bb release:tag` computes the tag version as the current commit count plus one before creating the changelog release commit. It stamps `CHANGELOG.md` with a fresh bare `## Unreleased` section plus a bracketed `## [VERSION] - YYYY-MM-DD` release section, commits `Release vVERSION`, and tags that commit. Pushed publishing tags must exactly match `v0.1.<non-negative-integer>` and must agree with the jar version built at the checked-out tag commit.
+
+Publishing runs use `clojure -T:build:deploy deploy` and require GitHub repository secrets `CLOJARS_USERNAME` and `CLOJARS_PASSWORD` (a Clojars deploy token/password). The workflow deploys the same core-only jar artifact built from `src`, extracts the matching bracketed changelog section for the GitHub Release body, and attaches the built jar to the GitHub Release.
+
+Run focused release helper checks with:
+
+```sh
+clojure -M:test:release-test -e "(require '[scry.release-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.release-test)] (when-not (ct/successful? result) (System/exit 1)))"
+```
+
 ## Architecture notes
 
 Important namespaces:

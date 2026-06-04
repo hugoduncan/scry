@@ -54,15 +54,24 @@ Project: scry
 - Task `004-github-ci-tests` docs review found no new actionable documentation issues; README remains public-API focused, AGENTS.md documents CI maintenance guidance, CHANGELOG.md documents the developer-visible CI workflow, and no `doc/` directory is present.
 - Task `004-github-ci-tests` code-shaper review found no new actionable code-quality issues; the single-job workflow is simple and locally comprehensible, result-aware Clojure checks fail non-zero, and `actionlint` passes.
 - Task `004-github-ci-tests` is closed. It added GitHub Actions CI for PRs and pushes to `master`, running core tests, focused Kaocha adapter tests, focused build checks, and the jar build with full Git history for Git-derived versioning.
+- Task `005-release-workflow-and-bb-task` has been created to add release automation: Babashka release task(s) for dry-run dispatch plus stamping changelog/tagging/pushing, and a GitHub Actions release workflow for dry-run verification, tag-triggered verification, Clojars deploy, and GitHub Release creation. The design draws simplified inspiration from `../../psi/psi-main` while preserving scry's core-only jar and `0.1.<git commit count>` versioning.
+- Task `005-release-workflow-and-bb-task` architecture review found no new actionable architectural-fit feedback. Review note is recorded in `implementation.md`; META.md and doc/architecture.md were absent, so review used AGENTS.md plus the task design.
+- Task `005-release-workflow-and-bb-task` ambiguity review follow-up is complete: `design.md` now pins dry-run local/remote ref-to-commit matching and exact expected-version computation, bracketed release changelog heading/extraction rules, and strict publishing tag format validation for `v0.1.<git-count>` tags with nonconforming `v*` tags failing before publish.
+- Task `005-release-workflow-and-bb-task` plan ambiguity review found three actionable follow-ups: pin the focused release helper/task test command and classpath/alias; specify the deploy task credential/artifact contract; and decide the workflow dispatch ref/SHA input contract with an explicit checked-out-SHA verification.
+- Task `005-release-workflow-and-bb-task` plan ambiguity follow-up is complete: `plan.md` now pins focused release helper tests to `test/scry/release_test.clj` with `:release-test` classpath including `bb/`, specifies `clojure -T:build:deploy deploy` credentials/artifact contract, and chooses separate release workflow dry-run inputs `ref`, `sha`, and `expected_version` with checked-out SHA verification.
+- Task `005-release-workflow-and-bb-task` Slice 1 implementation is complete: `bb/scry/release.clj` contains Babashka-compatible helper logic for Git-count version math, strict release tag validation/agreement, changelog stamping/extraction, dry-run ref agreement, clean-master checks, GitHub origin parsing, and existing-tag retry planning; `test/scry/release_test.clj` covers these helpers through the `:release-test` alias, and focused release helper tests pass.
+- Task `005-release-workflow-and-bb-task` Slice 2 implementation is complete: `bb.edn` exposes `release` and `release:tag`; `bb release --dry-run [--ref REF]` validates clean local/remote state, GitHub origin, `gh`, workflow presence, exact SHA/ref agreement, computes expected Git-count version, and dispatches release workflow inputs; `bb release:tag` stamps changelog/commits/tags with off-by-one versioning; `bb release` reuses/pushes existing tags or creates and pushes the release. Focused release tests and basic bb task loading pass.
+- Task `005-release-workflow-and-bb-task` Slice 3 implementation is complete: `deps.edn` has a maintainer-scoped `:deploy` alias for `slipset/deps-deploy`; `build/deploy` runs as `clojure -T:build:deploy deploy`, requires `CLOJARS_USERNAME`/`CLOJARS_PASSWORD`, builds the same core-only jar first, and deploys the generated jar plus pom through deps-deploy. Focused build checks cover credential failure, deploy argument shape, and preservation of the core-only/Kaocha exclusion boundary.
 ## Active focus
 
-- No open tasks.
+- Open task `005-release-workflow-and-bb-task`: latest code-shaper follow-up is complete. `parse-release-args` now rejects `bb release --ref REF` without `--dry-run` with `--ref is only supported with --dry-run`, and focused release argument tests cover accepted/rejected forms. Focused release helper tests pass: 17 tests, 80 assertions, 0 failures, 0 errors. The review-added item in `steps.md` is checked.
 
 ## Useful links
 
 - Project README: `README.md`
 - Agent guidance: `AGENTS.md`
 - Munera task plan: `munera/plan.md`
+- Open release automation task: `munera/open/005-release-workflow-and-bb-task/`
 - Closed GitHub CI task: `munera/closed/004-github-ci-tests/`
 - Closed Kaocha suite-selection task: `munera/closed/002-kaocha-tests-edn-suite-selection/`
 - Closed build jar task: `munera/closed/003-tools-build-jar/`

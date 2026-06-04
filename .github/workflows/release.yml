@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to check out for a non-publishing dry run
+        required: false
+        default: ''
+      sha:
+        description: Exact commit SHA expected after checkout; supplied by bb release --dry-run
+        required: false
+        default: ''
+      expected_version:
+        description: Expected 0.1.<git-count> build version for dry-run validation
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Verify and release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+
+      - name: Verify dry-run checkout SHA
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.sha != '' }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "${{ inputs.sha }}" ]; then
+            echo "Checked out $actual_sha, expected ${{ inputs.sha }}" >&2
+            exit 1
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Clojure CLI
+        uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          cli: latest
+
+      - name: Run core tests
+        run: |
+          clojure -M:test -e "(require '[scry.core :as scry]) (let [result (scry/run)] (println (scry/report-string result)) (when-not (:pass? result) (System/exit 1)))"
+
+      - name: Run Kaocha adapter tests
+        run: |
+          clojure -M:test:kaocha -e "(require '[scry.kaocha-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.kaocha-test)] (when-not (ct/successful? result) (System/exit 1)))"
+
+      - name: Run focused build checks
+        run: |
+          clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"
+
+      - name: Run focused release checks
+        run: |
+          clojure -M:test:release-test -e "(require '[scry.release-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.release-test)] (when-not (ct/successful? result) (System/exit 1)))"
+
+      - name: Build jar
+        run: clojure -T:build jar
+
+      - name: Resolve built version
+        id: artifact
+        run: |
+          jar_file="$(ls target/scry-*.jar)"
+          version="${jar_file#target/scry-}"
+          version="${version%.jar}"
+          echo "jar_file=$jar_file" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Built $jar_file for version $version"
+
+      - name: Verify dry-run expected version
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_version != '' }}
+        run: |
+          if [ "${{ steps.artifact.outputs.version }}" != "${{ inputs.expected_version }}" ]; then
+            echo "Built version ${{ steps.artifact.outputs.version }} did not match expected ${{ inputs.expected_version }}" >&2
+            exit 1
+          fi
+
+      - name: Validate dry-run changelog shape
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          clojure -M:release-test -e '
+          (require (quote [clojure.java.shell :as shell])
+                   (quote [clojure.string :as str])
+                   (quote [scry.release :as r]))
+          (let [version "${{ inputs.expected_version }}"
+                release-tag (when (not (str/blank? version)) (str "v" version))
+                head-sha (str/trim (:out (shell/sh "git" "rev-parse" "HEAD")))
+                tag-result (when release-tag
+                             (shell/sh "git" "rev-parse" "--verify" "--quiet"
+                                       (str "refs/tags/" release-tag "^{commit}")))
+                tag-sha (when (and tag-result (zero? (:exit tag-result)))
+                          (str/trim (:out tag-result)))]
+            (r/dry-run-changelog-section (slurp "CHANGELOG.md")
+                                         {:version version
+                                          :input-ref "${{ inputs.ref }}"
+                                          :head-sha head-sha
+                                          :tag-sha tag-sha}))'
+
+      - name: Validate publishing tag and version
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          clojure -M:release-test -e '
+          (require (quote [scry.release :as r]))
+          (r/assert-tag-matches-version! "${{ github.ref_name }}" "${{ steps.artifact.outputs.version }}")'
+
+      - name: Extract release notes
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          clojure -M:release-test -e '
+          (require (quote [scry.release :as r]))
+          (let [version "${{ steps.artifact.outputs.version }}"]
+            (spit "release-notes.md" (str (r/release-section (slurp "CHANGELOG.md") version) "\n")))'
+
+      - name: Deploy to Clojars
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: clojure -T:build:deploy deploy
+
+      - name: Create GitHub Release
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            "${{ steps.artifact.outputs.jar_file }}" \
+            --title "${{ github.ref_name }}" \
+            --notes-file release-notes.md

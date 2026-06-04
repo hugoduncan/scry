@@ -1,0 +1,10 @@
+{:paths ["bb"]
+ :tasks
+ {release {:doc "Push a release, or dispatch a dry-run with --dry-run [--ref REF]."
+           :task (do
+                   (require '[scry.release])
+                   ((resolve 'scry.release/release-command!) *command-line-args*))}
+  release:tag {:doc "Stamp CHANGELOG.md, commit it, and create the local release tag."
+               :task (do
+                       (require '[scry.release])
+                       ((resolve 'scry.release/release-tag-command!)))}}}

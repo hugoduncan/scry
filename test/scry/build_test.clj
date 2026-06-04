@@ -78,6 +78,44 @@
             (is (= {:out "not-a-number\n" :err ""}
                    (ex-data failure)))))))))
 
+(deftest deploy-support-test
+  ;; The deploy task should require Clojars credentials, build the same
+  ;; core-only artifact as jar, and pass that jar plus its generated pom to
+  ;; deps-deploy through an injectable process boundary.
+  (testing "deploy"
+    (if-not (load-build!)
+      (is true "skipping focused build check because :build alias is not active")
+      (let [assert-deploy-credentials! (requiring-resolve 'build/assert-deploy-credentials!)
+            deploy (requiring-resolve 'build/deploy)]
+        (testing "requires Clojars credentials"
+          (let [failure (try
+                          (assert-deploy-credentials! {"CLOJARS_USERNAME" "user"
+                                                       "CLOJARS_PASSWORD" ""})
+                          nil
+                          (catch clojure.lang.ExceptionInfo ex
+                            ex))]
+            (is failure)
+            (is (= {:missing-env ["CLOJARS_PASSWORD"]}
+                   (ex-data failure)))))
+        (testing "builds and deploys the core artifact"
+          (let [calls (atom [])
+                {:keys [version jar-file pom-file]} (deploy {:env {"CLOJARS_USERNAME" "user"
+                                                                   "CLOJARS_PASSWORD" "token"}
+                                                            :deploy-fn #(swap! calls conj %)})
+                jar-path (io/file jar-file)
+                entries (jar-entries jar-path)
+                pom (slurp pom-file)]
+            (is (= [{:installer :remote
+                     :artifact jar-file
+                     :pom-file pom-file}]
+                   @calls))
+            (is (= (str "target/scry-" version ".jar") jar-file))
+            (is (str/includes? pom "<artifactId>scry</artifactId>"))
+            (is (str/includes? pom (str "<version>" version "</version>")))
+            (is (not (str/includes? pom "lambdaisland/kaocha")))
+            (is (contains? entries "scry/core.clj"))
+            (is (not (contains? entries "scry/kaocha.clj")))))))))
+
 (deftest jar-build-produces-core-artifact-test
   ;; The jar task creates a core-only artifact with the expected coordinate,
   ;; version, and repository-only paths excluded by construction.

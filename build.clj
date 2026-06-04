@@ -65,3 +65,46 @@
     {:lib lib
      :version v
      :jar-file (jar-file v)}))
+
+(defn pom-file
+  "Returns the generated pom path for the build class directory."
+  []
+  (b/pom-path {:lib lib
+               :class-dir class-dir}))
+
+(defn- blank-env?
+  [env name]
+  (str/blank? (get env name)))
+
+(defn assert-deploy-credentials!
+  "Verifies required Clojars deploy credentials are present in the environment."
+  ([]
+   (assert-deploy-credentials! (System/getenv)))
+  ([env]
+   (let [missing (->> ["CLOJARS_USERNAME" "CLOJARS_PASSWORD"]
+                      (filter #(blank-env? env %))
+                      vec)]
+     (when (seq missing)
+       (throw (ex-info "Clojars deploy requires CLOJARS_USERNAME and CLOJARS_PASSWORD"
+                       {:missing-env missing}))))
+   true))
+
+(defn deploy
+  "Build and deploy the core-only scry jar to Clojars.
+
+   Requires the :deploy alias so deps-deploy is available, and requires
+   CLOJARS_USERNAME and CLOJARS_PASSWORD in the environment."
+  [opts]
+  (let [opts (or opts {})]
+    (assert-deploy-credentials! (or (:env opts) (System/getenv)))
+    (let [{:keys [version jar-file]} (jar opts)
+          pom (pom-file)
+          deploy-fn (or (:deploy-fn opts)
+                        (requiring-resolve 'deps-deploy.deps-deploy/deploy))]
+      (deploy-fn {:installer :remote
+                  :artifact jar-file
+                  :pom-file pom})
+      {:lib lib
+       :version version
+       :jar-file jar-file
+       :pom-file pom})))

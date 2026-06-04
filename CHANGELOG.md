@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added Babashka release tasks and a GitHub Actions release workflow for safe dry-run verification, strict `v0.1.<git-count>` tag publishing, Clojars deploy, and GitHub Release creation.
 - Added a GitHub Actions CI workflow for pull requests and pushes to `master` that runs core tests, optional Kaocha adapter tests, focused build checks, and the jar build.
 - Added a `tools.build` jar workflow with `clojure -T:build jar` for the `org.hugoduncan/scry` artifact, using Git-derived `0.1.<git-revcount>` versions and core-only packaging that excludes the optional Kaocha adapter.
 - Updated `scry.kaocha/run` to load project `tests.edn` suites by default when present, falling back to the synthetic `:unit` suite only when no Kaocha config file exists.

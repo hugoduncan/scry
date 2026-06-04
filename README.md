@@ -206,6 +206,10 @@ The adapter preserves supplied full `:config` maps without merging fallback path
 
 Note: Kaocha's capture-output plugin merges stdout and stderr into one captured stream. `scry.kaocha` places that combined output in `:out` and leaves `:err` empty.
 
+## License
+
+`scry` is licensed under the Eclipse Public License 2.0 (`EPL-2.0`). See [`LICENSE`](LICENSE).
+
 ## Contributor and agent guidance
 
 Development workflow, repository conventions, test commands, and architectural constraints live in [`AGENTS.md`](AGENTS.md), not in this README.

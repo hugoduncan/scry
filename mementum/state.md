@@ -81,6 +81,12 @@ Project: scry
 - Task `008-testing-without-mocks-repl-strategy` plan and steps have been created from the stable design. The plan chooses documentation-only explicit REPL snippets, focused CI core slicing, temporary Kaocha namespace uniqueness/removal, Nullable boundary audit, and focused slice verification as the ordered implementation path.
 ## Active focus
 
+- Task `011-add-project-license` implementation is complete: top-level `LICENSE` contains the unmodified EPL-2.0 text from the plan-approved SPDX `license-list-data` fallback pinned to commit `421fbabbe80c94c58c12316af1bc6a2dca2362bc` after the direct SPDX URL returned 404, README has the only required license note, POM metadata remains deferred to `014-add-public-pom-metadata`, and all task steps are checked with exact license comparison and diff-scope verification recorded.
+- Task `011-add-project-license` ambiguity-review design follow-up is complete: `design.md` now pins README as the only doc requiring a license note, records the POM metadata handoff in this task's `implementation.md` for `014-add-public-pom-metadata`, and uses the SPDX EPL-2.0 full text as the canonical `LICENSE` source with no project-specific header/footer additions. All review-added items in `design-steps.md` are checked.
+- Task `011-add-project-license` inconsistency-review design follow-up is complete: generated Maven/Clojars POM metadata, including license metadata, is now fully out of scope for task 011 and deferred to `014-add-public-pom-metadata`; task 011 only records the handoff note in `implementation.md`. All review-added items in `design-steps.md` are checked.
+- Task `011-add-project-license` plan and steps have been refreshed from the stable design. The plan slices implementation into adding the canonical SPDX EPL-2.0 `LICENSE`, adding the README-only license note, and verifying/recording scope and POM metadata handoff boundaries.
+- Task `011-add-project-license` plan ambiguity-review follow-up is complete: `plan.md` now pins the only allowed EPL-2.0 retrieval fallback to an SPDX-controlled `spdx/license-list-data` source and requires exact byte-for-byte comparison from a temporary retrieved text, with source/ref and SHA-256 recorded in `implementation.md`. The review-added item in `steps.md` is checked.
+- Task `011-add-project-license` plan inconsistency-review follow-up is complete: `steps.md` Slice 1 retrieval wording now names the direct SPDX EPL-2.0 URL and the only allowed SPDX-controlled `spdx/license-list-data` fallback; the review-added checklist item is checked.
 - Open task `005-release-workflow-and-bb-task`: latest code-shaper follow-up is complete. `parse-release-args` now rejects `bb release --ref REF` without `--dry-run` with `--ref is only supported with --dry-run`, and focused release argument tests cover accepted/rejected forms. Focused release helper tests pass: 17 tests, 80 assertions, 0 failures, 0 errors. The review-added item in `steps.md` is checked.
 - Task `007-command-line-progress-results` implementation-review follow-up is complete: `scry.cli/run` now converts `-X` normalization/argument errors into the same structured `:scry.cli/non-zero` `ex-info` contract as other non-zero CLI outcomes, including `:exit-code 1`, nil `:summary`, and preserved underlying `:scry.cli/argument-error` data in `:error`/`:outcome`. Focused core CLI tests pass (19 tests, 94 assertions).
 - Task `007-command-line-progress-results` latest implementation-review follow-up is complete: CLI result files now recursively sanitize raw `Throwable` values into EDN-readable maps with class/message/stacktrace/ex-data/cause detail before `pr-str`, while preserving assertion `:stacktrace` strings. Focused core CLI tests pass (21 tests, 104 assertions), including `clojure.edn/read-string` coverage for error result files; the existing core suite through `scry` passes (61 tests, 281 pass).
@@ -140,16 +146,19 @@ Project: scry
 
 - Task `009-replaceable-capture-context` docs review found three actionable documentation issues: CHANGELOG.md does not mention the user-visible nested/reentrant capture fix, README.md does not describe nested in-process runner isolation/limits, and top-level SKILL.md still claims `scry.clojure-test` delegates to `clojure.test/test-vars`. Follow-up items were added to `steps.md`.
 - Task `009-replaceable-capture-context` docs-review follow-up is complete: CHANGELOG.md Unreleased mentions the nested/reentrant capture fix, README.md documents nested in-process runner isolation and same-thread/cooperative limits, SKILL.md now describes the local fixture-preserving `clojure.test/test-var` loop, and all docs-review steps are checked.
+- Task `009-replaceable-capture-context` is closed. It refactored capture around dynamically replaceable/disabled contexts with intended-var allow-listing, owned/ignored frame stacks, per-var output ownership, fixture-preserving local `clojure.test/test-var` execution, raw nested `clojure.test` counter preservation without outer leakage, and Kaocha adapter isolation. Focused core, plain clojure.test, CLI, and optional Kaocha verification passed after implementation/test/docs/code-shaper reviews.
 
 ## Useful links
 
 - Project README: `README.md`
 - Agent guidance: `AGENTS.md`
 - Munera task plan: `munera/plan.md`
-- Open release automation task: `munera/open/005-release-workflow-and-bb-task/`
-- Open CLI progress/results task: `munera/open/007-command-line-progress-results/`
-- Open Testing Without Mocks REPL strategy task: `munera/open/008-testing-without-mocks-repl-strategy/`
-- Open replaceable capture context task: `munera/open/009-replaceable-capture-context/`
+- No open Munera tasks remain; see `munera/plan.md`.
+- Closed release automation task: `munera/closed/005-release-workflow-and-bb-task/`
+- Closed CLI progress/results task: `munera/closed/007-command-line-progress-results/`
+- Closed Testing Without Mocks REPL strategy task: `munera/closed/008-testing-without-mocks-repl-strategy/`
+- Closed deterministic Kaocha CLI unavailable test task: `munera/closed/010-deterministic-kaocha-cli-unavailable-test/`
+- Closed replaceable capture context task: `munera/closed/009-replaceable-capture-context/`
 - Closed Kaocha adapter jar task: `munera/closed/006-kaocha-support-jar-release-artifact/`
 - Closed GitHub CI task: `munera/closed/004-github-ci-tests/`
 - Closed Kaocha suite-selection task: `munera/closed/002-kaocha-tests-edn-suite-selection/`
@@ -157,3 +166,5 @@ Project: scry
 - Closed scoped-format task: `munera/closed/001-result-format-by-invocation-scope/`
 - Mementum memories: `mementum/memories/`
 - Mementum knowledge: `mementum/knowledge/`
+- Task `010-deterministic-kaocha-cli-unavailable-test` has been created. It will make `scry.cli-test/run-cli-no-tests-and-runner-errors-test` deterministic when the optional Kaocha adapter is present on the project REPL classpath by adding a minimal internal boundary for optional Kaocha runner resolution and updating the unavailable-adapter test to use that boundary instead of relying on classpath absence.
+- All remaining open Munera tasks (`005-release-workflow-and-bb-task`, `007-command-line-progress-results`, `008-testing-without-mocks-repl-strategy`, and `010-deterministic-kaocha-cli-unavailable-test`) were moved to `munera/closed/` by user request; `munera/plan.md` now records no open tasks.

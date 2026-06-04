@@ -100,6 +100,25 @@ Use `:results` as the canonical result collection. Use `scry/failures` or `:fail
 - Avoid parsing human-oriented terminal output when a structured result is available.
 - Keep README examples synchronized with the actual API.
 
+## Maintainer build workflow
+
+Build tasks use `tools.build` through the `:build` alias:
+
+```sh
+clojure -T:build clean
+clojure -T:build jar
+```
+
+`jar` writes a core library artifact under `target/` named like `scry-0.1.<patch>.jar`. The coordinate is `org.hugoduncan/scry`, and the version is generated as `0.1.<git rev-list --count HEAD>`. Builds fail if Git metadata is unavailable or the Git command does not return a numeric commit count; do not substitute an ambiguous fallback version.
+
+The initial jar packages only `src`. It intentionally excludes `src-kaocha` so the optional Kaocha adapter remains alias-only and does not become a hard runtime dependency of the core artifact. Local Maven `install` is deferred until a later explicit task adds it with verification.
+
+Run focused build checks with:
+
+```sh
+clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (ct/run-tests 'scry.build-test)"
+```
+
 ## Architecture notes
 
 Important namespaces:

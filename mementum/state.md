@@ -54,6 +54,7 @@ Project: scry
 - Task `004-github-ci-tests` docs review found no new actionable documentation issues; README remains public-API focused, AGENTS.md documents CI maintenance guidance, CHANGELOG.md documents the developer-visible CI workflow, and no `doc/` directory is present.
 - Task `004-github-ci-tests` code-shaper review found no new actionable code-quality issues; the single-job workflow is simple and locally comprehensible, result-aware Clojure checks fail non-zero, and `actionlint` passes.
 - Task `004-github-ci-tests` is closed. It added GitHub Actions CI for PRs and pushes to `master`, running core tests, focused Kaocha adapter tests, focused build checks, and the jar build with full Git history for Git-derived versioning.
+- Task `012-add-public-installation-docs` is closed. README now has public Installation docs for `org.hugoduncan/scry` and optional `org.hugoduncan/scry-kaocha`, with copyable `:test` / `:kaocha` aliases using `"RELEASE"`, Git-count `0.1.N` pinning guidance, aligned CLI/Kaocha commands, and adapter transitive-dependency guidance.
 - Task `005-release-workflow-and-bb-task` has been created to add release automation: Babashka release task(s) for dry-run dispatch plus stamping changelog/tagging/pushing, and a GitHub Actions release workflow for dry-run verification, tag-triggered verification, Clojars deploy, and GitHub Release creation. The design draws simplified inspiration from `../../psi/psi-main` while preserving scry's core-only jar and `0.1.<git commit count>` versioning.
 - Task `005-release-workflow-and-bb-task` architecture review found no new actionable architectural-fit feedback. Review note is recorded in `implementation.md`; META.md and doc/architecture.md were absent, so review used AGENTS.md plus the task design.
 - Task `005-release-workflow-and-bb-task` ambiguity review follow-up is complete: `design.md` now pins dry-run local/remote ref-to-commit matching and exact expected-version computation, bracketed release changelog heading/extraction rules, and strict publishing tag format validation for `v0.1.<git-count>` tags with nonconforming `v*` tags failing before publish.
@@ -153,7 +154,9 @@ Project: scry
 - Project README: `README.md`
 - Agent guidance: `AGENTS.md`
 - Munera task plan: `munera/plan.md`
-- No open Munera tasks remain; see `munera/plan.md`.
+- Open public-readiness tasks remain; see `munera/plan.md`.
+- Closed public installation docs task: `munera/closed/012-add-public-installation-docs/`
+- Closed license task: `munera/closed/011-add-project-license/`
 - Closed release automation task: `munera/closed/005-release-workflow-and-bb-task/`
 - Closed CLI progress/results task: `munera/closed/007-command-line-progress-results/`
 - Closed Testing Without Mocks REPL strategy task: `munera/closed/008-testing-without-mocks-repl-strategy/`
@@ -168,3 +171,4 @@ Project: scry
 - Mementum knowledge: `mementum/knowledge/`
 - Task `010-deterministic-kaocha-cli-unavailable-test` has been created. It will make `scry.cli-test/run-cli-no-tests-and-runner-errors-test` deterministic when the optional Kaocha adapter is present on the project REPL classpath by adding a minimal internal boundary for optional Kaocha runner resolution and updating the unavailable-adapter test to use that boundary instead of relying on classpath absence.
 - All remaining open Munera tasks (`005-release-workflow-and-bb-task`, `007-command-line-progress-results`, `008-testing-without-mocks-repl-strategy`, and `010-deterministic-kaocha-cli-unavailable-test`) were moved to `munera/closed/` by user request; `munera/plan.md` now records no open tasks.
+- Public-readiness task `011-add-project-license` is closed. The maintainer chose Eclipse Public License 2.0 (EPL-2.0); the task added canonical EPL-2.0 text as top-level `LICENSE`, added a README license note, and recorded a POM metadata handoff for task `014-add-public-pom-metadata`.

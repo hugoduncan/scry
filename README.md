@@ -20,6 +20,53 @@ AI coding agents often need to answer questions like:
 
 Traditional command-line test output is optimized for humans. `scry` is optimized for programmatic inspection.
 
+## Installation
+
+Add `scry` as a test/development dependency. A conventional `deps.edn` setup uses a `:test` alias with the project's test classpath and the core artifact:
+
+```clojure
+{:aliases
+ {:test
+  {:extra-paths ["test"]
+   :extra-deps
+   {org.hugoduncan/scry {:mvn/version "RELEASE"}}}}}
+```
+
+If your project already has a `:test` alias, merge the `:extra-deps` entry into it rather than replacing project-specific paths or options. Projects that use a different test source directory should adjust `:extra-paths` accordingly.
+
+Then run the REPL/API or CLI on the same alias:
+
+```sh
+clojure -M:test -m scry.cli
+clojure -X:test scry.cli/run
+```
+
+Copyable snippets use the Clojars `"RELEASE"` token for convenience. Published concrete versions are generated from the Git commit count, such as `0.1.N` / `0.1.<git-count>`. For reproducible builds, replace `"RELEASE"` with the latest concrete published version from Clojars and keep that version pinned.
+
+### Optional Kaocha adapter
+
+Kaocha support is packaged separately so core `scry` users do not take a hard Kaocha dependency. To use `scry.kaocha` or Kaocha CLI mode, add the optional adapter artifact under a composable alias:
+
+```clojure
+{:aliases
+ {:test
+  {:extra-paths ["test"]
+   :extra-deps
+   {org.hugoduncan/scry {:mvn/version "RELEASE"}}}
+  :kaocha
+  {:extra-deps
+   {org.hugoduncan/scry-kaocha {:mvn/version "RELEASE"}}}}}
+```
+
+Use the same version token/value for `org.hugoduncan/scry` and `org.hugoduncan/scry-kaocha`. The adapter artifact depends on the same-version `scry` core artifact and on Kaocha, so users do not need to declare Kaocha separately just to use `scry.kaocha`. Projects that already manage Kaocha can still override or add their preferred Kaocha dependency through normal `deps.edn` resolution.
+
+Run Kaocha support by composing the aliases:
+
+```sh
+clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
+clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
+```
+
 ## Usage
 
 `scry` is intended to be driven primarily from a REPL so results remain available for follow-up inspection in the same process.

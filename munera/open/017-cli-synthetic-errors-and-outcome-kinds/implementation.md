@@ -83,3 +83,5 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 verification (synthetic collision follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 263 assertions, 0 failures, 0 errors.
 2026-06-04 verification (synthetic collision follow-up): `clojure -M:test -m scry.cli` passed: 85 tests, 540 assertions, 0 failures, 0 errors.
 2026-06-04 verification (synthetic collision follow-up): `git diff --check` passed with no whitespace errors.
+
+2026-06-04 ambiguity review: No new actionable ambiguity feedback. Reviewed `design.md` against the current CLI outcome/progress/result-file docs and relevant `scry.cli`/`scry.cli.results` concepts; the design now clearly pins the outcome-kind API/vocabulary, precedence, synthetic load-error recognition, nil-var naming/collision behavior, `-m` parser boundary, concrete executable-var definition, and documentation scope. No follow-up items were added.

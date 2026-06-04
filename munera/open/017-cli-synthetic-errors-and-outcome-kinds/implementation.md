@@ -85,3 +85,7 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 verification (synthetic collision follow-up): `git diff --check` passed with no whitespace errors.
 
 2026-06-04 ambiguity review: No new actionable ambiguity feedback. Reviewed `design.md` against the current CLI outcome/progress/result-file docs and relevant `scry.cli`/`scry.cli.results` concepts; the design now clearly pins the outcome-kind API/vocabulary, precedence, synthetic load-error recognition, nil-var naming/collision behavior, `-m` parser boundary, concrete executable-var definition, and documentation scope. No follow-up items were added.
+
+2026-06-04 test-shaper review: Found one new actionable test-shaping issue. `run-cli` coverage exercises synthetic nil-var load errors and `clojure -X` ex-data propagation covers ordinary test failures plus argument errors, but there is no focused `scry.cli/run` (`-X`) test for the motivating synthetic load-error outcome. Add a narrow injected-runner `cli/run` test that catches the non-zero ex-info and asserts both top-level and embedded `:scry.cli/outcome-kind` are `:scry.cli/load-error` (and preserves the expected synthetic result-file behavior if practical), so machine fallback-policy callers are protected on the structured `-X` surface.
+
+2026-06-04 verification (test-shaper review): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 263 assertions, 0 failures, 0 errors.

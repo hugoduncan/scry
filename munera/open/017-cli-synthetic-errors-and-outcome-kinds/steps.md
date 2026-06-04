@@ -73,3 +73,7 @@
 
 - [x] Add focused outcome-kind coverage for mixed synthetic load-error plus concrete var failure results, asserting `:scry.cli/load-error` takes precedence over `:scry.cli/test-failure`.
 - [x] Add focused synthetic result-file collision coverage where both the base synthetic filename and its `--2` suffix are already reserved, asserting assignment advances deterministically to `--3` instead of reusing a path.
+
+## Latest test-shaper review follow-up
+
+- [ ] Add focused `scry.cli/run` (`clojure -X`) coverage for an injected synthetic nil/non-concrete-var load-error result, asserting top-level and embedded non-zero ex-data classify as `:scry.cli/load-error` and preserving synthetic result-file behavior where practical.

@@ -664,6 +664,34 @@
         (is (= {:pass 1 :fail 1 :error 0}
                (get-in outcome [:summary :assertions])))
         (is (= [] (result-files dir))))))
+  (testing "canonical entries with missing or invalid statuses are runner errors"
+    (doseq [[label entry] [["missing status"
+                            {:var 'scry.fixtures.passing/arithmetic-passes
+                             :ns 'scry.fixtures.passing
+                             :assertion-summary {:pass 1 :fail 0 :error 0}
+                             :assertions []}]
+                           ["invalid status"
+                            {:var 'scry.fixtures.passing/arithmetic-passes
+                             :ns 'scry.fixtures.passing
+                             :status :bogus
+                             :assertion-summary {:pass 1 :fail 0 :error 0}
+                             :assertions []}]]]
+      (testing label
+        (with-temp-dir [dir]
+          (let [outcome (run-cli-in
+                         dir
+                         (cli/normalize-exec-opts {})
+                         {:run-clojure-test
+                          (fn [_]
+                            {:summary {:test 1 :pass 1 :fail 0 :error 0}
+                             :pass? true
+                             :canonical-results [entry]})})]
+            (is (= 1 (:exit-code outcome)))
+            (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+            (is (= nil (:result outcome)))
+            (is (= [] (result-files dir)))
+            (is (str/includes? (:stderr outcome)
+                               "Runner result included malformed canonical entry")))))))
   (testing "malformed runner results are runner errors"
     (with-temp-dir [dir]
       (let [outcome (run-cli-in

@@ -43,3 +43,11 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 verification (implementation-review follow-up): `git diff --check` passed with no whitespace errors.
 
 2026-06-04 implementation review: Found one new actionable issue. `scry.cli` only validates that `:canonical-results` is a vector; malformed canonical entries with missing or unrecognized `:status` can fall through classification as `:scry.cli/pass` when they have a concrete var, even though they are not passed entries and should be treated as malformed runner results/runner errors. A follow-up item was added to `steps.md`.
+
+
+2026-06-04 implementation-review follow-up: Completed the newly added malformed canonical entry status follow-up. `scry.cli/canonical-result-entries` now validates every canonical entry is a map with a recognized `:status` in `#{:pass :fail :error :unknown}` before summary/result-file/classification processing. Missing or unrecognized statuses throw a runner-error `ex-info`, so concrete var-backed malformed entries cannot fall through to `:scry.cli/pass`. Focused CLI coverage now exercises both missing and invalid status entries and verifies `:scry.cli/runner-error`, nil returned result, no result files, and the malformed-entry stderr message.
+
+2026-06-04 verification (malformed canonical status follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 258 assertions, 0 failures, 0 errors.
+2026-06-04 verification (malformed canonical status follow-up): `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 4 tests, 29 assertions, 0 failures, 0 errors.
+2026-06-04 verification (malformed canonical status follow-up): `clojure -M:test -m scry.cli` passed: 85 tests, 535 assertions, 0 failures, 0 errors.
+2026-06-04 verification (malformed canonical status follow-up): `git diff --check` passed with no whitespace errors.

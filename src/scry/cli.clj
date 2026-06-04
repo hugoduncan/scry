@@ -480,12 +480,29 @@
     :scry.cli/runner-error :scry.cli/runner-error
     :scry.cli/runner-error))
 
+(def ^:private canonical-entry-statuses #{:pass :fail :error :unknown})
+
+(defn- valid-canonical-entry?
+  [entry]
+  (and (map? entry)
+       (contains? canonical-entry-statuses (:status entry))))
+
+(defn- canonical-entry-error-data
+  [index entry]
+  {:type :scry.cli/runner-error
+   :index index
+   :entry entry})
+
 (defn- canonical-result-entries
   [result]
   (let [entries (:canonical-results result)]
     (when-not (vector? entries)
       (throw (ex-info "Runner result did not include :canonical-results"
                       {:type :scry.cli/runner-error})))
+    (doseq [[index entry] (map-indexed vector entries)]
+      (when-not (valid-canonical-entry? entry)
+        (throw (ex-info "Runner result included malformed canonical entry"
+                        (canonical-entry-error-data index entry)))))
     entries))
 
 (defn- runner-error

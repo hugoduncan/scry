@@ -183,6 +183,7 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest implementation-review follow-up is complete: CLI canonical result validation now rejects malformed entries with missing or unrecognized `:status` as `:scry.cli/runner-error` before summary/result-file/classification processing, with focused tests for missing and invalid statuses. Focused core CLI tests pass (42 tests, 258 assertions), optional Kaocha CLI tests pass (4 tests, 29 assertions), full `clojure -M:test -m scry.cli` passes (85 tests, 535 assertions), and `git diff --check` passes.
 
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest implementation-review follow-up is complete: removed the stale unused `result` parameter from `scry.cli/classify-outcome` and updated the call site, preserving outcome classification behavior while making `bb clj-kondo:lint` clean. Verification passed: `bb clj-kondo:lint`, focused core CLI tests (42 tests, 258 assertions), and `git diff --check`.
+- Task `017-cli-synthetic-errors-and-outcome-kinds` latest implementation review found no new actionable implementation-quality issues. Reviewed CLI implementation, synthetic progress/result-file handling, outcome classification, `clojure -X` propagation, focused tests, and docs; `bb clj-kondo:lint`, focused core CLI tests, and optional Kaocha CLI tests pass.
 
 ## Useful links
 

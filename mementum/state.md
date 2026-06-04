@@ -55,6 +55,7 @@ Project: scry
 - Task `004-github-ci-tests` code-shaper review found no new actionable code-quality issues; the single-job workflow is simple and locally comprehensible, result-aware Clojure checks fail non-zero, and `actionlint` passes.
 - Task `004-github-ci-tests` is closed. It added GitHub Actions CI for PRs and pushes to `master`, running core tests, focused Kaocha adapter tests, focused build checks, and the jar build with full Git history for Git-derived versioning.
 - Task `012-add-public-installation-docs` is closed. README now has public Installation docs for `org.hugoduncan/scry` and optional `org.hugoduncan/scry-kaocha`, with copyable `:test` / `:kaocha` aliases using `"RELEASE"`, Git-count `0.1.N` pinning guidance, aligned CLI/Kaocha commands, and adapter transitive-dependency guidance.
+- Task `013-update-readme-public-status` is closed. README Status now accurately describes scry as initial public alpha / pre-1.0, notes the documented core runner/API, CLI, scoped results, nested capture isolation, build/release automation, and optional Kaocha adapter as usable/tested, and avoids implying 1.0 API/result-shape stability.
 - Task `005-release-workflow-and-bb-task` has been created to add release automation: Babashka release task(s) for dry-run dispatch plus stamping changelog/tagging/pushing, and a GitHub Actions release workflow for dry-run verification, tag-triggered verification, Clojars deploy, and GitHub Release creation. The design draws simplified inspiration from `../../psi/psi-main` while preserving scry's core-only jar and `0.1.<git commit count>` versioning.
 - Task `005-release-workflow-and-bb-task` architecture review found no new actionable architectural-fit feedback. Review note is recorded in `implementation.md`; META.md and doc/architecture.md were absent, so review used AGENTS.md plus the task design.
 - Task `005-release-workflow-and-bb-task` ambiguity review follow-up is complete: `design.md` now pins dry-run local/remote ref-to-commit matching and exact expected-version computation, bracketed release changelog heading/extraction rules, and strict publishing tag format validation for `v0.1.<git-count>` tags with nonconforming `v*` tags failing before publish.
@@ -155,6 +156,7 @@ Project: scry
 - Agent guidance: `AGENTS.md`
 - Munera task plan: `munera/plan.md`
 - Open public-readiness tasks remain; see `munera/plan.md`.
+- Closed README public status task: `munera/closed/013-update-readme-public-status/`
 - Closed public installation docs task: `munera/closed/012-add-public-installation-docs/`
 - Closed license task: `munera/closed/011-add-project-license/`
 - Closed release automation task: `munera/closed/005-release-workflow-and-bb-task/`

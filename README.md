@@ -6,7 +6,7 @@ Instead of asking an agent to scrape terminal output, `scry` runs tests in the c
 
 ## Status
 
-Early scaffold, but the core `clojure.test` runner and Kaocha adapter are implemented and tested.
+Initial public alpha / pre-1.0. The documented core `clojure.test` runner/API, CLI, scoped result model, nested in-process capture isolation, build/release automation, and optional Kaocha adapter are usable and tested. APIs and result shapes should still be treated as pre-1.0 and may evolve before a future stable release.
 
 ## Why scry?
 

@@ -209,14 +209,14 @@
   "Returns true when git status --porcelain succeeds and is blank."
   [command-fn]
   (str/blank? (:out (run-command! command-fn
-                                   ["git" "status" "--porcelain"]
-                                   "Failed to inspect working tree status"))))
+                                  ["git" "status" "--porcelain"]
+                                  "Failed to inspect working tree status"))))
 
 (defn current-branch
   [command-fn]
   (str/trim (:out (run-command! command-fn
-                                 ["git" "rev-parse" "--abbrev-ref" "HEAD"]
-                                 "Failed to resolve current branch"))))
+                                ["git" "rev-parse" "--abbrev-ref" "HEAD"]
+                                "Failed to resolve current branch"))))
 
 (defn assert-clean-master!
   [command-fn]
@@ -324,9 +324,9 @@
 (defn assert-gh-ready!
   [command-fn]
   (run-command! command-fn ["sh" "-c" "command -v gh"]
-        "GitHub CLI is unavailable; install gh and authenticate before dispatching a release dry run")
+                "GitHub CLI is unavailable; install gh and authenticate before dispatching a release dry run")
   (run-command! command-fn ["gh" "auth" "status"]
-        "GitHub CLI is not authenticated; run gh auth login before dispatching a release dry run")
+                "GitHub CLI is not authenticated; run gh auth login before dispatching a release dry run")
   true)
 
 (defn origin-url
@@ -384,11 +384,11 @@
                        (assoc :workflow-file-present? (:workflow-file-present? options)))
         {:keys [ref sha expected-version] :as plan} (release-dry-run-plan plan-options)]
     (run-command! command-fn ["gh" "workflow" "run" release-workflow
-                      "--ref" ref
-                      "-f" (str "ref=" ref)
-                      "-f" (str "sha=" sha)
-                      "-f" (str "expected_version=" expected-version)]
-          "Failed to dispatch release workflow dry run")
+                              "--ref" ref
+                              "-f" (str "ref=" ref)
+                              "-f" (str "sha=" sha)
+                              "-f" (str "expected_version=" expected-version)]
+                  "Failed to dispatch release workflow dry run")
     plan))
 
 (defn release-tags-at-head

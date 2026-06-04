@@ -224,7 +224,7 @@
           (let [calls (atom [])
                 {:keys [version jar-file pom-file]} (deploy {:env {"CLOJARS_USERNAME" "user"
                                                                    "CLOJARS_PASSWORD" "token"}
-                                                            :deploy-fn #(swap! calls conj %)})
+                                                             :deploy-fn #(swap! calls conj %)})
                 entries (jar-entries jar-file)
                 pom (slurp pom-file)]
             (is (= [{:installer :remote
@@ -252,7 +252,7 @@
           (let [calls (atom [])
                 {:keys [version artifacts]} (deploy-all {:env {"CLOJARS_USERNAME" "user"
                                                                "CLOJARS_PASSWORD" "token"}
-                                                        :deploy-fn #(swap! calls conj %)})
+                                                         :deploy-fn #(swap! calls conj %)})
                 [core adapter] artifacts]
             (is (= 2 (count artifacts)))
             (is (= 'org.hugoduncan/scry (:lib core)))

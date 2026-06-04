@@ -32,7 +32,6 @@
     (is (= "inner stderr\n" (:err (first (:results inner-result))))))
   (println "outer after"))
 
-
 (defn- failure-for
   "Return the failure entry for a fully-qualified test var symbol."
   [result var-sym]

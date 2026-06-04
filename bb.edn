@@ -1,6 +1,25 @@
 {:paths ["bb"]
+ :requires ([babashka.process :refer [shell]])
  :tasks
- {release {:doc "Push a release, or dispatch a dry-run with --dry-run [--ref REF]."
+ {clj-fmt {:doc "Run cljfmt. Usage: bb clj-fmt check|fix [PATHS...]"
+           :task (apply shell "mise" "exec" "--" "cljfmt" *command-line-args*)}
+  clj-fmt:check {:doc "Check Clojure formatting with cljfmt."
+                 :task (shell "mise" "exec" "--" "cljfmt" "check"
+                              "src" "src-kaocha" "test" "bb" "build.clj")}
+  clj-fmt:fix {:doc "Fix Clojure formatting with cljfmt."
+               :task (shell "mise" "exec" "--" "cljfmt" "fix"
+                            "src" "src-kaocha" "test" "bb" "build.clj")}
+  clj-kondo:copy-config {:doc "Copy clj-kondo configs from dependencies."
+                         :task (shell "bash" "-lc"
+                                      "mise exec -- clj-kondo --lint \"$(clojure -Spath -M:test:kaocha:build:release-test)\" --dependencies --copy-configs --skip-lint")}
+  clj-kondo:lint {:doc "Lint source/build code with clj-kondo."
+                  :task (shell "mise" "exec" "--" "clj-kondo"
+                               "--lint" "src"
+                               "--lint" "src-kaocha"
+                               "--lint" "bb"
+                               "--lint" "build.clj"
+                               "--fail-level" "error")}
+  release {:doc "Push a release, or dispatch a dry-run with --dry-run [--ref REF]."
            :task (do
                    (require '[scry.release])
                    ((resolve 'scry.release/release-command!) *command-line-args*))}

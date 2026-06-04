@@ -191,7 +191,7 @@
         :end-test-var
         (let [var-symbol (event-var-symbol event)
               {:keys [pass fail error] :as summary} (get @counts var-symbol
-                                                          {:pass 0 :fail 0 :error 0})]
+                                                         {:pass 0 :fail 0 :error 0})]
           (callback {:var var-symbol
                      :ns (some-> var-symbol namespace symbol)
                      :status (status fail error pass)
@@ -295,8 +295,8 @@
                  (apply-progress-reporter (:progress-callback opts)))
          start (System/nanoTime)
          kaocha-result (capture/without-context
-                         (binding [clojure.test/*report-counters* (ref type/initial-counters)]
-                           (api/run cfg)))
+                        (binding [clojure.test/*report-counters* (ref type/initial-counters)]
+                          (api/run cfg)))
          duration-ms (/ (- (System/nanoTime) start) 1e6)]
      (result->scry kaocha-result {:duration-ms duration-ms
                                   :scope :suite

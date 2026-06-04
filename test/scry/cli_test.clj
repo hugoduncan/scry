@@ -49,7 +49,7 @@
                  :vars "scry.fixtures.passing/arithmetic-passes"
                  :namespace-regex "scry\\.fixtures\\..*"
                  :result-format {:suite {:top-level-keys [:summary]
-                                          :entry-keys [:var]}}})]
+                                         :entry-keys [:var]}}})]
       (is (= :clojure-test (:runner opts)))
       (is (= ["test"] (:dirs opts)))
       (is (= ['scry.fixtures.passing] (:namespaces opts)))
@@ -396,9 +396,9 @@
       (is (= 'scry.fixtures.arbitrary/arbitrary-object-fails (:var failure-data)))
       (is (= :fail (:status failure-data)))
       (let [object-leaves (filter #(and (map? %)
-                                         (= :object (:type %))
-                                         (= 'java.lang.Object (:class %)))
-                                   (tree-seq coll? seq assertion))]
+                                        (= :object (:type %))
+                                        (= 'java.lang.Object (:class %)))
+                                  (tree-seq coll? seq assertion))]
         (is (= 2 (count object-leaves)))
         (is (every? #(string? (:pr-str %)) object-leaves))))))
 
@@ -675,6 +675,6 @@
       (let [out (string-writer)
             err (string-writer)]
         (is (= 0 (cli/main-outcome ["--var" "scry.fixtures.passing/arithmetic-passes"]
-                                    {:cwd (.getPath dir) :out out :err err})))
+                                   {:cwd (.getPath dir) :out out :err err})))
         (is (str/includes? (str out) "Assertions: 2 passed"))
         (is (= [] (result-files dir)))))))

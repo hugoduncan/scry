@@ -172,7 +172,7 @@ REPL runs are encouraged while iterating, but they do not replace final command-
 
 ## Maintainer CI workflow
 
-GitHub Actions CI is configured in `.github/workflows/ci.yml` for pull requests and pushes to `master`. Keep its verification commands aligned with the local commands documented below, and use `actions/checkout` with full Git history because the jar version is derived from Git commit count.
+GitHub Actions CI is configured in `.github/workflows/ci.yml` for pull requests and pushes to `master`. It uses `mise` project tools to run `bb clj-fmt:check` and `bb clj-kondo:lint`, then runs core tests, optional Kaocha tests, focused build checks, and the jar build. Keep its verification commands aligned with the local commands documented below, and use `actions/checkout` with full Git history because the jar version is derived from Git commit count.
 
 ## Maintainer build workflow
 

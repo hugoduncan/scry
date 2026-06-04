@@ -86,9 +86,9 @@
       (binding [*out* out]
         (print "outer-before")
         (cap/without-context
-          (outer-report {:type :fail :message "ignored"
-                         :expected false :actual true})
-          (print "escaped-output"))
+         (outer-report {:type :fail :message "ignored"
+                        :expected false :actual true})
+         (print "escaped-output"))
         (print "outer-after"))
       (outer-report {:type :pass})
       (outer-report {:type :end-test-var :var v})

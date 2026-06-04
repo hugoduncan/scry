@@ -1,3 +1,7 @@
 [tools]
 actionlint = "latest"
+babashka = "latest"
+"github:clj-kondo/clj-kondo" = "latest"
+"github:weavejester/cljfmt" = "0.16.4"
 gitleaks = "latest"
+pre-commit = "latest"

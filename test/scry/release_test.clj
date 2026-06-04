@@ -184,12 +184,12 @@
                                 (fn [args]
                                   (case (str/join " " args)
                                     "git status --porcelain" {:exit 128 :out "" :err "fatal: not a git repository"})))))))
-    (is (= "Failed to resolve current branch"
-           (exception-message #(release/assert-clean-master!
-                                (fn [args]
-                                  (case (str/join " " args)
-                                    "git status --porcelain" {:exit 0 :out "" :err ""}
-                                    "git rev-parse --abbrev-ref HEAD" {:exit 128 :out "master\n" :err "fatal: ambiguous HEAD"})))))))
+  (is (= "Failed to resolve current branch"
+         (exception-message #(release/assert-clean-master!
+                              (fn [args]
+                                (case (str/join " " args)
+                                  "git status --porcelain" {:exit 0 :out "" :err ""}
+                                  "git rev-parse --abbrev-ref HEAD" {:exit 128 :out "master\n" :err "fatal: ambiguous HEAD"})))))))
 
 (deftest dry-run-missing-workflow-guard-test
   ;; The workflow file presence guard is injectable so focused checks can prove

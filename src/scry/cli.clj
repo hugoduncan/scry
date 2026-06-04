@@ -272,7 +272,7 @@
         opts (-> raw
                  (dissoc :suite-values :help? :ns-pattern-option)
                  (cond->
-                   (= 1 (count suite-values))
+                  (= 1 (count suite-values))
                    (assoc :suite (first suite-values))
 
                    (> (count suite-values) 1)

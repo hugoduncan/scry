@@ -9,6 +9,8 @@ jobs:
   test:
     name: Test and build
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
 
     steps:
       - name: Check out repository
@@ -26,6 +28,18 @@ jobs:
         uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
+
+      - name: Set up mise tools
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      - name: Check formatting
+        run: bb clj-fmt:check
+
+      - name: Lint Clojure code
+        run: bb clj-kondo:lint
 
       - name: Run focused core tests
         run: |

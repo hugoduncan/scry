@@ -77,3 +77,7 @@
 ## Latest test-shaper review follow-up
 
 - [x] Add focused `scry.cli/run` (`clojure -X`) coverage for an injected synthetic nil/non-concrete-var load-error result, asserting top-level and embedded non-zero ex-data classify as `:scry.cli/load-error` and preserving synthetic result-file behavior where practical.
+
+## Current test-shaper review follow-up
+
+- [ ] Add focused CLI coverage for `.scry-results/` preparation failure (create/clear failure), asserting `:scry.cli/runner-error`, non-zero exit, human stderr, no summary/result-files, and no runner invocation after setup fails.

@@ -168,6 +168,7 @@ Project: scry
 - Task `009-replaceable-capture-context` is closed. It refactored capture around dynamically replaceable/disabled contexts with intended-var allow-listing, owned/ignored frame stacks, per-var output ownership, fixture-preserving local `clojure.test/test-var` execution, raw nested `clojure.test` counter preservation without outer leakage, and Kaocha adapter isolation. Focused core, plain clojure.test, CLI, and optional Kaocha verification passed after implementation/test/docs/code-shaper reviews.
 
 - Task `017-cli-synthetic-errors-and-outcome-kinds` has been created from psi integration feedback. It will fix CLI handling for nil-var synthetic/suite-level Kaocha load errors and add machine-readable CLI outcome classification so callers do not need to parse stderr text for fallback policy.
+- Task `017-cli-synthetic-errors-and-outcome-kinds` architecture review found no new actionable architectural-fit feedback. Review note is recorded in `implementation.md`; META.md and doc/architecture.md were absent, so review used AGENTS.md/README.md plus the task design.
 
 ## Useful links
 

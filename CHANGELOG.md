@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Updated `scry.kaocha/run` to load project `tests.edn` suites by default when present, falling back to the synthetic `:unit` suite only when no Kaocha config file exists.
+- Added REPL suite selection for the Kaocha adapter via `:suite` and `:suites`, including exact suite-id matching, unique string/name fallback matching, and clear `ex-info` errors for conflicting, invalid, unknown, or ambiguous selectors.
+- Preserved supplied full Kaocha configs passed with `:config` while still supporting suite selection and quiet structured scry output defaults.
 - Changed test result maps to use `:results` as the canonical formatted collection, with detail selected by invocation scope.
 - Broad suite and multi-test runs now default to compact failing/erroring entries with assertion summaries and no captured output.
 - Single-namespace runs now return entries for every executed test var with full assertion details, including passing assertions, and no captured output by default.

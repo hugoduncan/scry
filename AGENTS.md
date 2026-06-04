@@ -55,13 +55,18 @@ Run targeted tests from the REPL while iterating:
 (scry/run {:vars [#'my.project-test/specific-test]})
 ```
 
-Run the Kaocha adapter from the REPL when needed:
+Run the Kaocha adapter from the REPL when needed. It loads `tests.edn` from the current project when present and supports REPL suite selection:
 
 ```clojure
 (require '[scry.kaocha :as k])
 
 (k/run)
+(k/run {:suites [:unit :integration]})
+(k/run {:suite :unit})
+(k/run {:config full-kaocha-config})
 ```
+
+Use `:suite` for one selector; plural `:suites` must be a non-empty collection. Suite selectors match exact configured suite ids first, then unique string/name fallback. Supplying both `:suite` and `:suites`, unknown selectors, and ambiguous fallback selectors throw `ex-info`.
 
 Start nREPL if no project REPL is available:
 
@@ -121,7 +126,11 @@ For changes to the `clojure.test` runner or capture machinery, verify at least:
 - Errors include stack traces.
 - `:once` and `:each` fixtures still behave as normal `clojure.test` fixtures.
 
-For changes to the Kaocha adapter, verify it still returns the same scoped result model as `scry.core/run`; note that Kaocha currently defaults to suite scope and merges stdout/stderr.
+For changes to the Kaocha adapter, verify it still returns the same scoped result model as `scry.core/run`; note that Kaocha currently defaults to suite scope and merges stdout/stderr. Focused Kaocha adapter tests require the optional alias:
+
+```sh
+clojure -M:test:kaocha -e "(require '[scry.kaocha-test :as t] '[clojure.test :as ct]) (ct/run-tests 'scry.kaocha-test)"
+```
 
 ## Documentation expectations
 

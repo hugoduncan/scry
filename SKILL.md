@@ -158,10 +158,15 @@ If the project uses the optional Kaocha adapter, require and run it from the REP
 ```clojure
 (require '[scry.kaocha :as k])
 
-(k/run)
+(k/run)                              ;; loads tests.edn when present
+(k/run {:suites [:unit :integration]})
+(k/run {:suite :unit})               ;; single-suite convenience
+(k/run {:config full-kaocha-config}) ;; full config override
 ```
 
-The adapter returns the same scoped result model as `scry.core/run`, currently in suite scope by default.
+The adapter returns the same scoped result model as `scry.core/run`, currently in suite scope by default. Without `:config`, it loads the current project's `tests.edn` when present and otherwise uses the fallback synthetic `:unit` suite. With `:config`, the supplied Kaocha config is authoritative; scry applies suite selection and quiet runtime defaults but does not merge fallback paths into it.
+
+Suite selectors match exact configured suite ids first, then unique string/name fallback. Use `:suite` for one selector; plural `:suites` must be a non-empty collection. Conflicts, unknown selectors, and ambiguous fallback selectors throw `ex-info`.
 
 Caveat: Kaocha's capture-output plugin merges stdout and stderr into one stream. `scry.kaocha` puts the combined output in `:out` and leaves `:err` empty.
 

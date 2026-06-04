@@ -142,10 +142,17 @@ A Kaocha adapter lives in `scry.kaocha` and is only available when the Kaocha ad
 ```clojure
 (require '[scry.kaocha :as k])
 
-(k/run)
+(k/run)                              ;; loads tests.edn when present
+(k/run {:suites [:unit :integration]})
+(k/run {:suite :unit})               ;; single-suite convenience
+(k/run {:config full-kaocha-config}) ;; full config override
 ```
 
-The adapter transforms Kaocha's result tree into the same scoped result model. It currently defaults to suite scope because its public options do not mirror `scry.clojure-test` namespace/var selectors.
+When `:config` is omitted, the adapter loads the current project's `tests.edn` if it exists. Projects without `tests.edn` keep the synthetic fallback `:unit` suite using `:source-paths`, `:test-paths`, and `:ns-patterns` options.
+
+Suite selectors match configured suite ids by exact value first, then by unique text (`"string"` ids/selectors as-is, keywords and symbols by `name`). Unknown or ambiguous selectors throw `ex-info`. Use `:suite` for one selector; plural `:suites` must be a non-empty collection. Supplying both `:suite` and `:suites` is an API error.
+
+The adapter preserves supplied full `:config` maps without merging fallback paths into them, then applies suite selection and quiet scry runtime defaults: capture-output plugin enabled, reporter `[]`, and color disabled. It transforms Kaocha's result tree into the same scoped result model and defaults to suite scope because its public options do not mirror `scry.clojure-test` namespace/var selectors.
 
 Note: Kaocha's capture-output plugin merges stdout and stderr into one captured stream. `scry.kaocha` places that combined output in `:out` and leaves `:err` empty.
 

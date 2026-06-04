@@ -71,4 +71,4 @@
 
 ## Test-shaper review follow-up
 
-- [ ] Add focused outcome-kind coverage for mixed synthetic load-error plus concrete var failure results, asserting `:scry.cli/load-error` takes precedence over `:scry.cli/test-failure`.
+- [x] Add focused outcome-kind coverage for mixed synthetic load-error plus concrete var failure results, asserting `:scry.cli/load-error` takes precedence over `:scry.cli/test-failure`.

@@ -66,3 +66,10 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 test review: No new actionable test-quality issues. Reviewed the focused core CLI tests, optional Kaocha CLI tests, synthetic result-file/progress coverage, outcome-kind classification and `clojure -X` ex-data coverage against the task design; tests cover the specified behaviors and use narrow injectable IO/runner boundaries rather than mocks/stubs. Verification during review: focused core CLI tests passed (42 tests, 258 assertions); optional Kaocha CLI tests passed (4 tests, 29 assertions).
 
 2026-06-04 test-shaper review: Found one actionable test-shaping issue. Outcome-kind tests cover synthetic load errors and concrete test failures independently, but they do not exercise the documented mixed-signal precedence where a synthetic/non-var failing or erroring canonical entry must classify the run as `:scry.cli/load-error` even when concrete var-backed failures are also present. Add focused coverage for that precedence boundary so fallback-policy behavior stays locked.
+
+2026-06-04 test-shaper follow-up: Completed the newly added mixed-signal precedence coverage. `run-cli-outcome-classification-test` now includes a synthetic nil-var load error together with a concrete var-backed failure and asserts the outcome remains `:scry.cli/load-error`, exits non-zero, preserves aggregate assertion counts, and writes both the synthetic suite-level result file and the normal var-backed failure file. The review-added item in `steps.md` is checked.
+
+2026-06-04 verification (test-shaper follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 262 assertions, 0 failures, 0 errors.
+2026-06-04 verification (test-shaper follow-up): `clojure -M:test -m scry.cli` passed: 85 tests, 539 assertions, 0 failures, 0 errors.
+2026-06-04 verification (test-shaper follow-up): `bb clj-kondo:lint` passed with 0 errors and 0 warnings.
+2026-06-04 verification (test-shaper follow-up): `git diff --check` passed with no whitespace errors.

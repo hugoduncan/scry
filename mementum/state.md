@@ -185,6 +185,7 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest implementation-review follow-up is complete: removed the stale unused `result` parameter from `scry.cli/classify-outcome` and updated the call site, preserving outcome classification behavior while making `bb clj-kondo:lint` clean. Verification passed: `bb clj-kondo:lint`, focused core CLI tests (42 tests, 258 assertions), and `git diff --check`.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest implementation review found no new actionable implementation-quality issues. Reviewed CLI implementation, synthetic progress/result-file handling, outcome classification, `clojure -X` propagation, focused tests, and docs; `bb clj-kondo:lint`, focused core CLI tests, and optional Kaocha CLI tests pass.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` test review found no new actionable test-quality issues. Focused core CLI tests and optional Kaocha CLI tests pass; no follow-up steps were added.
+- Task `017-cli-synthetic-errors-and-outcome-kinds` test-shaper follow-up is complete: focused CLI outcome-kind coverage now includes mixed synthetic nil-var load error plus concrete var-backed failure results and asserts `:scry.cli/load-error` takes precedence over `:scry.cli/test-failure`. Focused core CLI tests pass (42 tests, 262 assertions), full `clojure -M:test -m scry.cli` passes (85 tests, 539 assertions), `bb clj-kondo:lint` passes, and `git diff --check` passes.
 
 ## Useful links
 

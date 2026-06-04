@@ -645,6 +645,32 @@
         (is (= {:pass 0 :fail 0 :error 0}
                (get-in outcome [:summary :assertions])))
         (is (= [] (result-files dir))))))
+  (testing "synthetic load errors take precedence over concrete test failures"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        (runner-result [{:var nil
+                                         :ns 'loader.demo
+                                         :status :error
+                                         :assertion-summary {:pass 0 :fail 0 :error 1}
+                                         :assertions [{:type :error
+                                                       :message "could not load tests"}]}
+                                        {:var 'scry.fixtures.failing/equality-fails
+                                         :ns 'scry.fixtures.failing
+                                         :status :fail
+                                         :assertion-summary {:pass 0 :fail 1 :error 0}
+                                         :assertions [{:type :fail
+                                                       :message "expected values to match"}]}]))})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
+        (is (= {:pass 0 :fail 1 :error 1}
+               (get-in outcome [:summary :assertions])))
+        (is (= ["loader.demo__suite-error-1.edn"
+                "scry.fixtures.failing__equality-fails.edn"]
+               (result-files dir))))))
   (testing "aggregate assertion failures classify as test failures"
     (with-temp-dir [dir]
       (let [outcome (run-cli-in

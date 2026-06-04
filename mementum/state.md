@@ -170,6 +170,7 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` has been created from psi integration feedback. It will fix CLI handling for nil-var synthetic/suite-level Kaocha load errors and add machine-readable CLI outcome classification so callers do not need to parse stderr text for fallback policy.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` architecture review found no new actionable architectural-fit feedback. Review note is recorded in `implementation.md`; META.md and doc/architecture.md were absent, so review used AGENTS.md/README.md plus the task design.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` ambiguity review found actionable follow-up: pin the exact outcome classification API/key/vocabulary, mixed-signal precedence, synthetic load/suite-error recognition, nil-var progress/result-file naming and collision behavior, and public documentation scope for machine-readable classification.
+- Task `017-cli-synthetic-errors-and-outcome-kinds` ambiguity-review follow-up is complete: `design.md` now pins top-level `:scry.cli/outcome-kind` for `run-cli` outcomes and `clojure -X` non-zero ex-data, defines the initial outcome vocabulary and precedence, recognizes load/suite errors structurally from failing/erroring non-var-backed canonical entries after a valid `:canonical-results` vector exists, pins synthetic progress/result-file naming and collision handling, and names README.md/SKILL.md/AGENTS.md/CHANGELOG.md docs updates for implementation. All review-added `design-steps.md` items are checked.
 
 ## Useful links
 

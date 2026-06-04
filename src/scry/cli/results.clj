@@ -57,8 +57,20 @@
   [segment]
   (apply str (map encode-char (str segment))))
 
+(defn concrete-var-symbol?
+  "True when x is a concrete namespace-qualified var symbol."
+  [x]
+  (and (symbol? x)
+       (seq (namespace x))
+       (seq (name x))))
+
+(defn concrete-var-backed-entry?
+  "True when a canonical entry is attributable to a concrete test var."
+  [entry]
+  (concrete-var-symbol? (:var entry)))
+
 (defn result-file-name
-  "Return the namespace-prefixed result EDN filename for a canonical entry."
+  "Return the namespace-prefixed result EDN filename for a var-backed entry."
   [entry]
   (let [var-symbol (:var entry)]
     (str (encode-file-segment (namespace var-symbol))
@@ -70,6 +82,96 @@
   "True when a canonical result entry should be written to a result file."
   [entry]
   (contains? #{:fail :error} (:status entry)))
+
+(defn synthetic-token
+  "Return a synthetic suite-level display token for status and ordinal."
+  [status ordinal]
+  (str (case status
+         :error "suite-error"
+         :fail "suite-fail"
+         :unknown "suite-unknown"
+         "suite-result")
+       "-"
+       ordinal))
+
+(defn synthetic-display-label
+  "Return a human progress label for a synthetic canonical entry."
+  [entry token]
+  (let [ns-name (some-> (:ns entry) str)]
+    (if (seq ns-name)
+      (str ns-name "/" token)
+      token)))
+
+(defn- synthetic-file-name
+  [entry token]
+  (let [base (str (encode-file-segment token) ".edn")
+        ns-name (some-> (:ns entry) str)]
+    (if (seq ns-name)
+      (str (encode-file-segment ns-name) "__" base)
+      base)))
+
+(defn- next-synthetic-token
+  [counters status]
+  (let [ordinal (inc (get counters status 0))]
+    [(assoc counters status ordinal)
+     (synthetic-token status ordinal)]))
+
+(defn- collision-suffixed
+  [filename suffix]
+  (str (subs filename 0 (- (count filename) 4))
+       "--"
+       suffix
+       ".edn"))
+
+(defn- unique-file-name
+  [used filename]
+  (if-not (contains? used filename)
+    filename
+    (loop [suffix 2]
+      (let [candidate (collision-suffixed filename suffix)]
+        (if (contains? used candidate)
+          (recur (inc suffix))
+          candidate)))))
+
+(defn result-file-assignments
+  "Return failing/erroring entries with deterministic result-file names.
+
+  Var-backed filenames keep the existing namespace-prefixed shape. Synthetic
+  entries use per-status suite-level names with deterministic collision suffixes
+  for file paths when needed."
+  [entries]
+  (let [reserved-var-files (into #{}
+                                 (comp (filter concrete-var-backed-entry?)
+                                       (map result-file-name))
+                                 entries)]
+    (loop [remaining entries
+           counters {}
+           used reserved-var-files
+           assignments []]
+      (if-let [entry (first remaining)]
+        (cond
+          (not (failure-entry? entry))
+          (recur (next remaining) counters used assignments)
+
+          (concrete-var-backed-entry? entry)
+          (recur (next remaining)
+                 counters
+                 (conj used (result-file-name entry))
+                 (conj assignments {:entry entry
+                                    :filename (result-file-name entry)}))
+
+          :else
+          (let [[counters token] (next-synthetic-token counters (:status entry))
+                filename (->> token
+                              (synthetic-file-name entry)
+                              (unique-file-name used))]
+            (recur (next remaining)
+                   counters
+                   (conj used filename)
+                   (conj assignments {:entry entry
+                                      :filename filename
+                                      :token token}))))
+        assignments))))
 
 (declare edn-readable-data)
 
@@ -170,8 +272,8 @@
 
   Returns a vector of written file paths."
   [dir entries]
-  (mapv (fn [entry]
-          (let [file (io/file dir (result-file-name entry))]
+  (mapv (fn [{:keys [entry filename]}]
+          (let [file (io/file dir filename)]
             (spit file (pr-str (edn-readable-data entry)))
             (.getPath file)))
-        (filter failure-entry? entries)))
+        (result-file-assignments entries)))

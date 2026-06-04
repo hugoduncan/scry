@@ -2,26 +2,26 @@
 
 ## Slice 1: Baseline and focused characterization
 
-- [ ] Inspect current `scry.cli`, `scry.cli.results`, focused core CLI tests, and optional Kaocha CLI tests to identify existing naming/progress/outcome seams.
-- [ ] Add focused `scry.cli.results` coverage for failing/erroring entries with nil, absent, or otherwise non-concrete `:var` values, including deterministic synthetic filenames.
-- [ ] Add focused `run-cli` coverage using the injected `:run-clojure-test` boundary for a synthetic nil-var failing/erroring canonical entry that previously crashed result-file naming.
-- [ ] Add focused progress coverage showing synthetic nil-var failing/erroring/unknown entries print useful labels instead of throwing.
+- [x] Inspect current `scry.cli`, `scry.cli.results`, focused core CLI tests, and optional Kaocha CLI tests to identify existing naming/progress/outcome seams.
+- [x] Add focused `scry.cli.results` coverage for failing/erroring entries with nil, absent, or otherwise non-concrete `:var` values, including deterministic synthetic filenames.
+- [x] Add focused `run-cli` coverage using the injected `:run-clojure-test` boundary for a synthetic nil-var failing/erroring canonical entry that previously crashed result-file naming.
+- [x] Add focused progress coverage showing synthetic nil-var failing/erroring/unknown entries print useful labels instead of throwing.
 
 ## Slice 2: Synthetic entry identity and result files
 
-- [ ] Add a helper for recognizing concrete var-backed entries: `:var` is a symbol with both namespace and name.
-- [ ] Add synthetic token generation for non-var-backed entries using per-status 1-based counters: `suite-error-N`, `suite-fail-N`, and `suite-unknown-N`.
-- [ ] Preserve existing var-backed result-file names exactly for normal test vars.
-- [ ] Implement synthetic failing/erroring result-file names with optional encoded `:ns` prefix.
-- [ ] Compute result-file assignments from the whole canonical entry collection with a used-filename set and deterministic `--2`, `--3`, ... collision suffixes.
-- [ ] Ensure `write-result-files!` writes EDN-readable data for synthetic failing/erroring entries and returns the written paths.
+- [x] Add a helper for recognizing concrete var-backed entries: `:var` is a symbol with both namespace and name.
+- [x] Add synthetic token generation for non-var-backed entries using per-status 1-based counters: `suite-error-N`, `suite-fail-N`, and `suite-unknown-N`.
+- [x] Preserve existing var-backed result-file names exactly for normal test vars.
+- [x] Implement synthetic failing/erroring result-file names with optional encoded `:ns` prefix.
+- [x] Compute result-file assignments from the whole canonical entry collection with a used-filename set and deterministic `--2`, `--3`, ... collision suffixes.
+- [x] Ensure `write-result-files!` writes EDN-readable data for synthetic failing/erroring entries and returns the written paths.
 
 ## Slice 3: Synthetic progress labels
 
-- [ ] Refactor CLI progress callback creation so each run has per-status synthetic counters.
-- [ ] Keep var-backed progress unchanged: passing vars print `.`, failing/erroring/unknown vars print the unqualified var name.
-- [ ] Make non-var-backed failing/erroring/unknown progress print synthetic tokens, optionally namespace-prefixed when `:ns` is present.
-- [ ] Ensure progress handling tolerates nil/absent/non-concrete `:var` without throwing for all statuses.
+- [x] Refactor CLI progress callback creation so each run has per-status synthetic counters.
+- [x] Keep var-backed progress unchanged: passing vars print `.`, failing/erroring/unknown vars print the unqualified var name.
+- [x] Make non-var-backed failing/erroring/unknown progress print synthetic tokens, optionally namespace-prefixed when `:ns` is present.
+- [x] Ensure progress handling tolerates nil/absent/non-concrete `:var` without throwing for all statuses.
 
 ## Slice 4: Outcome classification
 

@@ -406,13 +406,23 @@
          (str ", " (:unknown tests) " unknown"))
        "\n"))
 
+(defn- progress-label
+  [synthetic-counters entry]
+  (if (results/concrete-var-backed-entry? entry)
+    (name (:var entry))
+    (let [status (:status entry)
+          ordinal (swap! synthetic-counters update status (fnil inc 0))]
+      (results/synthetic-display-label
+       entry
+       (results/synthetic-token status (get ordinal status))))))
+
 (defn- progress!
-  [{:keys [out err]} entry]
+  [synthetic-counters {:keys [out err]} entry]
   (case (:status entry)
     :pass (do (.write out ".") (.flush out))
-    :fail (do (.write err (str (name (:var entry)) "\n")) (.flush err))
-    :error (do (.write err (str (name (:var entry)) "\n")) (.flush err))
-    (do (.write err (str (name (:var entry)) "\n")) (.flush err))))
+    :fail (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))
+    :error (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))
+    (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))))
 
 (defn- write-summary!
   [{:keys [out]} summary]
@@ -464,19 +474,19 @@
     runner))
 
 (defn- run-kaocha
-  [opts io-boundary]
+  [opts io-boundary progress-callback]
   (let [run-kaocha (resolve-kaocha-runner io-boundary)]
-    (run-kaocha (assoc opts :progress-callback #(progress! io-boundary %)))))
+    (run-kaocha (assoc opts :progress-callback progress-callback))))
 
 (defn- run-normalized
-  [opts io-boundary]
+  [opts io-boundary progress-callback]
   (case (:runner opts)
     :clojure-test
     ((:run-clojure-test io-boundary)
-     (assoc opts :progress-callback #(progress! io-boundary %)))
+     (assoc opts :progress-callback progress-callback))
 
     :kaocha
-    (run-kaocha opts io-boundary)))
+    (run-kaocha opts io-boundary progress-callback)))
 
 (defn run-cli
   "Run scry from normalized CLI options and return a structured outcome.
@@ -489,7 +499,9 @@
    (let [io-boundary (boundary io-boundary)]
      (try
        (let [dir (results/prepare-results-dir! io-boundary)
-             result (run-normalized normalized-options io-boundary)
+             synthetic-counters (atom {})
+             progress-callback #(progress! synthetic-counters io-boundary %)
+             result (run-normalized normalized-options io-boundary progress-callback)
              entries (canonical-result-entries result)
              summary (cli-summary result entries)
              result-files (results/write-result-files! dir entries)

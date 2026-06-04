@@ -5,6 +5,7 @@
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [scry.cli :as cli]
+   [scry.cli.results :as cli-results]
    [scry.fixtures.arbitrary]
    [scry.fixtures.asserting-fixtures]
    [scry.fixtures.colliding-a]
@@ -233,6 +234,18 @@
     (.mkdirs results-dir)
     (spit (io/file results-dir "stale.edn") "{:stale true}")))
 
+(defn- runner-result
+  [entries]
+  {:summary (reduce (fn [summary entry]
+                      (merge-with + summary (:assertion-summary entry)))
+                    {:test (count entries)
+                     :pass 0
+                     :fail 0
+                     :error 0}
+                    entries)
+   :pass? (not-any? #(contains? #{:fail :error :unknown} (:status %)) entries)
+   :canonical-results (vec entries)})
+
 (defn- create-symlink!
   [link target]
   (try
@@ -305,6 +318,90 @@
         (is (= [] (result-files dir)))
         (is (= ['scry.fixtures.passing/arithmetic-passes]
                (mapv :var (:canonical-results (:result outcome)))))))))
+
+(deftest result-file-assignments-synthetic-entries-test
+  ;; Synthetic suite-level entries without concrete vars receive deterministic
+  ;; result-file names while var-backed names remain unchanged.
+  (testing "non-concrete var shapes and optional namespace prefixes"
+    (let [entries [{:var 'scry.fixtures.failing/equality-fails
+                    :status :fail}
+                   {:var nil
+                    :status :error}
+                   {:status :fail}
+                   {:var 'not-qualified
+                    :ns 'loader.demo
+                    :status :error}]
+          assignments (cli-results/result-file-assignments entries)]
+      (is (= ["scry.fixtures.failing__equality-fails.edn"
+              "suite-error-1.edn"
+              "suite-fail-1.edn"
+              "loader.demo__suite-error-2.edn"]
+             (mapv :filename assignments)))
+      (is (= entries (mapv :entry assignments)))))
+  (testing "synthetic filenames avoid var-backed collisions"
+    (let [entries [{:var 'loader.demo/suite-error-1
+                    :status :pass}
+                   {:var 'not-qualified
+                    :ns 'loader.demo
+                    :status :error}]
+          assignments (cli-results/result-file-assignments entries)]
+      (is (= ["loader.demo__suite-error-1--2.edn"]
+             (mapv :filename assignments))))))
+
+(deftest run-cli-synthetic-nil-var-results-test
+  ;; Synthetic nil/absent/non-concrete entries write readable result files and
+  ;; print useful progress labels instead of deriving names from nil vars.
+  (with-temp-dir [dir]
+    (write-stale-result! dir)
+    (let [synthetic-error {:var nil
+                           :ns 'loader.demo
+                           :status :error
+                           :assertion-summary {:pass 0 :fail 0 :error 1}
+                           :assertions [{:type :error
+                                         :message "could not load tests"}]
+                           :out "load out\n"
+                           :err "load err\n"}
+          synthetic-fail {:status :fail
+                          :assertion-summary {:pass 0 :fail 1 :error 0}
+                          :assertions [{:type :fail
+                                        :message "suite failed"}]
+                          :out ""
+                          :err ""}
+          synthetic-unknown {:var 'not-qualified
+                             :ns 'loader.demo
+                             :status :unknown
+                             :assertion-summary {:pass 0 :fail 0 :error 0}
+                             :assertions []
+                             :out ""
+                             :err ""}
+          outcome (run-cli-in dir
+                              (cli/normalize-exec-opts {})
+                              {:run-clojure-test
+                               (fn [opts]
+                                 (doseq [entry [synthetic-error
+                                                synthetic-fail
+                                                synthetic-unknown]]
+                                   ((:progress-callback opts) entry))
+                                 (runner-result [synthetic-error
+                                                 synthetic-fail
+                                                 synthetic-unknown]))})
+          files (result-files dir)
+          error-data (edn/read-string
+                      (slurp (io/file dir ".scry-results"
+                                      "loader.demo__suite-error-1.edn")))
+          fail-data (edn/read-string
+                     (slurp (io/file dir ".scry-results"
+                                     "suite-fail-1.edn")))]
+      (is (= 1 (:exit-code outcome)))
+      (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 1 failed, 1 errored, 1 unknown\n"
+             (:stdout outcome)))
+      (is (= "loader.demo/suite-error-1\nsuite-fail-1\nloader.demo/suite-unknown-1\n"
+             (:stderr outcome)))
+      (is (= ["loader.demo__suite-error-1.edn" "suite-fail-1.edn"] files))
+      (is (= nil (:var error-data)))
+      (is (= 'loader.demo (:ns error-data)))
+      (is (= :error (:status error-data)))
+      (is (= :fail (:status fail-data))))))
 
 (deftest run-cli-failing-run-test
   ;; A failing CLI run prints unqualified failing names to stderr, writes

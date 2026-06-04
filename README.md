@@ -22,48 +22,27 @@ Traditional command-line test output is optimized for humans. `scry` is optimize
 
 ## Usage
 
-From this repository, include the test path when running tests:
-
-```sh
-clojure -M:test
-```
-
-Run tests through `scry` from a REPL or one-off expression:
-
-```sh
-clojure -M:test -e "(require '[scry.core :as scry]) (prn (scry/run))"
-```
+`scry` is intended to be driven primarily from a REPL so results remain available for follow-up inspection in the same process.
 
 Basic REPL usage:
 
 ```clojure
 (require '[scry.core :as scry])
 
-(def result (scry/run))
-
-(:pass? result)
-;;=> true or false
-
-(:summary result)
-;;=> {:test 10, :pass 39, :fail 0, :error 0,
-;;    :duration-ms 12.34, :var-count 10, :fail-var-count 0}
-
-(:results result)
-;;=> canonical formatted result entries for this invocation scope
-
-(scry/failures result)
-;;=> filtered failing/erroring result entries
-
-(println (scry/report-string result))
+(scry/run)
 ```
 
-`scry.core/run` also stores the most recent result in `scry.core/last-run`, which can be inspected after a run:
+`scry.core/run` stores the most recent result in `scry.core/last-run`, which can be inspected after a run:
 
 ```clojure
 (scry/last-result)
+(:pass? (scry/last-result))
+(:summary (scry/last-result))
+(:results (scry/last-result))
 (scry/failures)
 (scry/failed-test 'my.project-test/failing-test)
 (scry/output 'my.project-test/failing-test)
+(println (scry/report-string (scry/last-result)))
 ```
 
 ## `clojure.test` runner
@@ -158,50 +137,18 @@ If custom `:top-level-keys` omits both `:results` and `:failures`, helpers such 
 
 ## Kaocha adapter
 
-A Kaocha adapter lives in `scry.kaocha` and is only available when the `:kaocha` alias is on the classpath:
+A Kaocha adapter lives in `scry.kaocha` and is only available when the Kaocha adapter path and dependencies are on the classpath:
 
-```sh
-clojure -M:test:kaocha -e "(require '[scry.kaocha :as k]) (prn (k/run))"
+```clojure
+(require '[scry.kaocha :as k])
+
+(k/run)
 ```
 
 The adapter transforms Kaocha's result tree into the same scoped result model. It currently defaults to suite scope because its public options do not mirror `scry.clojure-test` namespace/var selectors.
 
 Note: Kaocha's capture-output plugin merges stdout and stderr into one captured stream. `scry.kaocha` places that combined output in `:out` and leaves `:err` empty.
 
-## Development
+## Contributor and agent guidance
 
-Run the project test suite through `scry`:
-
-```sh
-clojure -M:test -e "(require '[scry.core :as scry]) (println (scry/report-string (scry/run)))"
-```
-
-Run with raw result output:
-
-```sh
-clojure -M:test -e "(require '[scry.core :as scry]) (clojure.pprint/pprint (scry/run))"
-```
-
-Start an nREPL with CIDER middleware:
-
-```sh
-clojure -M:nrepl
-```
-
-## Project layout
-
-```text
-src/scry/core.clj          Public API
-src/scry/capture.clj       clojure.test report and output capture
-src/scry/clojure_test.clj  In-process clojure.test runner
-src-kaocha/scry/kaocha.clj Optional Kaocha adapter
-test/scry/                 Tests and fixtures
-```
-
-## Design constraints
-
-- Keep `scry.core` free of a hard dependency on Kaocha.
-- Preserve normal `clojure.test` semantics where possible.
-- Return structured data suitable for agents and REPL users.
-- Retain detailed failure/error information, not just pass/fail status.
-- Avoid huge default payloads for broad runs.
+Development workflow, repository conventions, test commands, and architectural constraints live in [`AGENTS.md`](AGENTS.md), not in this README.

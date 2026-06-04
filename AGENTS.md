@@ -35,17 +35,17 @@ In a project REPL, run the current test suite:
 ```clojure
 (require '[scry.core :as scry])
 
-(def result (scry/run))
-(println (scry/report-string result))
+(scry/run)
+(println (scry/report-string (scry/last-result)))
 ```
 
 Inspect the raw result map:
 
 ```clojure
 (scry/last-result)
-(:summary result)
-(:results result)
-(scry/failures result)
+(:summary (scry/last-result))
+(:results (scry/last-result))
+(scry/failures)
 ```
 
 Run targeted tests from the REPL while iterating:
@@ -60,7 +60,7 @@ Run the Kaocha adapter from the REPL when needed:
 ```clojure
 (require '[scry.kaocha :as k])
 
-(def result (k/run))
+(k/run)
 ```
 
 Start nREPL if no project REPL is available:
@@ -69,7 +69,12 @@ Start nREPL if no project REPL is available:
 clojure -M:nrepl
 ```
 
-Use command-line `clojure -M:test ...` forms only as a fallback when a REPL is unavailable or unsuitable.
+Use command-line `clojure -M:test ...` forms only as a fallback when a REPL is unavailable or unsuitable:
+
+```sh
+clojure -M:test -e "(require '[scry.core :as scry]) (println (scry/report-string (scry/run)))"
+clojure -M:test -e "(require '[scry.core :as scry]) (clojure.pprint/pprint (scry/run))"
+```
 
 ## Result inspection guidance
 
@@ -120,11 +125,12 @@ For changes to the Kaocha adapter, verify it still returns the same scoped resul
 
 ## Documentation expectations
 
-Update `README.md` when changing:
+Update `README.md` when changing user-facing behavior:
 
 - Public API names.
 - Result map shape.
 - Supported runner options.
-- Development/test commands.
 
-Update this file when changing agent workflow, repo conventions, or important architectural constraints.
+Keep development instructions, test workflow guidance, agent workflow, repo conventions, and architectural constraints in `AGENTS.md`, not `README.md`.
+
+Update this file when changing agent workflow, repo conventions, important architectural constraints, or development/test commands.

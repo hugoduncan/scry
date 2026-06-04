@@ -57,22 +57,20 @@ Default result detail follows invocation intent:
 ```clojure
 (require '[scry.core :as scry])
 
-(def result (scry/run))
-
-(:pass? result)
-(:summary result)
-(:results result)
-(scry/failures result)
-(println (scry/report-string result))
+(scry/run)
 ```
 
 `scry/run` stores the most recent result, so after a run you can inspect it interactively:
 
 ```clojure
 (scry/last-result)
+(:pass? (scry/last-result))
+(:summary (scry/last-result))
+(:results (scry/last-result))
 (scry/failures)
 (scry/failed-test 'my.project-test/failing-test)
 (scry/output 'my.project-test/failing-test)
+(println (scry/report-string (scry/last-result)))
 ```
 
 ## Targeted runs
@@ -147,7 +145,7 @@ Error assertions also include `:stacktrace`.
 Debugging loop:
 
 1. Run `(scry/run)` and check `:pass?`.
-2. If false, inspect `(scry/failures result)` or `(:results result)` rather than rerunning with noisier output.
+2. If false, inspect `(scry/failures)` or `(:results (scry/last-result))` rather than rerunning with noisier output.
 3. Use `:var`, `:file`, and `:line` to locate the failing test.
 4. Use assertion `:expected`, `:actual`, `:contexts`, and `:stacktrace` to understand the failure when assertion details are included.
 5. Rerun a targeted namespace or var when more detail/output is useful.
@@ -160,7 +158,7 @@ If the project uses the optional Kaocha adapter, require and run it from the REP
 ```clojure
 (require '[scry.kaocha :as k])
 
-(def result (k/run))
+(k/run)
 ```
 
 The adapter returns the same scoped result model as `scry.core/run`, currently in suite scope by default.

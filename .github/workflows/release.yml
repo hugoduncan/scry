@@ -1,5 +1,6 @@
 name: Release
 
+# Release workflow: dry-run via workflow_dispatch, publish via version tags.
 on:
   push:
     tags:

@@ -349,12 +349,17 @@
 
 ;;; CLI execution
 
+(defn- default-resolve-kaocha-runner
+  []
+  (requiring-resolve 'scry.kaocha/run))
+
 (defn- default-boundary
   []
   {:out *out*
    :err *err*
    :cwd (System/getProperty "user.dir")
-   :run-clojure-test clojure-test/run})
+   :run-clojure-test clojure-test/run
+   :resolve-kaocha-runner default-resolve-kaocha-runner})
 
 (defn- boundary
   [io-boundary]
@@ -434,25 +439,34 @@
                       {:type :scry.cli/runner-error})))
     entries))
 
-(defn- kaocha-run-var
-  []
-  (try
-    (requiring-resolve 'scry.kaocha/run)
-    (catch java.io.FileNotFoundException e
-      (throw (ex-info "Kaocha CLI mode requires the optional scry.kaocha adapter on the classpath"
-                      {:type :scry.cli/runner-error
-                       :runner :kaocha}
-                      e)))
-    (catch Throwable e
-      (throw (ex-info "Could not load Kaocha CLI runner"
-                      {:type :scry.cli/runner-error
-                       :runner :kaocha}
-                      e)))))
+(defn- runner-error
+  ([message]
+   (runner-error message nil))
+  ([message cause]
+   (throw (ex-info message
+                   {:type :scry.cli/runner-error
+                    :runner :kaocha}
+                   cause))))
+
+(defn- resolve-kaocha-runner
+  [io-boundary]
+  (let [resolver (:resolve-kaocha-runner io-boundary)
+        runner (try
+                 (resolver)
+                 (catch java.io.FileNotFoundException e
+                   (runner-error
+                    "Kaocha CLI mode requires the optional scry.kaocha adapter on the classpath"
+                    e))
+                 (catch Throwable e
+                   (runner-error "Could not load Kaocha CLI runner" e)))]
+    (when-not (ifn? runner)
+      (runner-error "Resolved Kaocha CLI runner is not invokable"))
+    runner))
 
 (defn- run-kaocha
   [opts io-boundary]
-  (let [run-var (kaocha-run-var)]
-    (run-var (assoc opts :progress-callback #(progress! io-boundary %)))))
+  (let [run-kaocha (resolve-kaocha-runner io-boundary)]
+    (run-kaocha (assoc opts :progress-callback #(progress! io-boundary %)))))
 
 (defn- run-normalized
   [opts io-boundary]
@@ -468,8 +482,8 @@
   "Run scry from normalized CLI options and return a structured outcome.
 
    Performs CLI output and .scry-results filesystem effects, but never calls
-   System/exit. The optional io-boundary map may provide :out, :err, :cwd, and
-   :run-clojure-test for narrow state-based tests."
+   System/exit. The optional io-boundary map may provide :out, :err, :cwd,
+   :run-clojure-test, and :resolve-kaocha-runner for narrow state-based tests."
   ([normalized-options] (run-cli normalized-options nil))
   ([normalized-options io-boundary]
    (let [io-boundary (boundary io-boundary)]

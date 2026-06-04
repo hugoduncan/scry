@@ -211,11 +211,14 @@
   (java.io.StringWriter.))
 
 (defn- run-cli-in
-  [dir opts]
-  (let [out (string-writer)
-        err (string-writer)
-        outcome (cli/run-cli opts {:cwd (.getPath dir) :out out :err err})]
-    (assoc outcome :stdout (str out) :stderr (str err))))
+  ([dir opts]
+   (run-cli-in dir opts {}))
+  ([dir opts boundary]
+   (let [out (string-writer)
+         err (string-writer)
+         outcome (cli/run-cli opts (merge {:cwd (.getPath dir) :out out :err err}
+                                          boundary))]
+     (assoc outcome :stdout (str out) :stderr (str err)))))
 
 (defn- result-files
   [dir]
@@ -486,6 +489,25 @@
                :err ""}]
              (:canonical-results (:result outcome)))))))
 
+(deftest run-cli-core-runner-does-not-resolve-kaocha-test
+  ;; Core runner execution is independent of optional Kaocha resolution: a
+  ;; normal clojure-test run must not touch the Kaocha resolver boundary.
+  (with-temp-dir [dir]
+    (let [resolver-called? (atom false)
+          outcome (run-cli-in
+                   dir
+                   (cli/normalize-exec-opts
+                    {:runner :clojure-test
+                     :vars ['scry.fixtures.passing/arithmetic-passes]})
+                   {:resolve-kaocha-runner
+                    (fn []
+                      (reset! resolver-called? true)
+                      (throw (IllegalStateException. "should not resolve Kaocha")))})]
+      (is (= 0 (:exit-code outcome)))
+      (is (= false @resolver-called?))
+      (is (= "" (:stderr outcome)))
+      (is (= [] (result-files dir))))))
+
 (deftest run-cli-run-level-fixture-failures-test
   ;; Run-level fixture assertions outside public var entries still drive the
   ;; CLI assertion summary and non-zero exit without per-var failure progress or
@@ -546,12 +568,52 @@
       (is (str/includes? (str err) "scry CLI error:"))
       (is (instance? java.io.FileNotFoundException (-> outcome :error :exception)))))
   (with-temp-dir [dir]
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts {:runner :kaocha}))]
+    (write-stale-result! dir)
+    (let [outcome (run-cli-in
+                   dir
+                   (cli/normalize-exec-opts {:runner :kaocha})
+                   {:resolve-kaocha-runner
+                    (fn []
+                      (throw (java.io.FileNotFoundException. "scry.kaocha")))})]
       (is (= 1 (:exit-code outcome)))
+      (is (= "" (:stdout outcome)))
+      (is (= [] (result-files dir)))
       (is (str/includes? (:stderr outcome)
-                         "Kaocha CLI mode requires the optional scry.kaocha adapter"))
+                         "scry CLI error: Kaocha CLI mode requires the optional scry.kaocha adapter"))
       (is (= {:type :scry.cli/runner-error :runner :kaocha}
-             (-> outcome :error :data))))))
+             (-> outcome :error :data)))
+      (is (instance? java.io.FileNotFoundException
+                     (ex-cause (-> outcome :error :exception))))))
+  (with-temp-dir [dir]
+    (let [outcome (run-cli-in
+                   dir
+                   (cli/normalize-exec-opts {:runner :kaocha})
+                   {:resolve-kaocha-runner
+                    (fn []
+                      (throw (IllegalStateException. "resolver boom")))})]
+      (is (= 1 (:exit-code outcome)))
+      (is (= "" (:stdout outcome)))
+      (is (= [] (result-files dir)))
+      (is (str/includes? (:stderr outcome)
+                         "scry CLI error: Could not load Kaocha CLI runner"))
+      (is (= {:type :scry.cli/runner-error :runner :kaocha}
+             (-> outcome :error :data)))
+      (is (instance? IllegalStateException
+                     (ex-cause (-> outcome :error :exception))))))
+  (doseq [resolved-runner [nil "not-invokable"]]
+    (testing (str "invalid Kaocha resolver return " (pr-str resolved-runner))
+      (with-temp-dir [dir]
+        (let [outcome (run-cli-in
+                       dir
+                       (cli/normalize-exec-opts {:runner :kaocha})
+                       {:resolve-kaocha-runner (constantly resolved-runner)})]
+          (is (= 1 (:exit-code outcome)))
+          (is (= "" (:stdout outcome)))
+          (is (= [] (result-files dir)))
+          (is (str/includes? (:stderr outcome)
+                             "scry CLI error: Resolved Kaocha CLI runner is not invokable"))
+          (is (= {:type :scry.cli/runner-error :runner :kaocha}
+                 (-> outcome :error :data))))))))
 
 (deftest run-exec-entry-point-test
   ;; The -X entry point uses the same normalized run-cli path, returning

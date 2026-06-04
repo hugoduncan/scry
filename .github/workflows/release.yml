@@ -70,18 +70,43 @@ jobs:
         run: |
           clojure -M:test:release-test -e "(require '[scry.release-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.release-test)] (when-not (ct/successful? result) (System/exit 1)))"
 
-      - name: Build jar
-        run: clojure -T:build jar
+      - name: Build jars
+        run: clojure -T:build jars
 
-      - name: Resolve built version
+      - name: Resolve built versions
         id: artifact
         run: |
-          jar_file="$(ls target/scry-*.jar)"
-          version="${jar_file#target/scry-}"
-          version="${version%.jar}"
-          echo "jar_file=$jar_file" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Built $jar_file for version $version"
+          mapfile -t core_jars < <(find target -maxdepth 1 -type f -name 'scry-[0-9]*.[0-9]*.[0-9]*.jar' ! -name 'scry-kaocha-*.jar' | sort)
+          mapfile -t kaocha_jars < <(find target -maxdepth 1 -type f -name 'scry-kaocha-[0-9]*.[0-9]*.[0-9]*.jar' | sort)
+
+          if [ "${#core_jars[@]}" -ne 1 ]; then
+            echo "Expected exactly one core jar matching target/scry-[0-9]*.[0-9]*.[0-9]*.jar, found ${#core_jars[@]}" >&2
+            printf '%s\n' "${core_jars[@]}" >&2
+            exit 1
+          fi
+
+          if [ "${#kaocha_jars[@]}" -ne 1 ]; then
+            echo "Expected exactly one Kaocha adapter jar matching target/scry-kaocha-[0-9]*.[0-9]*.[0-9]*.jar, found ${#kaocha_jars[@]}" >&2
+            printf '%s\n' "${kaocha_jars[@]}" >&2
+            exit 1
+          fi
+
+          core_jar_file="${core_jars[0]}"
+          kaocha_jar_file="${kaocha_jars[0]}"
+          core_version="${core_jar_file#target/scry-}"
+          core_version="${core_version%.jar}"
+          kaocha_version="${kaocha_jar_file#target/scry-kaocha-}"
+          kaocha_version="${kaocha_version%.jar}"
+
+          if [ "$core_version" != "$kaocha_version" ]; then
+            echo "Core jar version $core_version did not match Kaocha adapter jar version $kaocha_version" >&2
+            exit 1
+          fi
+
+          echo "core_jar_file=$core_jar_file" >> "$GITHUB_OUTPUT"
+          echo "kaocha_jar_file=$kaocha_jar_file" >> "$GITHUB_OUTPUT"
+          echo "version=$core_version" >> "$GITHUB_OUTPUT"
+          echo "Built $core_jar_file and $kaocha_jar_file for version $core_version"
 
       - name: Verify dry-run expected version
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_version != '' }}
@@ -132,7 +157,7 @@ jobs:
         env:
           CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
           CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
-        run: clojure -T:build:deploy deploy
+        run: clojure -T:build:deploy deploy-all
 
       - name: Create GitHub Release
         if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
@@ -140,6 +165,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ github.ref_name }}" \
-            "${{ steps.artifact.outputs.jar_file }}" \
+            "${{ steps.artifact.outputs.core_jar_file }}" \
+            "${{ steps.artifact.outputs.kaocha_jar_file }}" \
             --title "${{ github.ref_name }}" \
             --notes-file release-notes.md

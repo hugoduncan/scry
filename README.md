@@ -137,7 +137,7 @@ If custom `:top-level-keys` omits both `:results` and `:failures`, helpers such 
 
 ## Kaocha adapter
 
-A Kaocha adapter lives in `scry.kaocha` and is only available when the Kaocha adapter path and dependencies are on the classpath:
+A Kaocha adapter lives in `scry.kaocha` and is only available when the Kaocha adapter path and dependencies are on the classpath. Repository development uses the `:kaocha` alias; library consumers can opt in with the separate `org.hugoduncan/scry-kaocha` artifact at the same version as `org.hugoduncan/scry`, keeping core users free of a hard Kaocha dependency:
 
 ```clojure
 (require '[scry.kaocha :as k])

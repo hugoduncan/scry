@@ -368,8 +368,9 @@
 
 (deftest release-workflow-publishing-gates-test
   ;; The safety-critical publishing steps must be unreachable from manual
-  ;; workflow_dispatch dry runs. Static coverage keeps the YAML conditions under
-  ;; test rather than relying only on actionlint/manual inspection.
+  ;; workflow_dispatch dry runs. Static coverage keeps the YAML conditions and
+  ;; two-artifact release surface under test rather than relying only on
+  ;; actionlint/manual inspection.
   (let [workflow (slurp ".github/workflows/release.yml")
         validate-step (workflow-step workflow "Validate publishing tag and version")
         publishing-steps ["Extract release notes"
@@ -384,9 +385,14 @@
         (is (< (.indexOf workflow "      - name: Validate publishing tag and version")
                (.indexOf workflow (str "      - name: " step-name)))
             step-name)))
+    (is (str/includes? workflow "clojure -T:build jars"))
+    (is (str/includes? workflow "clojure -T:build:deploy deploy-all"))
+    (is (str/includes? workflow "scry-[0-9]*.[0-9]*.[0-9]*.jar' ! -name 'scry-kaocha-*.jar"))
+    (is (str/includes? workflow "scry-kaocha-[0-9]*.[0-9]*.[0-9]*.jar"))
     (let [release-step (workflow-step workflow "Create GitHub Release")]
       (is (str/includes? release-step "gh release create"))
-      (is (str/includes? release-step "${{ steps.artifact.outputs.jar_file }}")))))
+      (is (str/includes? release-step "${{ steps.artifact.outputs.core_jar_file }}"))
+      (is (str/includes? release-step "${{ steps.artifact.outputs.kaocha_jar_file }}")))))
 
 (deftest partial-failure-existing-tag-plan-test
   ;; Existing local tags are handled deliberately so a retry pushes the same tag

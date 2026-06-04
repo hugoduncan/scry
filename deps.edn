@@ -12,11 +12,11 @@
   :kaocha {:extra-paths ["src-kaocha"]
            :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}
 
-  ;; Maintainer build tasks. Use with clojure -T:build clean or jar.
+  ;; Maintainer build tasks. Use with clojure -T:build clean, jar, kaocha-jar, or jars.
   :build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.10"}}
           :ns-default build}
 
-  ;; Maintainer deploy support. Use with clojure -T:build:deploy deploy.
+  ;; Maintainer deploy support. Use with clojure -T:build:deploy deploy or deploy-all.
   :deploy {:extra-deps {slipset/deps-deploy {:mvn/version "0.2.2"}}}
 
   ;; Focused release helper tests. Adds bb/ so Clojure can load the

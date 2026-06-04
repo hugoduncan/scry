@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed nested/reentrant in-process capture so nested `scry`, optional Kaocha, and raw `clojure.test` runs no longer leak inner events or output into an enclosing `scry` result, while preserving inner raw `clojure.test` assertion counters.
 - Added `scry.cli` command-line entry points for `clojure -M -m` and `clojure -X` runs, with live per-test-var progress, stdout summaries, non-zero exits for failures/errors/no executable tests, and detailed `.scry-results/*.edn` files for failed or erroring vars.
 - Added command-line selector support for core `clojure.test` dirs, namespaces, vars, and namespace patterns, plus optional Kaocha CLI mode for suite/config/fallback options when the Kaocha adapter is on the classpath.
 - Added an optional `org.hugoduncan/scry-kaocha` adapter artifact built from `src-kaocha`, released at the same version as `org.hugoduncan/scry`, with release builds/deploys/GitHub Releases now carrying both jars while keeping the core jar free of Kaocha code and dependencies.

@@ -190,7 +190,7 @@
                            (-> (or keys (get-in capture/default-result-format
                                                 [scope :top-level-keys]))
                                vec
-                               (conj :canonical-results)
+                               (into [:summary :pass? :canonical-results])
                                distinct
                                vec))))
             base
@@ -374,9 +374,18 @@
           {:pass 0 :fail 0 :error 0 :unknown 0}
           entries))
 
+(defn- runner-assertion-counts
+  [result entries]
+  (let [summary (:summary result)]
+    (if (every? #(number? (get summary %)) [:pass :fail :error])
+      {:pass (:pass summary)
+       :fail (:fail summary)
+       :error (:error summary)}
+      (assertion-counts entries))))
+
 (defn- cli-summary
-  [entries]
-  {:assertions (assertion-counts entries)
+  [result entries]
+  {:assertions (runner-assertion-counts result entries)
    :tests (var-counts entries)
    :var-count (count entries)})
 
@@ -406,8 +415,11 @@
   (.flush out))
 
 (defn- exit-code
-  [{:keys [tests var-count]}]
-  (if (and (pos? var-count)
+  [{:keys [assertions tests var-count]} result]
+  (if (and (not (false? (:pass? result)))
+           (pos? var-count)
+           (zero? (:fail assertions 0))
+           (zero? (:error assertions 0))
            (zero? (:fail tests 0))
            (zero? (:error tests 0))
            (zero? (:unknown tests 0)))
@@ -465,9 +477,9 @@
        (let [dir (results/prepare-results-dir! io-boundary)
              result (run-normalized normalized-options io-boundary)
              entries (canonical-result-entries result)
-             summary (cli-summary entries)
+             summary (cli-summary result entries)
              result-files (results/write-result-files! dir entries)
-             code (exit-code summary)]
+             code (exit-code summary result)]
          (write-summary! io-boundary summary)
          {:exit-code code
           :result result

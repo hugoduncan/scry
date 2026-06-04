@@ -1,5 +1,6 @@
 (ns scry.capture-test
   (:require
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [scry.capture :as cap]))
 
@@ -53,6 +54,51 @@
         (is (= "var-text" (:out (first (:failures result))))
             "var buffer holds only the var's output")
         (is (= "orphan-textmore-orphan" (:out (cap/orphan-output state))))))))
+
+(deftest routing-writer-string-slice-test
+  ;; Java's Writer.write(String, off, len) overload routes exactly the selected
+  ;; substring rather than treating the string as a char array.
+  (testing "string slice writes"
+    (let [state (cap/new-state)
+          report (cap/report-fn state)
+          out (cap/routing-writer state :out)
+          v #'scry.capture-test/routing-writer-string-slice-test]
+      (report {:type :begin-test-var :var v})
+      (.write out "prefix-value-suffix" 7 5)
+      (.write out (char-array "abcdef") 2 3)
+      (report {:type :pass})
+      (report {:type :end-test-var :var v})
+      (let [entry (first (:results (cap/build-result state {:duration-ms 1.0
+                                                            :scope :var})))]
+        (is (= "valuecde" (:out entry)))))))
+
+(deftest disabled-context-ignores-events-and-does-not-append-output-test
+  ;; Explicitly disabling capture prevents report events and routed output from
+  ;; mutating an enclosing or supplied capture state.
+  (testing "without-context nil boundary"
+    (let [outer-state (cap/new-state)
+          outer-report (cap/report-fn outer-state)
+          fallback (java.io.StringWriter.)
+          out (binding [*out* fallback]
+                (cap/routing-writer outer-state :out))
+          v #'scry.capture-test/disabled-context-ignores-events-and-does-not-append-output-test]
+      (outer-report {:type :begin-test-var :var v})
+      (binding [*out* out]
+        (print "outer-before")
+        (cap/without-context
+          (outer-report {:type :fail :message "ignored"
+                         :expected false :actual true})
+          (print "escaped-output"))
+        (print "outer-after"))
+      (outer-report {:type :pass})
+      (outer-report {:type :end-test-var :var v})
+      (let [entry (first (:results (cap/build-result outer-state {:duration-ms 1.0
+                                                                  :scope :var})))]
+        (is (= :pass (:status entry)))
+        (is (= [:pass] (mapv :type (:assertions entry))))
+        (is (= "outer-beforeouter-after" (:out entry)))
+        (is (not (str/includes? (:out entry) "escaped-output")))
+        (is (= "escaped-output" (str fallback)))))))
 
 (deftest default-suite-format-is-compact-test
   ;; Suite formatting keeps only failing/erroring vars and omits assertions and

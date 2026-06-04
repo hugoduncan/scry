@@ -3,6 +3,7 @@
    [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
+   [scry.core :as scry]
    [scry.temp-ns :as temp-ns]))
 
 (defmacro when-kaocha-available
@@ -129,6 +130,27 @@
        normalize-config
        (assoc :custom/key :preserved)
        (dissoc :kaocha/plugins))))
+
+(def nested-kaocha-result (atom nil))
+
+(defn invoke-kaocha-run-fixture
+  []
+  (kaocha-run {:config (suite-config [:unit] "scry\\.fixtures\\.failing")
+               :result-format
+               {:suite {:top-level-keys [:summary :pass? :results :failures]
+                        :entry-keys [:var :status :assertions :out]
+                        :assertions? true
+                        :output? true}}}))
+
+(deftest invokes-kaocha-run-test
+  (when-kaocha-available
+    (println "outer kaocha before")
+    (let [result (invoke-kaocha-run-fixture)]
+      (reset! nested-kaocha-result result)
+      (is (false? (:pass? result)))
+      (is (= 'scry.fixtures.failing/equality-fails
+             (:var (first (:results result))))))
+    (println "outer kaocha after")))
 
 (deftest suite-selection-application-preserves-resolved-exact-ids-test
   ;; Selected suite ids are resolved before being passed to Kaocha, and the
@@ -302,3 +324,33 @@
                (:var (first (:results result)))))
         (is (= [:fail]
                (mapv :type (:assertions (first (:results result))))))))))
+
+(deftest nested-kaocha-run-is-isolated-from-outer-scry-capture-test
+  ;; The optional adapter disables any enclosing scry capture while Kaocha runs,
+  ;; so intentional fixture failures belong only to the adapter result.
+  (when-kaocha-available
+    (let [outer-test-fn (fn []
+                          (println "outer kaocha before")
+                          (let [inner-result (invoke-kaocha-run-fixture)]
+                            (reset! nested-kaocha-result inner-result)
+                            (is (false? (:pass? inner-result)))
+                            (is (= 'scry.fixtures.failing/equality-fails
+                                   (:var (first (:results inner-result))))))
+                          (println "outer kaocha after"))
+        outer-var (with-meta outer-test-fn
+                    {:test outer-test-fn
+                     :name 'outer-invokes-kaocha
+                     :ns (find-ns 'scry.kaocha-test)})]
+      (reset! nested-kaocha-result nil)
+      (let [outer-result (scry/run {:vars [outer-var]})
+            outer-entry (first (:results outer-result))
+            inner-result @nested-kaocha-result]
+        (is (true? (:pass? outer-result)))
+        (is (= 1 (get-in outer-result [:summary :test])))
+        (is (= 2 (get-in outer-result [:summary :pass])))
+        (is (= 0 (get-in outer-result [:summary :fail])))
+        (is (= 'scry.kaocha-test/outer-invokes-kaocha (:var outer-entry)))
+        (is (= "outer kaocha before\nouter kaocha after\n" (:out outer-entry)))
+        (is (false? (:pass? inner-result)))
+        (is (= 'scry.fixtures.failing/equality-fails
+               (:var (first (:results inner-result)))))))))

@@ -174,6 +174,6 @@ Caveat: Kaocha's capture-output plugin merges stdout and stderr into one stream.
 
 - Prefer structured `scry` results over parsing console text.
 - Prefer `:results` as canonical; use `scry/failures` for failing/erroring entries.
-- Preserve normal `clojure.test` semantics; `scry.clojure-test` delegates to `clojure.test/test-vars`.
+- Preserve normal `clojure.test` semantics; `scry.clojure-test` uses a local fixture-preserving loop around `clojure.test/test-var` to retain normal `:once`/`:each` fixture grouping and ordering while owning per-var output capture.
 - Use targeted `:namespaces` or `:vars` runs while iterating on a specific failure.
 - After changing public behavior, update user-facing docs and tests.

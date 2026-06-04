@@ -97,7 +97,17 @@ The default runner is implemented in `scry.clojure-test` and supports:
 (scry/run {:vars [#'my.project-test/specific-test]})
 ```
 
-It delegates actual execution to `clojure.test/test-vars`, so normal `clojure.test` behavior such as `:once` and `:each` fixtures is preserved.
+It preserves normal `clojure.test` behavior such as `:once` and `:each` fixtures using a local fixture-preserving execution loop around `clojure.test/test-var`. This lets `scry` own per-var output capture while retaining the standard fixture grouping and ordering semantics.
+
+## Nested in-process runner isolation
+
+Each core `scry` run installs its own dynamically scoped capture context. If a test invokes another in-process runner, inner runner events and output are isolated from the enclosing `scry` result:
+
+- Nested `scry` runs return their own result maps without adding inner vars, assertions, failures, or output to the outer run.
+- Optional `scry.kaocha/run` disables any enclosing `scry` capture while Kaocha executes, then converts Kaocha's own result tree into `scry` data.
+- Raw nested `clojure.test/run-tests`, `test-vars`, and `test-var` calls for non-owned vars are ignored by the enclosing `scry` capture while preserving their own `clojure.test` assertion counters.
+
+This isolation is intended for same-thread, cooperative nested test execution. Arbitrary parallel runners, late asynchronous `clojure.test/report` events emitted after the owning run exits, and deliberately spoofed events for a currently owned var are outside the supported attribution model.
 
 ## Scoped result shape
 

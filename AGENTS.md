@@ -59,7 +59,7 @@ Optional Kaocha adapter and Kaocha CLI slice (`clojure -M:test:kaocha:nrepl` or 
        (ct/successful? cli-result)))
 ```
 
-Use `clojure.test/run-tests` for this slice because these tests intentionally run failing inner Kaocha projects; an outer `scry/run` would capture those intentional nested reports as failures of the verification run.
+Use `clojure.test/run-tests` for this slice to keep optional Kaocha verification deterministic and focused on the adapter/CLI test assertions. These tests intentionally run failing inner Kaocha projects; replaceable/disabled capture prevents those inner reports from leaking into an enclosing `scry` context, but broad outer `scry` discovery still mixes optional adapter namespaces, generated fixture behavior, and process-global state, so it is not the canonical all-green check.
 
 Focused build slice (`clojure -M:test:build:nrepl` or an equivalent `:test:build` REPL):
 

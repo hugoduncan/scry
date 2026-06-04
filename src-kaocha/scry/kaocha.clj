@@ -294,8 +294,9 @@
                  apply-runtime-defaults
                  (apply-progress-reporter (:progress-callback opts)))
          start (System/nanoTime)
-         kaocha-result (binding [clojure.test/*report-counters* (ref type/initial-counters)]
-                         (api/run cfg))
+         kaocha-result (capture/without-context
+                         (binding [clojure.test/*report-counters* (ref type/initial-counters)]
+                           (api/run cfg)))
          duration-ms (/ (- (System/nanoTime) start) 1e6)]
      (result->scry kaocha-result {:duration-ms duration-ms
                                   :scope :suite

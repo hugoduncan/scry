@@ -6,6 +6,7 @@
    [clojure.test :refer [deftest is testing]]
    [scry.cli :as cli]
    [scry.fixtures.arbitrary]
+   [scry.fixtures.asserting-fixtures]
    [scry.fixtures.colliding-a]
    [scry.fixtures.colliding-b]
    [scry.fixtures.erroring]
@@ -13,6 +14,7 @@
    [scry.fixtures.mixed]
    [scry.fixtures.output]
    [scry.fixtures.passing]
+   [scry.fixtures.short-circuiting-fixtures]
    [scry.fixtures.unknown]))
 
 (defn not-a-test
@@ -53,7 +55,7 @@
       (is (= ['scry.fixtures.passing] (:namespaces opts)))
       (is (= [#'scry.fixtures.passing/arithmetic-passes] (:vars opts)))
       (is (instance? java.util.regex.Pattern (:ns-pattern opts)))
-      (is (= [:summary :canonical-results]
+      (is (= [:summary :pass? :canonical-results]
              (get-in opts [:result-format :suite :top-level-keys]))))))
 
 (deftest normalize-exec-opts-var-errors-test
@@ -133,7 +135,7 @@
       (is (= ["test"] (:dirs opts)))
       (is (= ['scry.fixtures.passing] (:namespaces opts)))
       (is (= [#'scry.fixtures.passing/arithmetic-passes] (:vars opts)))
-      (is (= [:summary :canonical-results]
+      (is (= [:summary :pass? :canonical-results]
              (get-in opts [:result-format :suite :top-level-keys])))))
   (testing "accepted core short and alias flags"
     (let [opts (cli/parse-main-args ["-r" "core"
@@ -437,6 +439,27 @@
               "scry.fixtures.colliding-b__same-name.edn"]
              (result-files dir))))))
 
+(deftest run-cli-short-circuiting-each-fixture-test
+  ;; A var skipped by a short-circuiting :each fixture does not become an
+  ;; unknown CLI var or produce progress/result files, but zero executed tests
+  ;; still make the CLI exit non-zero.
+  (with-temp-dir [dir]
+    (reset! scry.fixtures.short-circuiting-fixtures/events [])
+    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+                                   {:namespaces ['scry.fixtures.short-circuiting-fixtures]}))]
+      (is (= 1 (:exit-code outcome)))
+      (is (= "Assertions: 1 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored\n"
+             (:stdout outcome)))
+      (is (= "" (:stderr outcome)))
+      (is (= [] (result-files dir)))
+      (is (= [] (:canonical-results (:result outcome))))
+      (is (= [:fixture-ran]
+             @scry.fixtures.short-circuiting-fixtures/events))
+      (is (= {:assertions {:pass 1 :fail 0 :error 0}
+              :tests {:pass 0 :fail 0 :error 0 :unknown 0}
+              :var-count 0}
+             (:summary outcome))))))
+
 (deftest run-cli-unknown-status-test
   ;; An executed test var with no assertion events is unknown: it prints the
   ;; unqualified name to stderr, records unknown summary count, writes no
@@ -462,6 +485,43 @@
                :out ""
                :err ""}]
              (:canonical-results (:result outcome)))))))
+
+(deftest run-cli-run-level-fixture-failures-test
+  ;; Run-level fixture assertions outside public var entries still drive the
+  ;; CLI assertion summary and non-zero exit without per-var failure progress or
+  ;; result files.
+  (let [original-once-setup-pass? @scry.fixtures.asserting-fixtures/once-setup-pass?
+        original-once-teardown-pass? @scry.fixtures.asserting-fixtures/once-teardown-pass?
+        original-each-setup-pass? @scry.fixtures.asserting-fixtures/each-setup-pass?
+        original-each-teardown-pass? @scry.fixtures.asserting-fixtures/each-teardown-pass?]
+    (try
+      (reset! scry.fixtures.asserting-fixtures/once-setup-pass? false)
+      (reset! scry.fixtures.asserting-fixtures/once-teardown-pass? false)
+      (reset! scry.fixtures.asserting-fixtures/each-setup-pass? true)
+      (reset! scry.fixtures.asserting-fixtures/each-teardown-pass? true)
+      (with-temp-dir [dir]
+        (write-stale-result! dir)
+        (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+                                       {:namespaces ['scry.fixtures.asserting-fixtures]}))]
+          (is (= 1 (:exit-code outcome)))
+          (is (= ".Assertions: 3 passed, 2 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
+                 (:stdout outcome)))
+          (is (= "" (:stderr outcome)))
+          (is (= [] (result-files dir)))
+          (is (false? (get-in outcome [:result :pass?])))
+          (is (= {:assertions {:pass 3 :fail 2 :error 0}
+                  :tests {:pass 1 :fail 0 :error 0 :unknown 0}
+                  :var-count 1}
+                 (:summary outcome)))))
+      (finally
+        (reset! scry.fixtures.asserting-fixtures/once-setup-pass?
+                original-once-setup-pass?)
+        (reset! scry.fixtures.asserting-fixtures/once-teardown-pass?
+                original-once-teardown-pass?)
+        (reset! scry.fixtures.asserting-fixtures/each-setup-pass?
+                original-each-setup-pass?)
+        (reset! scry.fixtures.asserting-fixtures/each-teardown-pass?
+                original-each-teardown-pass?)))))
 
 (deftest run-cli-no-tests-and-runner-errors-test
   ;; No executable vars, runner exceptions, and unavailable optional Kaocha

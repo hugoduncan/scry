@@ -35,3 +35,9 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 final verification (slice 7): `git diff --check` passed with no whitespace errors.
 
 2026-06-04 implementation review: Found one actionable issue. `scry.cli/classify-outcome` treats bare `:pass? false` as `:scry.cli/test-failure` before the unknown/zero-tests precedence steps. That can misclassify a valid runner result that has no concrete failures and no aggregate fail/error counts but reports `:pass? false` for unknown or zero executable results; the design defines test-failure from concrete failed/error entries or aggregate fail/error counts, not `:pass?` alone. A follow-up item was added to align classification/tests with the documented precedence.
+
+2026-06-04 implementation-review follow-up: Completed the newly added actionable follow-up. `scry.cli/classify-outcome` no longer treats bare `:pass? false` as `:scry.cli/test-failure`; test-failure classification now follows the documented precedence from concrete var-backed fail/error entries or aggregate fail/error assertion counts. Focused coverage now verifies that valid runner results with `:pass? false` but no concrete/aggregate failures classify unknown entries as `:scry.cli/unknown-result` and empty/no executable entries as `:scry.cli/zero-tests`. The review-added item in `steps.md` is checked.
+
+2026-06-04 verification (implementation-review follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 248 assertions, 0 failures, 0 errors.
+2026-06-04 verification (implementation-review follow-up): `clojure -M:test -m scry.cli` passed: 85 tests, 525 assertions, 0 failures, 0 errors.
+2026-06-04 verification (implementation-review follow-up): `git diff --check` passed with no whitespace errors.

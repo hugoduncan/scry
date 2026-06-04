@@ -455,8 +455,7 @@
     :scry.cli/load-error
 
     (or (some concrete-failure-entry? entries)
-        (aggregate-failure? summary)
-        (false? (:pass? result)))
+        (aggregate-failure? summary))
     :scry.cli/test-failure
 
     (some #(= :unknown (:status %)) entries)

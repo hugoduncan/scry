@@ -65,4 +65,4 @@
 
 ## Implementation review follow-up
 
-- [ ] Align outcome classification with the documented precedence by removing or narrowing bare `:pass? false` test-failure classification, and add focused coverage that unknown/zero-test canonical results with no fail/error entries or aggregate fail/error counts still classify as `:scry.cli/unknown-result` / `:scry.cli/zero-tests`.
+- [x] Align outcome classification with the documented precedence by removing or narrowing bare `:pass? false` test-failure classification, and add focused coverage that unknown/zero-test canonical results with no fail/error entries or aggregate fail/error counts still classify as `:scry.cli/unknown-result` / `:scry.cli/zero-tests`.

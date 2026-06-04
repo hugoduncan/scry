@@ -611,6 +611,40 @@
                (get-in outcome [:summary :assertions])))
         (is (= {:pass 1 :fail 0 :error 0 :unknown 0}
                (get-in outcome [:summary :tests]))))))
+  (testing "unknown entries are not masked by bare pass? false"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 1 :pass 0 :fail 0 :error 0}
+                         :pass? false
+                         :canonical-results [{:var 'scry.fixtures.unknown/no-assertions
+                                              :ns 'scry.fixtures.unknown
+                                              :status :unknown
+                                              :assertion-summary {:pass 0 :fail 0 :error 0}
+                                              :assertions []}]})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
+        (is (= {:pass 0 :fail 0 :error 0}
+               (get-in outcome [:summary :assertions])))
+        (is (= [] (result-files dir))))))
+  (testing "zero executable tests are not masked by bare pass? false"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 0 :pass 0 :fail 0 :error 0}
+                         :pass? false
+                         :canonical-results []})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
+        (is (= {:pass 0 :fail 0 :error 0}
+               (get-in outcome [:summary :assertions])))
+        (is (= [] (result-files dir))))))
   (testing "aggregate assertion failures classify as test failures"
     (with-temp-dir [dir]
       (let [outcome (run-cli-in

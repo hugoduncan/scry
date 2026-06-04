@@ -41,3 +41,5 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 verification (implementation-review follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 42 tests, 248 assertions, 0 failures, 0 errors.
 2026-06-04 verification (implementation-review follow-up): `clojure -M:test -m scry.cli` passed: 85 tests, 525 assertions, 0 failures, 0 errors.
 2026-06-04 verification (implementation-review follow-up): `git diff --check` passed with no whitespace errors.
+
+2026-06-04 implementation review: Found one new actionable issue. `scry.cli` only validates that `:canonical-results` is a vector; malformed canonical entries with missing or unrecognized `:status` can fall through classification as `:scry.cli/pass` when they have a concrete var, even though they are not passed entries and should be treated as malformed runner results/runner errors. A follow-up item was added to `steps.md`.

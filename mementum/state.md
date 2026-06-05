@@ -192,6 +192,7 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest design inconsistency review found no new actionable inconsistency feedback. Reviewed `design.md` against README/SKILL/AGENTS/CHANGELOG CLI docs and relevant CLI/Kaocha code concepts; no follow-up items were added.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest plan ambiguity review found no new actionable ambiguity feedback. Reviewed `plan.md`/`steps.md` against the design, current CLI/result-file/outcome implementation, focused tests, and docs; no follow-up items were added.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` current test-shaper follow-up is complete: `.scry-results/` preparation failures are tagged as `:scry.cli/runner-error`, focused CLI coverage asserts create failure yields non-zero runner-error outcome, human stderr, nil result/summary, no result files, and no runner invocation. Verification passed: focused core CLI tests (43 tests, 284 assertions), optional Kaocha CLI tests (4 tests, 29 assertions), full `clojure -M:test -m scry.cli` (86 tests, 561 assertions), `bb clj-kondo:lint`, and `git diff --check`.
+- Task `017-cli-synthetic-errors-and-outcome-kinds` latest test-shaper review found one actionable test-quality issue: add synthetic/non-concrete unknown-only coverage to lock `:scry.cli/unknown-result` precedence over zero-tests, including progress label and no result files.
 
 ## Useful links
 

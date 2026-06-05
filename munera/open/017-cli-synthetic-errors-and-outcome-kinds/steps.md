@@ -81,3 +81,7 @@
 ## Current test-shaper review follow-up
 
 - [x] Add focused CLI coverage for `.scry-results/` preparation failure (create/clear failure), asserting `:scry.cli/runner-error`, non-zero exit, human stderr, no summary/result-files, and no runner invocation after setup fails.
+
+## Test-shaper review follow-up (synthetic unknown precedence)
+
+- [ ] Add focused CLI outcome/progress coverage for a synthetic/non-concrete `:unknown`-only canonical result with no concrete vars or higher-precedence failures/errors, asserting it classifies as `:scry.cli/unknown-result` rather than `:scry.cli/zero-tests`, exits non-zero, prints a synthetic unknown progress label, and writes no result files.

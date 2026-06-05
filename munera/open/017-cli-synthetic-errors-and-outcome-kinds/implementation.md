@@ -107,3 +107,5 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 verification (current test-shaper follow-up): `clojure -M:test -m scry.cli` passed: 86 tests, 561 assertions, 0 failures, 0 errors.
 2026-06-04 verification (current test-shaper follow-up): `bb clj-kondo:lint` passed with 0 errors and 0 warnings.
 2026-06-04 verification (current test-shaper follow-up): `git diff --check` passed with no whitespace errors.
+
+2026-06-04 test-shaper review: Found one new actionable test-shaping issue. Current tests cover concrete unknown entries, synthetic passing zero-tests, and synthetic load errors, but not the precedence boundary where a non-var-backed `:unknown` entry with no failures/errors should classify as `:scry.cli/unknown-result` instead of falling through to `:scry.cli/zero-tests`. Add focused coverage for that synthetic unknown-only case, including progress label and no result files.

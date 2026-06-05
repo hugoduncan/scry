@@ -59,4 +59,4 @@
 
 ## Test review follow-up
 
-- [ ] Add focused API-doc content regression coverage (for example under a `:test:quickdoc:kaocha` check) that asserts the generated/committed reference includes the intended `scry.core`, `scry.cli/run` `[opts]`, and optional `scry.kaocha` surface while omitting implementation namespaces, CLI helper vars, and the `io-boundary` arity.
+- [x] Add focused API-doc content regression coverage (for example under a `:test:quickdoc:kaocha` check) that asserts the generated/committed reference includes the intended `scry.core`, `scry.cli/run` `[opts]`, and optional `scry.kaocha` surface while omitting implementation namespaces, CLI helper vars, and the `io-boundary` arity.

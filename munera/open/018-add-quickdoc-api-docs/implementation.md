@@ -127,3 +127,26 @@ Verification rerun:
 ## 2026-06-04 test review
 
 Reviewed the task test/verification surface against the design, generated API docs, generator, public namespaces, and dependency-boundary checks. Found one actionable test-quality issue: `bb api-docs --check` proves `doc/API.md` is reproducible, but no automated focused test asserts the curated API-doc content contract (included public vars/arities/prose and omitted implementation namespaces/helpers), so a generator/source/doc change could preserve reproducibility while regressing the documented public surface.
+
+## 2026-06-04 test-review follow-up
+
+Completed the review-added API-doc content regression follow-up. Added `test-quickdoc/scry/api_docs_test.clj` plus a focused `deps.edn` `:quickdoc-test` alias for generator/content contract tests that load the source-controlled generator through the docs/optional-Kaocha classpath and assert:
+
+- committed `doc/API.md` matches `scry.api-docs/generated-markdown`;
+- the generated reference includes the curated `scry.core` public vars (`run`, `last-result`, `failures`, `failed-test`, `output`, `report-string`, and advanced `last-run`);
+- `scry.cli` documents only the user-facing `run` entry point with the `[opts]` arity, README-aligned `-X`/`-M:test` examples, and the structured non-zero contract keys;
+- optional `scry.kaocha` docs include `run` and advanced `result->scry`; and
+- implementation namespaces, CLI helper vars, and the hidden `io-boundary` arity are omitted.
+
+Updated `bb.edn` formatting/lint tasks to include the new focused test path.
+
+Marked the test-review follow-up step complete.
+
+Verification:
+
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? r) (System/exit 1)))"` — pass, 1 test, 37 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` — pass, all source files formatted correctly.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `bb api-docs --check` — pass, generated API docs are up to date.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.build-test)] (when-not (ct/successful? r) (System/exit 1)))"` — pass, 6 tests, 176 assertions, 0 failures, 0 errors.
+- `git diff --check` — pass.

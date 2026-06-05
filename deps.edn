@@ -25,6 +25,9 @@
              :extra-deps {io.github.borkdude/quickdoc {:git/tag "v0.2.6"
                                                        :git/sha "ce86780"}}}
 
+  ;; Focused API docs generator/content tests. Compose with :quickdoc:kaocha.
+  :quickdoc-test {:extra-paths ["test-quickdoc"]}
+
   ;; Focused release helper tests. Adds bb/ so Clojure can load the
   ;; Babashka-compatible release helper namespace.
   :release-test {:extra-paths ["bb"]}

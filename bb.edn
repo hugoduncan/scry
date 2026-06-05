@@ -5,10 +5,10 @@
            :task (apply shell "mise" "exec" "--" "cljfmt" *command-line-args*)}
   clj-fmt:check {:doc "Check Clojure formatting with cljfmt."
                  :task (shell "mise" "exec" "--" "cljfmt" "check"
-                              "src" "src-kaocha" "test" "bb" "build.clj")}
+                              "src" "src-kaocha" "test" "test-quickdoc" "bb" "build.clj")}
   clj-fmt:fix {:doc "Fix Clojure formatting with cljfmt."
                :task (shell "mise" "exec" "--" "cljfmt" "fix"
-                            "src" "src-kaocha" "test" "bb" "build.clj")}
+                            "src" "src-kaocha" "test" "test-quickdoc" "bb" "build.clj")}
   clj-kondo:copy-config {:doc "Copy clj-kondo configs from dependencies."
                          :task (shell "bash" "-lc"
                                       "mise exec -- clj-kondo --lint \"$(clojure -Spath -M:test:kaocha:build:release-test)\" --dependencies --copy-configs --skip-lint")}
@@ -17,6 +17,7 @@
                                "--lint" "src"
                                "--lint" "src-kaocha"
                                "--lint" "bb"
+                               "--lint" "test-quickdoc"
                                "--lint" "build.clj"
                                "--fail-level" "error")}
   api-docs {:doc "Regenerate doc/API.md, or check with --check."

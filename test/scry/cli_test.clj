@@ -22,6 +22,10 @@
   []
   :not-a-test)
 
+(defn- test-boundary
+  [overrides]
+  (merge (#'cli/default-boundary) overrides))
+
 (defn- argument-error?
   [f]
   (try
@@ -34,7 +38,7 @@
   ;; -X option normalization accepts core runner aliases, selectors, and
   ;; detailed CLI result retention without running tests.
   (testing "default runner and detailed result-format retention"
-    (let [opts (cli/normalize-exec-opts {})]
+    (let [opts (#'cli/normalize-exec-opts {})]
       (is (= :clojure-test (:runner opts)))
       (is (contains? (set (get-in opts [:result-format :suite :top-level-keys]))
                      :canonical-results))
@@ -43,7 +47,7 @@
       (is (contains? (set (get-in opts [:result-format :var :top-level-keys]))
                      :canonical-results))))
   (testing "core selector coercions"
-    (let [opts (cli/normalize-exec-opts
+    (let [opts (#'cli/normalize-exec-opts
                 {:runner "core"
                  :dirs "test"
                  :namespaces "scry.fixtures.passing"
@@ -64,74 +68,74 @@
   ;; before runner execution.
   (testing "var selector errors"
     (is (argument-error?
-         #(cli/normalize-exec-opts {:vars 'arithmetic-passes})))
+         #(#'cli/normalize-exec-opts {:vars 'arithmetic-passes})))
     (is (argument-error?
-         #(cli/normalize-exec-opts {:vars 'scry.fixtures.passing/missing})))
+         #(#'cli/normalize-exec-opts {:vars 'scry.fixtures.passing/missing})))
     (is (argument-error?
-         #(cli/normalize-exec-opts {:vars #'not-a-test}))))
+         #(#'cli/normalize-exec-opts {:vars #'not-a-test}))))
   (testing "invalid regex errors"
     (is (argument-error?
-         #(cli/normalize-exec-opts {:ns-pattern "["})))))
+         #(#'cli/normalize-exec-opts {:ns-pattern "["})))))
 
 (deftest normalize-exec-opts-runner-validation-test
   ;; Runner-specific options fail early when supplied to the wrong runner.
   (testing "core mode rejects Kaocha-only options"
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :clojure-test :suite :unit}))))
+         #(#'cli/normalize-exec-opts {:runner :clojure-test :suite :unit}))))
   (testing "Kaocha mode rejects core-only selectors"
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :kaocha
-                                    :namespaces ['scry.fixtures.passing]})))
+         #(#'cli/normalize-exec-opts {:runner :kaocha
+                                      :namespaces ['scry.fixtures.passing]})))
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :kaocha
-                                    :vars ['scry.fixtures.passing/arithmetic-passes]})))
+         #(#'cli/normalize-exec-opts {:runner :kaocha
+                                      :vars ['scry.fixtures.passing/arithmetic-passes]})))
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :kaocha
-                                    :ns-pattern #".*"})))
+         #(#'cli/normalize-exec-opts {:runner :kaocha
+                                      :ns-pattern #".*"})))
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :kaocha
-                                    :namespace-pattern ".*"})))
+         #(#'cli/normalize-exec-opts {:runner :kaocha
+                                      :namespace-pattern ".*"})))
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :kaocha
-                                    :namespace-regex ".*"}))))
+         #(#'cli/normalize-exec-opts {:runner :kaocha
+                                      :namespace-regex ".*"}))))
   (testing "Kaocha directory conflicts fail clearly"
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :kaocha
-                                    :dirs ["test"]
-                                    :test-paths ["other-test"]})))
+         #(#'cli/normalize-exec-opts {:runner :kaocha
+                                      :dirs ["test"]
+                                      :test-paths ["other-test"]})))
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :kaocha
-                                    :dirs ["test"]
-                                    :config {:kaocha/tests []}}))))
+         #(#'cli/normalize-exec-opts {:runner :kaocha
+                                      :dirs ["test"]
+                                      :config {:kaocha/tests []}}))))
   (testing "unknown runner fails"
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :unknown})))))
+         #(#'cli/normalize-exec-opts {:runner :unknown})))))
 
 (deftest normalize-exec-opts-kaocha-test
   ;; Kaocha normalization accepts suite/config/fallback options and maps dirs
   ;; to fallback test paths when no explicit config is supplied.
   (testing "Kaocha options"
-    (let [opts (cli/normalize-exec-opts {:runner "kaocha"
-                                         :dirs ["test" "integration-test"]
-                                         :suite :unit})]
+    (let [opts (#'cli/normalize-exec-opts {:runner "kaocha"
+                                           :dirs ["test" "integration-test"]
+                                           :suite :unit})]
       (is (= :kaocha (:runner opts)))
       (is (= ["test" "integration-test"] (:test-paths opts)))
       (is (= :unit (:suite opts)))))
   (testing "Kaocha suites must be a non-empty collection"
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :kaocha :suites []})))
+         #(#'cli/normalize-exec-opts {:runner :kaocha :suites []})))
     (is (argument-error?
-         #(cli/normalize-exec-opts {:runner :kaocha :suites :unit})))))
+         #(#'cli/normalize-exec-opts {:runner :kaocha :suites :unit})))))
 
 (deftest parse-main-args-test
   ;; -m string flags normalize to the same option map shape as -X options.
   (testing "accepted core flags"
-    (let [opts (cli/parse-main-args ["--runner" "test"
-                                     "--dir" "test"
-                                     "--namespace" "scry.fixtures.passing"
-                                     "--var" "scry.fixtures.passing/arithmetic-passes"
-                                     "--ns-pattern" "scry\\.fixtures\\..*"
-                                     "--result-format" "{:suite {:top-level-keys [:summary]}}"])]
+    (let [opts (#'cli/parse-main-args ["--runner" "test"
+                                       "--dir" "test"
+                                       "--namespace" "scry.fixtures.passing"
+                                       "--var" "scry.fixtures.passing/arithmetic-passes"
+                                       "--ns-pattern" "scry\\.fixtures\\..*"
+                                       "--result-format" "{:suite {:top-level-keys [:summary]}}"])]
       (is (= :clojure-test (:runner opts)))
       (is (= ["test"] (:dirs opts)))
       (is (= ['scry.fixtures.passing] (:namespaces opts)))
@@ -139,52 +143,53 @@
       (is (= [:summary :pass? :canonical-results]
              (get-in opts [:result-format :suite :top-level-keys])))))
   (testing "accepted core short and alias flags"
-    (let [opts (cli/parse-main-args ["-r" "core"
-                                     "-d" "test"
-                                     "--ns" "scry.fixtures.passing"
-                                     "-n" "scry.fixtures.failing"
-                                     "-v" "scry.fixtures.passing/arithmetic-passes"
-                                     "--namespace-pattern" "scry\\.fixtures\\..*"])]
+    (let [opts (#'cli/parse-main-args ["-r" "core"
+                                       "-d" "test"
+                                       "--ns" "scry.fixtures.passing"
+                                       "-n" "scry.fixtures.failing"
+                                       "-v" "scry.fixtures.passing/arithmetic-passes"
+                                       "--namespace-pattern" "scry\\.fixtures\\..*"])]
       (is (= :clojure-test (:runner opts)))
       (is (= ["test"] (:dirs opts)))
       (is (= ['scry.fixtures.passing 'scry.fixtures.failing] (:namespaces opts)))
       (is (= [#'scry.fixtures.passing/arithmetic-passes] (:vars opts)))
       (is (instance? java.util.regex.Pattern (:ns-pattern opts)))))
   (testing "accepted namespace-regex parser alias"
-    (let [opts (cli/parse-main-args ["--namespace-regex" "scry\\.fixtures\\..*"])]
+    (let [opts (#'cli/parse-main-args ["--namespace-regex" "scry\\.fixtures\\..*"])]
       (is (= :clojure-test (:runner opts)))
       (is (instance? java.util.regex.Pattern (:ns-pattern opts)))))
   (testing "accepted repeated Kaocha suite flags"
-    (let [opts (cli/parse-main-args ["--runner" "kaocha"
-                                     "--suite" "unit"
-                                     "--suite" "integration"])]
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "--suite" "unit"
+                                       "--suite" "integration"])]
       (is (= :kaocha (:runner opts)))
       (is (= ["unit" "integration"] (:suites opts)))))
   (testing "accepted Kaocha short suite flags"
-    (let [opts (cli/parse-main-args ["-r" "kaocha"
-                                     "-s" "unit"
-                                     "-s" "integration"])]
+    (let [opts (#'cli/parse-main-args ["-r" "kaocha"
+                                       "-s" "unit"
+                                       "-s" "integration"])]
       (is (= :kaocha (:runner opts)))
       (is (= ["unit" "integration"] (:suites opts)))))
   (testing "accepted Kaocha suites and config EDN flags"
-    (let [opts (cli/parse-main-args ["--runner" "kaocha"
-                                     "--suites" "[:unit]"
-                                     "--config" "{:kaocha/tests []}"])]
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "--suites" "[:unit]"
+                                       "--config" "{:kaocha/tests []}"])]
       (is (= [:unit] (:suites opts)))
       (is (= {:kaocha/tests []} (:config opts)))))
   (testing "help does not normalize or run"
-    (is (= {:help? true :usage cli/usage}
-           (cli/parse-main-args ["--help"]))))
+    (let [parsed (#'cli/parse-main-args ["--help"])]
+      (is (= true (:help? parsed)))
+      (is (str/includes? (:usage parsed) "Usage:"))))
   (testing "parser errors"
-    (is (argument-error? #(cli/parse-main-args ["--unknown"])))
-    (is (argument-error? #(cli/parse-main-args ["--dir"])))
-    (is (argument-error? #(cli/parse-main-args ["--result-format" "["])))
-    (is (argument-error? #(cli/parse-main-args ["--ns-pattern" "a"
-                                                "--namespace-pattern" "b"])))
-    (is (argument-error? #(cli/parse-main-args ["--namespace-pattern" "a"
-                                                "--namespace-regex" "b"])))
-    (is (argument-error? #(cli/parse-main-args ["--suite" "unit"
-                                                "--suites" "[:integration]"])))))
+    (is (argument-error? #(#'cli/parse-main-args ["--unknown"])))
+    (is (argument-error? #(#'cli/parse-main-args ["--dir"])))
+    (is (argument-error? #(#'cli/parse-main-args ["--result-format" "["])))
+    (is (argument-error? #(#'cli/parse-main-args ["--ns-pattern" "a"
+                                                  "--namespace-pattern" "b"])))
+    (is (argument-error? #(#'cli/parse-main-args ["--namespace-pattern" "a"
+                                                  "--namespace-regex" "b"])))
+    (is (argument-error? #(#'cli/parse-main-args ["--suite" "unit"
+                                                  "--suites" "[:integration]"])))))
 
 (defn- temp-dir
   []
@@ -214,11 +219,12 @@
 (defn- run-cli-in
   ([dir opts]
    (run-cli-in dir opts {}))
-  ([dir opts boundary]
+  ([dir opts boundary-overrides]
    (let [out (string-writer)
          err (string-writer)
-         outcome (cli/run-cli opts (merge {:cwd (.getPath dir) :out out :err err}
-                                          boundary))]
+         boundary (test-boundary (merge {:cwd (.getPath dir) :out out :err err}
+                                        boundary-overrides))
+         outcome (#'cli/run-cli opts boundary)]
      (assoc outcome :stdout (str out) :stderr (str err)))))
 
 (defn- result-files
@@ -263,7 +269,7 @@
   ;; prints a summary, and exits successfully.
   (with-temp-dir [dir]
     (write-stale-result! dir)
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.passing/arithmetic-passes]}))]
       (is (= 0 (:exit-code outcome)))
       (is (= :scry.cli/pass (:scry.cli/outcome-kind outcome)))
@@ -284,7 +290,7 @@
       (spit (io/file target "outside.edn") "{:outside true}")
       (let [link (io/file dir ".scry-results")]
         (when (create-symlink! link target)
-          (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+          (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                          {:vars ['scry.fixtures.passing/arithmetic-passes]}))]
             (is (= 0 (:exit-code outcome)))
             (is (= "{:outside true}" (slurp (io/file target "outside.edn"))))
@@ -313,19 +319,20 @@
             out (string-writer)
             err (string-writer)]
         (spit cwd-file "not a directory")
-        (let [outcome (cli/run-cli
-                       (cli/normalize-exec-opts {})
-                       {:cwd (.getPath cwd-file)
-                        :out out
-                        :err err
-                        :run-clojure-test
-                        (fn [_]
-                          (reset! runner-called? true)
-                          (runner-result [{:var 'scry.fixtures.passing/arithmetic-passes
-                                           :ns 'scry.fixtures.passing
-                                           :status :pass
-                                           :assertion-summary {:pass 1 :fail 0 :error 0}
-                                           :assertions []}]))})]
+        (let [outcome (#'cli/run-cli
+                       (#'cli/normalize-exec-opts {})
+                       (test-boundary
+                        {:cwd (.getPath cwd-file)
+                         :out out
+                         :err err
+                         :run-clojure-test
+                         (fn [_]
+                           (reset! runner-called? true)
+                           (runner-result [{:var 'scry.fixtures.passing/arithmetic-passes
+                                            :ns 'scry.fixtures.passing
+                                            :status :pass
+                                            :assertion-summary {:pass 1 :fail 0 :error 0}
+                                            :assertions []}]))}))]
           (is (= 1 (:exit-code outcome)))
           (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
           (is (= "" (str out)))
@@ -353,19 +360,20 @@
              (.toPath results-dir)
              non-writable-dir-permissions)
             (try
-              (let [outcome (cli/run-cli
-                             (cli/normalize-exec-opts {})
-                             {:cwd (.getPath dir)
-                              :out out
-                              :err err
-                              :run-clojure-test
-                              (fn [_]
-                                (reset! runner-called? true)
-                                (runner-result [{:var 'scry.fixtures.passing/arithmetic-passes
-                                                 :ns 'scry.fixtures.passing
-                                                 :status :pass
-                                                 :assertion-summary {:pass 1 :fail 0 :error 0}
-                                                 :assertions []}]))})]
+              (let [outcome (#'cli/run-cli
+                             (#'cli/normalize-exec-opts {})
+                             (test-boundary
+                              {:cwd (.getPath dir)
+                               :out out
+                               :err err
+                               :run-clojure-test
+                               (fn [_]
+                                 (reset! runner-called? true)
+                                 (runner-result [{:var 'scry.fixtures.passing/arithmetic-passes
+                                                  :ns 'scry.fixtures.passing
+                                                  :status :pass
+                                                  :assertion-summary {:pass 1 :fail 0 :error 0}
+                                                  :assertions []}]))}))]
                 (is (= 1 (:exit-code outcome)))
                 (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
                 (is (= "" (str out)))
@@ -385,7 +393,7 @@
   ;; verifying documented core CLI selectors beyond explicit vars.
   (testing "namespace selector"
     (with-temp-dir [dir]
-      (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+      (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                      {:namespaces ['scry.fixtures.passing]}))]
         (is (= 0 (:exit-code outcome)))
         (is (= ".Assertions: 2 passed, 0 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
@@ -396,7 +404,7 @@
                (mapv :var (:canonical-results (:result outcome))))))))
   (testing "directory plus namespace-pattern discovery selector"
     (with-temp-dir [dir]
-      (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+      (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                      {:dirs ["test"]
                                       :ns-pattern #"scry\.fixtures\.passing"}))]
         (is (= 0 (:exit-code outcome)))
@@ -474,7 +482,7 @@
                              :out ""
                              :err ""}
           outcome (run-cli-in dir
-                              (cli/normalize-exec-opts {})
+                              (#'cli/normalize-exec-opts {})
                               {:run-clojure-test
                                (fn [opts]
                                  (doseq [entry [synthetic-error
@@ -508,7 +516,7 @@
   ;; detailed EDN files, removes stale files, and exits non-zero.
   (with-temp-dir [dir]
     (write-stale-result! dir)
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.failing/also-passes
                                            'scry.fixtures.failing/equality-fails]}))
           files (result-files dir)
@@ -535,7 +543,7 @@
   ;; Error result files sanitize raw Throwables so clojure.edn/read-string can
   ;; read the file while preserving exception class/message/stacktrace detail.
   (with-temp-dir [dir]
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.erroring/throws-exception]}))
           error-file (io/file dir ".scry-results" "scry.fixtures.erroring__throws-exception.edn")
           error-data (edn/read-string (slurp error-file))
@@ -558,7 +566,7 @@
   ;; throughout the CLI contract: one stderr progress name, one result file,
   ;; errored var summary, and non-zero exit.
   (with-temp-dir [dir]
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.mixed/fail-then-error]}))
           error-file (io/file dir ".scry-results" "scry.fixtures.mixed__fail-then-error.edn")
           error-data (edn/read-string (slurp error-file))]
@@ -583,7 +591,7 @@
   ;; the real clojure.test runner so clojure.edn/read-string can read the file
   ;; without #object forms.
   (with-temp-dir [dir]
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.arbitrary/arbitrary-object-fails]}))
           failure-file (io/file dir ".scry-results" "scry.fixtures.arbitrary__arbitrary-object-fails.edn")
           failure-data (edn/read-string (slurp failure-file))
@@ -605,7 +613,7 @@
   ;; result, while CLI-retained canonical results still drive detailed EDN
   ;; result files with assertions and captured output.
   (with-temp-dir [dir]
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.output/noisy-and-fails]
                                     :result-format {:var {:top-level-keys [:summary :pass?]
                                                           :entry-keys [:var]
@@ -631,7 +639,7 @@
   ;; Namespace-prefixed result filenames prevent same unqualified test names
   ;; from overwriting each other.
   (with-temp-dir [dir]
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.colliding-a/same-name
                                            'scry.fixtures.colliding-b/same-name]}))]
       (is (= 1 (:exit-code outcome)))
@@ -646,7 +654,7 @@
   ;; still make the CLI exit non-zero.
   (with-temp-dir [dir]
     (reset! scry.fixtures.short-circuiting-fixtures/events [])
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:namespaces ['scry.fixtures.short-circuiting-fixtures]}))]
       (is (= 1 (:exit-code outcome)))
       (is (= "Assertions: 1 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored\n"
@@ -667,7 +675,7 @@
   ;; failure/error EDN file, and exits non-zero.
   (with-temp-dir [dir]
     (write-stale-result! dir)
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.unknown/no-assertions]}))]
       (is (= 1 (:exit-code outcome)))
       (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
@@ -700,7 +708,7 @@
                             :assertions []}
             outcome (run-cli-in
                      dir
-                     (cli/normalize-exec-opts {})
+                     (#'cli/normalize-exec-opts {})
                      {:run-clojure-test
                       (fn [opts]
                         ((:progress-callback opts) synthetic-pass)
@@ -718,7 +726,7 @@
     (with-temp-dir [dir]
       (let [outcome (run-cli-in
                      dir
-                     (cli/normalize-exec-opts {})
+                     (#'cli/normalize-exec-opts {})
                      {:run-clojure-test
                       (fn [_]
                         {:summary {:test 1 :pass 0 :fail 0 :error 0}
@@ -737,7 +745,7 @@
     (with-temp-dir [dir]
       (let [outcome (run-cli-in
                      dir
-                     (cli/normalize-exec-opts {})
+                     (#'cli/normalize-exec-opts {})
                      {:run-clojure-test
                       (fn [_]
                         {:summary {:test 0 :pass 0 :fail 0 :error 0}
@@ -759,7 +767,7 @@
                                :err ""}
             outcome (run-cli-in
                      dir
-                     (cli/normalize-exec-opts {})
+                     (#'cli/normalize-exec-opts {})
                      {:run-clojure-test
                       (fn [opts]
                         ((:progress-callback opts) synthetic-unknown)
@@ -778,7 +786,7 @@
     (with-temp-dir [dir]
       (let [outcome (run-cli-in
                      dir
-                     (cli/normalize-exec-opts {})
+                     (#'cli/normalize-exec-opts {})
                      {:run-clojure-test
                       (fn [_]
                         (runner-result [{:var nil
@@ -804,7 +812,7 @@
     (with-temp-dir [dir]
       (let [outcome (run-cli-in
                      dir
-                     (cli/normalize-exec-opts {})
+                     (#'cli/normalize-exec-opts {})
                      {:run-clojure-test
                       (fn [_]
                         {:summary {:test 1 :pass 1 :fail 1 :error 0}
@@ -823,7 +831,7 @@
     (with-temp-dir [dir]
       (let [outcome (run-cli-in
                      dir
-                     (cli/normalize-exec-opts {})
+                     (#'cli/normalize-exec-opts {})
                      {:run-clojure-test
                       (fn [_]
                         {:summary {:test 0 :pass 0 :fail 1 :error 1}
@@ -855,7 +863,7 @@
         (with-temp-dir [dir]
           (let [outcome (run-cli-in
                          dir
-                         (cli/normalize-exec-opts {})
+                         (#'cli/normalize-exec-opts {})
                          {:run-clojure-test
                           (fn [_]
                             {:summary {:test 1 :pass 1 :fail 0 :error 0}
@@ -871,7 +879,7 @@
     (with-temp-dir [dir]
       (let [outcome (run-cli-in
                      dir
-                     (cli/normalize-exec-opts {})
+                     (#'cli/normalize-exec-opts {})
                      {:run-clojure-test
                       (fn [_]
                         {:summary {:test 0 :pass 0 :fail 0 :error 0}
@@ -889,7 +897,7 @@
     (let [resolver-called? (atom false)
           outcome (run-cli-in
                    dir
-                   (cli/normalize-exec-opts
+                   (#'cli/normalize-exec-opts
                     {:runner :clojure-test
                      :vars ['scry.fixtures.passing/arithmetic-passes]})
                    {:resolve-kaocha-runner
@@ -916,7 +924,7 @@
       (reset! scry.fixtures.asserting-fixtures/each-teardown-pass? true)
       (with-temp-dir [dir]
         (write-stale-result! dir)
-        (let [outcome (run-cli-in dir (cli/normalize-exec-opts
+        (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                        {:namespaces ['scry.fixtures.asserting-fixtures]}))]
           (is (= 1 (:exit-code outcome)))
           (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
@@ -943,7 +951,7 @@
   ;; No executable vars, runner exceptions, and unavailable optional Kaocha
   ;; mode produce non-zero structured outcomes without leaving stale files.
   (with-temp-dir [dir]
-    (let [outcome (run-cli-in dir (cli/normalize-exec-opts {:namespaces ['clojure.core]}))]
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts {:namespaces ['clojure.core]}))]
       (is (= 1 (:exit-code outcome)))
       (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored\n"
@@ -953,11 +961,11 @@
     (write-stale-result! dir)
     (let [out (string-writer)
           err (string-writer)
-          outcome (cli/run-cli (cli/normalize-exec-opts
-                                {:namespaces ['scry.fixtures.missing-runner-exception]})
-                               {:cwd (.getPath dir)
-                                :out out
-                                :err err})]
+          outcome (#'cli/run-cli (#'cli/normalize-exec-opts
+                                  {:namespaces ['scry.fixtures.missing-runner-exception]})
+                                 (test-boundary {:cwd (.getPath dir)
+                                                 :out out
+                                                 :err err}))]
       (is (= 1 (:exit-code outcome)))
       (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (= [] (result-files dir)))
@@ -967,7 +975,7 @@
     (write-stale-result! dir)
     (let [outcome (run-cli-in
                    dir
-                   (cli/normalize-exec-opts {:runner :kaocha})
+                   (#'cli/normalize-exec-opts {:runner :kaocha})
                    {:resolve-kaocha-runner
                     (fn []
                       (throw (java.io.FileNotFoundException. "scry.kaocha")))})]
@@ -984,7 +992,7 @@
   (with-temp-dir [dir]
     (let [outcome (run-cli-in
                    dir
-                   (cli/normalize-exec-opts {:runner :kaocha})
+                   (#'cli/normalize-exec-opts {:runner :kaocha})
                    {:resolve-kaocha-runner
                     (fn []
                       (throw (IllegalStateException. "resolver boom")))})]
@@ -1003,7 +1011,7 @@
       (with-temp-dir [dir]
         (let [outcome (run-cli-in
                        dir
-                       (cli/normalize-exec-opts {:runner :kaocha})
+                       (#'cli/normalize-exec-opts {:runner :kaocha})
                        {:resolve-kaocha-runner (constantly resolved-runner)})]
           (is (= 1 (:exit-code outcome)))
           (is (= "" (:stdout outcome)))
@@ -1020,8 +1028,10 @@
   (with-temp-dir [dir]
     (let [out (string-writer)
           err (string-writer)
-          outcome (cli/run {:vars ['scry.fixtures.passing/arithmetic-passes]}
-                           {:cwd (.getPath dir) :out out :err err})]
+          outcome (#'cli/run-with-boundary {:vars ['scry.fixtures.passing/arithmetic-passes]}
+                                           (test-boundary {:cwd (.getPath dir)
+                                                           :out out
+                                                           :err err}))]
       (is (= 0 (:exit-code outcome)))
       (is (= :scry.cli/pass (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (str out) "Assertions: 2 passed"))
@@ -1030,8 +1040,10 @@
     (let [out (string-writer)
           err (string-writer)
           thrown (try
-                   (cli/run {:vars ['scry.fixtures.failing/equality-fails]}
-                            {:cwd (.getPath dir) :out out :err err})
+                   (#'cli/run-with-boundary {:vars ['scry.fixtures.failing/equality-fails]}
+                                            (test-boundary {:cwd (.getPath dir)
+                                                            :out out
+                                                            :err err}))
                    nil
                    (catch clojure.lang.ExceptionInfo e e))]
       (is (some? thrown))
@@ -1057,14 +1069,15 @@
                              :out "load out\n"
                              :err "load err\n"}
             thrown (try
-                     (cli/run {}
-                              {:cwd (.getPath dir)
-                               :out out
-                               :err err
-                               :run-clojure-test
-                               (fn [opts]
-                                 ((:progress-callback opts) synthetic-error)
-                                 (runner-result [synthetic-error]))})
+                     (#'cli/run-with-boundary {}
+                                              (test-boundary
+                                               {:cwd (.getPath dir)
+                                                :out out
+                                                :err err
+                                                :run-clojure-test
+                                                (fn [opts]
+                                                  ((:progress-callback opts) synthetic-error)
+                                                  (runner-result [synthetic-error]))}))
                      nil
                      (catch clojure.lang.ExceptionInfo e e))
             data (ex-data thrown)
@@ -1110,20 +1123,22 @@
   (testing "help prints usage and exits successfully"
     (let [out (string-writer)
           err (string-writer)]
-      (is (= 0 (cli/main-outcome ["--help"] {:out out :err err})))
+      (is (= 0 (#'cli/main-outcome ["--help"] (test-boundary {:out out :err err}))))
       (is (str/includes? (str out) "Usage:"))
       (is (= "" (str err)))))
   (testing "argument errors print terse diagnostics and exit non-zero"
     (let [out (string-writer)
           err (string-writer)]
-      (is (= 1 (cli/main-outcome ["--unknown"] {:out out :err err})))
+      (is (= 1 (#'cli/main-outcome ["--unknown"] (test-boundary {:out out :err err}))))
       (is (= "" (str out)))
       (is (str/includes? (str err) "scry CLI argument error: Unknown option"))))
   (testing "test-running main path delegates to run-cli"
     (with-temp-dir [dir]
       (let [out (string-writer)
             err (string-writer)]
-        (is (= 0 (cli/main-outcome ["--var" "scry.fixtures.passing/arithmetic-passes"]
-                                   {:cwd (.getPath dir) :out out :err err})))
+        (is (= 0 (#'cli/main-outcome ["--var" "scry.fixtures.passing/arithmetic-passes"]
+                                     (test-boundary {:cwd (.getPath dir)
+                                                     :out out
+                                                     :err err}))))
         (is (str/includes? (str out) "Assertions: 2 passed"))
         (is (= [] (result-files dir)))))))

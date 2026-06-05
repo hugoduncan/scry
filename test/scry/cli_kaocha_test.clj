@@ -7,6 +7,10 @@
    [scry.cli :as cli]
    [scry.temp-ns :as temp-ns]))
 
+(defn- test-boundary
+  [overrides]
+  (merge (#'cli/default-boundary) overrides))
+
 (defmacro when-kaocha-available
   [& body]
   `(if (try
@@ -111,7 +115,8 @@
   [dir opts]
   (let [out (string-writer)
         err (string-writer)
-        outcome (cli/run-cli opts {:cwd (.getPath dir) :out out :err err})]
+        boundary (test-boundary {:cwd (.getPath dir) :out out :err err})
+        outcome (#'cli/run-cli opts boundary)]
     (assoc outcome :stdout (str out) :stderr (str err))))
 
 (defn- result-files
@@ -140,14 +145,14 @@
        (write-tests-edn! project unit-ns integration-ns)
        (with-user-dir-and-ns-cleanup project [unit-ns integration-ns]
          (testing "selected passing suite succeeds"
-           (let [outcome (run-cli-in project (cli/normalize-exec-opts
+           (let [outcome (run-cli-in project (#'cli/normalize-exec-opts
                                               {:runner :kaocha :suite :unit}))]
              (is (= 0 (:exit-code outcome)))
              (is (str/starts-with? (:stdout outcome) ".Assertions: 1 passed"))
              (is (= "" (:stderr outcome)))
              (is (= [] (result-files project)))))
          (testing "selected failing suite writes adapter-shaped result file"
-           (let [outcome (run-cli-in project (cli/normalize-exec-opts
+           (let [outcome (run-cli-in project (#'cli/normalize-exec-opts
                                               {:runner :kaocha :suite :integration}))
                  files (result-files project)
                  expected-file (result-file-name failing-var)
@@ -174,7 +179,7 @@
         sample-ns
         "(deftest sample-test\n  (is true))\n")
        (with-user-dir-and-ns-cleanup project [sample-ns]
-         (let [outcome (run-cli-in project (cli/normalize-exec-opts
+         (let [outcome (run-cli-in project (#'cli/normalize-exec-opts
                                             {:runner :kaocha
                                              :dirs "test"
                                              :ns-patterns [(exact-ns-pattern sample-ns)]}))]
@@ -212,7 +217,7 @@
                                         :kaocha/test-paths [(.getAbsolutePath (io/file project "test"))]
                                         :kaocha/ns-patterns [(exact-ns-pattern integration-ns)]}]})]
            (testing "explicit config with suite selection runs only the selected suite"
-             (let [outcome (run-cli-in project (cli/normalize-exec-opts
+             (let [outcome (run-cli-in project (#'cli/normalize-exec-opts
                                                 {:runner :kaocha
                                                  :config config
                                                  :suite :unit}))]
@@ -223,7 +228,7 @@
                       (mapv :var (:canonical-results (:result outcome)))))
                (is (= [] (result-files project)))))
            (testing "the same explicit config can select a failing suite and write details"
-             (let [outcome (run-cli-in project (cli/normalize-exec-opts
+             (let [outcome (run-cli-in project (#'cli/normalize-exec-opts
                                                 {:runner :kaocha
                                                  :config config
                                                  :suite :integration}))

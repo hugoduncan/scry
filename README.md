@@ -1,5 +1,7 @@
 # scry
 
+[![Clojars Project](https://img.shields.io/clojars/v/org.hugoduncan/scry.svg)](https://clojars.org/org.hugoduncan/scry)
+
 `scry` is an in-process Clojure test runner designed for AI agents and REPL-driven development.
 
 Instead of asking an agent to scrape terminal output, `scry` runs tests in the current Clojure process and returns an inspectable result map containing summaries, result entries, assertion details, stack traces, and captured output at a detail level matched to the invocation scope.
@@ -69,6 +71,8 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 
 ## Usage
 
+See [`doc/API.md`](doc/API.md) for the generated public API reference.
+
 `scry` is intended to be driven primarily from a REPL so results remain available for follow-up inspection in the same process.
 
 Basic REPL usage:
@@ -79,7 +83,7 @@ Basic REPL usage:
 (scry/run)
 ```
 
-`scry.core/run` stores the most recent result in `scry.core/last-run`, which can be inspected after a run:
+`scry.core/run` stores the most recent result, which can be inspected after a run:
 
 ```clojure
 (scry/last-result)
@@ -118,7 +122,7 @@ While tests run, the CLI prints one progress item per canonical result: `.` to s
 
 At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Synthetic suite-level failures/errors write readable files such as `.scry-results/suite-error-1.edn` or `.scry-results/my.loader__suite-fail-1.edn`. Passing runs may leave `.scry-results/` as an empty directory.
 
-The CLI exits `0` only when at least one concrete selected/executed test var runs and all vars pass. It exits non-zero for failures, errors, unknown result status, argument/runner errors, synthetic load/suite errors, or zero executable tests. `run-cli` outcomes include machine-readable `:scry.cli/outcome-kind`, and that key is authoritative for exit status: only `:scry.cli/pass` exits `0`; all other kinds exit non-zero.
+The CLI exits `0` only when at least one concrete selected/executed test var runs and all vars pass. It exits non-zero for failures, errors, unknown result status, argument/runner errors, synthetic load/suite errors, or zero executable tests. Structured CLI outcomes include machine-readable `:scry.cli/outcome-kind`, and that key is authoritative for exit status: only `:scry.cli/pass` exits `0`; all other kinds exit non-zero.
 
 Initial outcome kinds are:
 

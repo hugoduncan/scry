@@ -1,5 +1,5 @@
 (ns scry.cli
-  "Command-line entry points and option normalization for scry."
+  "Command-line and `clojure -X` entry points for scry."
   (:require
    [clojure.edn :as edn]
    [clojure.string :as str]
@@ -7,7 +7,7 @@
    [scry.cli.results :as results]
    [scry.clojure-test :as clojure-test]))
 
-(def usage
+(def ^:private usage
   (str "Usage:\n"
        "  clojure -M:test -m scry.cli [options]\n"
        "  clojure -X:test scry.cli/run :runner :clojure-test\n\n"
@@ -56,8 +56,7 @@
     (sequential-but-not-string? x) (vec x)
     :else [x]))
 
-(defn normalize-runner
-  "Normalize a CLI runner identifier to :clojure-test or :kaocha."
+(defn- normalize-runner
   [runner]
   (let [value (or runner :clojure-test)
         token (cond
@@ -228,10 +227,7 @@
     (present? opts :test-paths) (assoc :test-paths (:test-paths opts))
     (present? opts :ns-patterns) (assoc :ns-patterns (:ns-patterns opts))))
 
-(defn normalize-exec-opts
-  "Normalize a `clojure -X` option map for CLI execution.
-
-   Throws ex-info with :type :scry.cli/argument-error on invalid options."
+(defn- normalize-exec-opts
   [opts]
   (when-not (map? opts)
     (argument-error "CLI options must be a map" {:value opts}))
@@ -279,11 +275,7 @@
                    (assoc :suites (vec suite-values))))]
     opts))
 
-(defn parse-main-args
-  "Parse `-m scry.cli` string args into normalized CLI options.
-
-   Returns {:help? true :usage usage} for --help. Throws ex-info for argument
-   errors."
+(defn- parse-main-args
   [args]
   (loop [remaining (seq args)
          raw {}]
@@ -360,10 +352,6 @@
    :cwd (System/getProperty "user.dir")
    :run-clojure-test clojure-test/run
    :resolve-kaocha-runner default-resolve-kaocha-runner})
-
-(defn- boundary
-  [io-boundary]
-  (merge (default-boundary) (or io-boundary {})))
 
 (defn- assertion-counts
   [entries]
@@ -517,8 +505,8 @@
                    cause))))
 
 (defn- resolve-kaocha-runner
-  [io-boundary]
-  (let [resolver (:resolve-kaocha-runner io-boundary)
+  [boundary]
+  (let [resolver (:resolve-kaocha-runner boundary)
         runner (try
                  (resolver)
                  (catch java.io.FileNotFoundException e
@@ -532,58 +520,51 @@
     runner))
 
 (defn- run-kaocha
-  [opts io-boundary progress-callback]
-  (let [run-kaocha (resolve-kaocha-runner io-boundary)]
+  [opts boundary progress-callback]
+  (let [run-kaocha (resolve-kaocha-runner boundary)]
     (run-kaocha (assoc opts :progress-callback progress-callback))))
 
 (defn- run-normalized
-  [opts io-boundary progress-callback]
+  [opts boundary progress-callback]
   (case (:runner opts)
     :clojure-test
-    ((:run-clojure-test io-boundary)
+    ((:run-clojure-test boundary)
      (assoc opts :progress-callback progress-callback))
 
     :kaocha
-    (run-kaocha opts io-boundary progress-callback)))
+    (run-kaocha opts boundary progress-callback)))
 
-(defn run-cli
-  "Run scry from normalized CLI options and return a structured outcome.
-
-   Performs CLI output and .scry-results filesystem effects, but never calls
-   System/exit. The optional io-boundary map may provide :out, :err, :cwd,
-   :run-clojure-test, and :resolve-kaocha-runner for narrow state-based tests."
-  ([normalized-options] (run-cli normalized-options nil))
-  ([normalized-options io-boundary]
-   (let [io-boundary (boundary io-boundary)]
-     (try
-       (let [dir (results/prepare-results-dir! io-boundary)
-             synthetic-counters (atom {})
-             progress-callback #(progress! synthetic-counters io-boundary %)
-             result (run-normalized normalized-options io-boundary progress-callback)
-             entries (canonical-result-entries result)
-             summary (cli-summary result entries)
-             result-files (results/write-result-files! dir entries)
-             outcome-kind (classify-outcome entries summary)
-             code (exit-code outcome-kind)]
-         (write-summary! io-boundary summary)
-         {:exit-code code
-          :scry.cli/outcome-kind outcome-kind
-          :result result
-          :summary summary
-          :result-files result-files
-          :error nil})
-       (catch Throwable e
-         (let [outcome-kind (error-outcome-kind e)]
-           (.write (:err io-boundary) (str "scry CLI error: " (.getMessage e) "\n"))
-           (.flush (:err io-boundary))
-           {:exit-code (exit-code outcome-kind)
-            :scry.cli/outcome-kind outcome-kind
-            :result nil
-            :summary nil
-            :result-files []
-            :error {:message (.getMessage e)
-                    :data (ex-data e)
-                    :exception e}}))))))
+(defn- run-cli
+  [normalized-options boundary]
+  (try
+    (let [dir (results/prepare-results-dir! boundary)
+          synthetic-counters (atom {})
+          progress-callback #(progress! synthetic-counters boundary %)
+          result (run-normalized normalized-options boundary progress-callback)
+          entries (canonical-result-entries result)
+          summary (cli-summary result entries)
+          result-files (results/write-result-files! dir entries)
+          outcome-kind (classify-outcome entries summary)
+          code (exit-code outcome-kind)]
+      (write-summary! boundary summary)
+      {:exit-code code
+       :scry.cli/outcome-kind outcome-kind
+       :result result
+       :summary summary
+       :result-files result-files
+       :error nil})
+    (catch Throwable e
+      (let [outcome-kind (error-outcome-kind e)]
+        (.write (:err boundary) (str "scry CLI error: " (.getMessage e) "\n"))
+        (.flush (:err boundary))
+        {:exit-code (exit-code outcome-kind)
+         :scry.cli/outcome-kind outcome-kind
+         :result nil
+         :summary nil
+         :result-files []
+         :error {:message (.getMessage e)
+                 :data (ex-data e)
+                 :exception e}}))))
 
 (defn- non-zero-exception
   [message outcome]
@@ -606,52 +587,48 @@
            :data (ex-data e)
            :exception e}})
 
+(defn- run-with-boundary
+  [opts boundary]
+  (try
+    (let [normalized (normalize-exec-opts opts)
+          outcome (run-cli normalized boundary)]
+      (if (zero? (:exit-code outcome))
+        outcome
+        (throw (non-zero-exception "scry CLI run failed" outcome))))
+    (catch clojure.lang.ExceptionInfo e
+      (if (= :scry.cli/argument-error (:type (ex-data e)))
+        (throw (non-zero-exception "scry CLI argument error"
+                                   (argument-error-outcome e)))
+        (throw e)))))
+
 (defn run
   "`clojure -X` entry point for the scry CLI.
 
    Normalizes EDN options, runs the shared CLI implementation, and returns the
    successful outcome. Throws ex-info with structured outcome data when the CLI
    run is non-zero so `clojure -X` exits non-zero without calling System/exit."
-  ([opts] (run opts nil))
-  ([opts io-boundary]
-   (try
-     (let [normalized (normalize-exec-opts opts)
-           outcome (run-cli normalized io-boundary)]
-       (if (zero? (:exit-code outcome))
-         outcome
-         (throw (non-zero-exception "scry CLI run failed" outcome))))
-     (catch clojure.lang.ExceptionInfo e
-       (if (= :scry.cli/argument-error (:type (ex-data e)))
-         (throw (non-zero-exception "scry CLI argument error"
-                                    (argument-error-outcome e)))
-         (throw e))))))
+  [opts]
+  (run-with-boundary opts (default-boundary)))
 
-(defn main-outcome
-  "Parse `-m scry.cli` args and run the shared CLI implementation.
+(defn- main-outcome
+  [args boundary]
+  (try
+    (let [parsed (parse-main-args args)]
+      (if (:help? parsed)
+        (do
+          (.write (:out boundary) (:usage parsed))
+          (.write (:out boundary) "\n")
+          (.flush (:out boundary))
+          0)
+        (:exit-code (run-cli parsed boundary))))
+    (catch clojure.lang.ExceptionInfo e
+      (if (= :scry.cli/argument-error (:type (ex-data e)))
+        (do
+          (.write (:err boundary) (str "scry CLI argument error: " (.getMessage e) "\n"))
+          (.flush (:err boundary))
+          1)
+        (throw e)))))
 
-   Returns an exit code and never calls System/exit. This exists so tests can
-   cover main-style parsing and help behavior without terminating the process."
-  ([args] (main-outcome args nil))
-  ([args io-boundary]
-   (let [io-boundary (boundary io-boundary)]
-     (try
-       (let [parsed (parse-main-args args)]
-         (if (:help? parsed)
-           (do
-             (.write (:out io-boundary) (:usage parsed))
-             (.write (:out io-boundary) "\n")
-             (.flush (:out io-boundary))
-             0)
-           (:exit-code (run-cli parsed io-boundary))))
-       (catch clojure.lang.ExceptionInfo e
-         (if (= :scry.cli/argument-error (:type (ex-data e)))
-           (do
-             (.write (:err io-boundary) (str "scry CLI argument error: " (.getMessage e) "\n"))
-             (.flush (:err io-boundary))
-             1)
-           (throw e)))))))
-
-(defn -main
-  "`clojure -M -m scry.cli` entry point."
+(defn ^:no-doc -main
   [& args]
-  (System/exit (main-outcome args)))
+  (System/exit (main-outcome args (default-boundary))))

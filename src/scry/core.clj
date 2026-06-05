@@ -2,23 +2,25 @@
   "Public entry point for scry, an in-process test runner for AI agents.
 
    `run` executes clojure.test tests in-process and returns an inspectable
-   result map; the most recent result is also retained in `last-run` so it can
-   be inspected interactively after the run. The kaocha adapter lives in
-   `scry.kaocha` (loaded only when the :kaocha alias is present)."
+   result map; the most recent result is retained for interactive inspection
+   through `last-result`. The optional Kaocha adapter lives in `scry.kaocha`
+   and is available when the adapter artifact or equivalent optional Kaocha
+   classpath is present."
   (:require
    [clojure.string :as str]
    [scry.capture :as capture]
    [scry.clojure-test :as clojure-test]))
 
-(def last-run
+(def ^:private last-run
   "Atom holding the most recent run result, for post-run inspection."
   (atom nil))
 
 (defn run
   "Run clojure.test tests in-process and return the inspectable result map.
 
-   See `scry.clojure-test/run` for options. The result is also stored in
-   `last-run`."
+   Supports directory, namespace, namespace-pattern, var, and result-format
+   options documented in the README. The result is also available through
+   `last-result`."
   ([] (run {}))
   ([opts]
    (reset! last-run (clojure-test/run opts))))

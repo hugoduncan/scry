@@ -126,7 +126,7 @@ clojure -M:test -m scry.cli --var my.project-test/specific-test
 clojure -X:test scry.cli/run :vars '[my.project-test/specific-test]'
 ```
 
-The CLI clears and recreates `.scry-results/` at run start, prints `.` to stdout for passing vars, prints failing/erroring/unknown names or synthetic suite-level labels to stderr, writes namespace-prefixed `.edn` files for failing/erroring vars, writes deterministic synthetic `.edn` files for failing/erroring entries without a concrete var, and exits non-zero for failures, errors, unknown status, synthetic load/suite errors, argument/runner errors, or zero executable tests. `run-cli`/`-X` structured outcomes include top-level `:scry.cli/outcome-kind` (`:scry.cli/pass`, `:scry.cli/argument-error`, `:scry.cli/runner-error`, `:scry.cli/load-error`, `:scry.cli/test-failure`, `:scry.cli/unknown-result`, or `:scry.cli/zero-tests`); agents should inspect that key and `.scry-results/*.edn` instead of parsing progress/stderr text. Kaocha CLI mode requires the optional adapter classpath:
+The CLI clears and recreates `.scry-results/` at run start, prints `.` to stdout for passing vars, prints failing/erroring/unknown names or synthetic suite-level labels to stderr, writes namespace-prefixed `.edn` files for failing/erroring vars, writes deterministic synthetic `.edn` files for failing/erroring entries without a concrete var, and exits non-zero for failures, errors, unknown status, synthetic load/suite errors, argument/runner errors, or zero executable tests. Structured CLI / `-X` outcomes include top-level `:scry.cli/outcome-kind` (`:scry.cli/pass`, `:scry.cli/argument-error`, `:scry.cli/runner-error`, `:scry.cli/load-error`, `:scry.cli/test-failure`, `:scry.cli/unknown-result`, or `:scry.cli/zero-tests`); agents should inspect that key and `.scry-results/*.edn` instead of parsing progress/stderr text. Kaocha CLI mode requires the optional adapter classpath:
 
 ```sh
 clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
@@ -172,7 +172,7 @@ REPL runs are encouraged while iterating, but they do not replace final command-
 
 ## Maintainer CI workflow
 
-GitHub Actions CI is configured in `.github/workflows/ci.yml` for pull requests and pushes to `master`. It uses `mise` project tools to run `bb clj-fmt:check` and `bb clj-kondo:lint`, then runs core tests, optional Kaocha tests, focused build checks, and the jar build. Keep its verification commands aligned with the local commands documented below, and use `actions/checkout` with full Git history because the jar version is derived from Git commit count.
+GitHub Actions CI is configured in `.github/workflows/ci.yml` for pull requests and pushes to `master`. It uses `mise` project tools to run `bb clj-fmt:check` and `bb clj-kondo:lint`, verifies generated API docs with `bb api-docs --check` plus focused API-doc content regression tests, then runs core tests, optional Kaocha tests, focused build checks, and the jar build. Keep its verification commands aligned with the local commands documented below, and use `actions/checkout` with full Git history because the jar version is derived from Git commit count.
 
 ## Maintainer build workflow
 
@@ -194,6 +194,23 @@ Run focused build checks with:
 ```sh
 clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (ct/run-tests 'scry.build-test)"
 ```
+
+## Maintainer API docs workflow
+
+API reference docs are generated with quickdoc and committed at `doc/API.md`. Regenerate after public docstring/API-surface changes with:
+
+```sh
+bb api-docs
+```
+
+Before handing off changes that affect public API docs, verify the committed file is current and the curated generated content contract still holds with:
+
+```sh
+bb api-docs --check
+clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"
+```
+
+The focused API-doc content regression checks the documented public surface, required generated prose, and omitted implementation helpers. The `:quickdoc` alias is docs-only and should be composed with `:kaocha` by the Babashka task so optional `scry.kaocha` API docs can be generated without adding quickdoc or Kaocha to the core runtime dependency surface or published core POM metadata.
 
 ## Maintainer release workflow
 

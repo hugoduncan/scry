@@ -190,6 +190,7 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest ambiguity review found no new actionable ambiguity feedback. Reviewed `design.md` against current CLI outcome/progress/result-file docs and relevant CLI code concepts; no follow-up items were added.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest test-shaper follow-up is complete: `run-exec-entry-point-test` now covers injected synthetic nil-var load-error results through the structured `scry.cli/run` (`clojure -X`) surface, asserting top-level and embedded non-zero ex-data classify as `:scry.cli/load-error` while preserving synthetic result-file data and progress labels. Focused core CLI tests pass (42 tests, 275 assertions), full `clojure -M:test -m scry.cli` passes (85 tests, 552 assertions), and `git diff --check` passes.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest design inconsistency review found no new actionable inconsistency feedback. Reviewed `design.md` against README/SKILL/AGENTS/CHANGELOG CLI docs and relevant CLI/Kaocha code concepts; no follow-up items were added.
+- Task `017-cli-synthetic-errors-and-outcome-kinds` latest plan ambiguity review found no new actionable ambiguity feedback. Reviewed `plan.md`/`steps.md` against the design, current CLI/result-file/outcome implementation, focused tests, and docs; no follow-up items were added.
 
 ## Useful links
 

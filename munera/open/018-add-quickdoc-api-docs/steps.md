@@ -68,3 +68,7 @@
 ## Latest test review follow-up
 
 - [x] Wire the focused API-doc content regression (`clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? r) (System/exit 1)))"`) into the documented/automated maintainer verification path, such as CI and/or AGENTS API-doc final-verification guidance, so curated API-doc surface/prose regressions are not manual-only.
+
+## Follow-up test review — dependency boundary
+
+- [ ] Add focused dependency-boundary regression coverage that asserts quickdoc remains only under the docs-only `:quickdoc` alias and absent from top-level runtime deps, generated core/Kaocha POM dependencies, and packaged artifacts.

@@ -193,3 +193,13 @@ Verification:
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
 - `mise exec -- actionlint .github/workflows/ci.yml` — pass.
 - `git diff --check` — pass.
+
+## 2026-06-04 follow-up test review
+
+Reviewed the API-doc content regression, CI wiring, focused build/POM checks, `deps.edn`, and generator/task integration against the task design. The focused API-doc tests are well-formed, run through real quickdoc generation, avoid mocks/stubs, and cover the curated surface/prose omissions now wired into CI. Found one new actionable test-quality issue: the docs-only dependency boundary for quickdoc is still protected only by manual diff/grep plus generic build/POM checks that assert the Kaocha boundary, not by an automated focused assertion that quickdoc remains only under the `:quickdoc` alias and absent from runtime deps/published POMs/artifacts.
+
+Verification during review:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 6 tests, 176 assertions, 0 failures, 0 errors.

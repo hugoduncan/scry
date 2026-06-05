@@ -30,3 +30,16 @@ Completed the two design follow-up items added by the inconsistency review. `des
 ## 2026-06-04 plan ambiguity review
 
 Reviewed `plan.md` and `steps.md` against the stable `design.md`, prior implementation notes, README/AGENTS/CHANGELOG, `deps.edn`/`bb.edn`, and the public namespaces `scry.core`, `scry.cli`, and `scry.kaocha`. Found two new actionable ambiguities: the plan does not pin the concrete source-controlled generator entry point/classpath that both `bb api-docs` and `bb api-docs --check` will share, and the docs-only dependency-boundary verification is not concrete enough to prove quickdoc stays out of published POM/runtime surfaces. Added follow-up steps for both.
+
+## 2026-06-04 plan-ambiguity follow-up
+
+Completed the two review-added actionable follow-up items in `steps.md`.
+
+- Pinned the source-controlled API-doc generator entry point to `bb/scry/api_docs.clj` (`scry.api-docs`). The eventual docs-only `:quickdoc` alias should add `bb/` and pinned quickdoc to the classpath, and both `bb api-docs` and `bb api-docs --check` should invoke the same path via `clojure -M:quickdoc:kaocha -m scry.api-docs`, forwarding `--check` for no-diff verification.
+- Pinned the concrete dependency-boundary verification to the focused build/POM check command: `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.build-test)] (when-not (ct/successful? r) (System/exit 1)))"`. This proves the published POM dependency surfaces remain curated and that the core artifact excludes `scry.kaocha`; the eventual quickdoc implementation should also inspect the `deps.edn` diff to confirm `borkdude/quickdoc` appears only under the docs-only `:quickdoc` alias and not top-level `:deps`.
+
+Verification run now:
+
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.build-test)] (when-not (ct/successful? r) (System/exit 1)))"` — pass, 6 tests, 176 assertions, 0 failures, 0 errors.
+
+Marked both newly added follow-up items complete in `steps.md`. Older unchecked implementation steps predate the preceding review pass and remain pending for the implementation pass.

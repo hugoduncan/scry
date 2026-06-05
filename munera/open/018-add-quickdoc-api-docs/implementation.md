@@ -369,3 +369,12 @@ Verification during review:
 
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.
+
+## 2026-06-04 code-shaper review
+
+Reviewed the quickdoc generator, generated API reference, API-doc content regression, build dependency-boundary checks, CI/task wiring, and touched public docstrings through the code-shaper lens. The implementation is locally comprehensible, keeps docs generation/config/test concerns separated, preserves the runtime/dependency boundaries, and uses focused exact-surface tests to make the curation invariant enforceable. Found no new actionable code-quality issues.
+
+Verification during review:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.

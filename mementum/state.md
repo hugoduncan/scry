@@ -227,6 +227,7 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` is closed. It fixed CLI handling for synthetic/non-var-backed suite-level results, added additive `:scry.cli/outcome-kind` classification for structured CLI callers, documented the contract, and is represented in PR #1 from branch `scry-improvements`.
 
 - Task `018-add-quickdoc-api-docs` docs-review follow-up is complete: README CLI outcome wording no longer presents `run-cli` as user-facing public API; it describes structured CLI outcomes and `:scry.cli/outcome-kind`, keeping README aligned with generated `doc/API.md` where the curated CLI surface is `scry.cli/run` / `clojure -X`. Verification passed: `bb api-docs --check`, focused API-doc content regression (1 test, 50 assertions), and `git diff --check`.
+- Task `018-add-quickdoc-api-docs` follow-up docs review found one actionable documentation issue: generated `scry.core` API prose says `scry.kaocha` loads only when the repository-local `:kaocha` alias is present, which is too narrow for public users loading the optional adapter artifact/classpath. A follow-up item was added to update the generated-doc source input.
 ## Useful links
 
 - Project README: `README.md`

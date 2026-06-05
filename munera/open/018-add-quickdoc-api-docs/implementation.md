@@ -337,3 +337,12 @@ Verification:
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.
 - `git diff --check` — pass.
+
+## 2026-06-04 follow-up docs review
+
+Reviewed `README.md`, generated `doc/API.md`, `CHANGELOG.md`, AGENTS API-doc workflow guidance, the generator source, and public source docstrings against the implemented quickdoc API-doc task. Found one new actionable documentation issue: the generated `scry.core` namespace prose says `scry.kaocha` is loaded only when the `:kaocha` alias is present, which is true for repository development but too narrow for public users who load the optional adapter artifact/classpath. Added a follow-up step to update the source-controlled generated-doc input so the API reference uses artifact/classpath-oriented wording.
+
+Verification during review:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.

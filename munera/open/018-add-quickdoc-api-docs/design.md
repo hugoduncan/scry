@@ -37,8 +37,9 @@ The source tree also contains implementation namespaces and public-looking helpe
 ## Design notes
 
 - Pin the quickdoc dependency to an explicit released version or git SHA; do not depend on a floating branch.
+- Keep quickdoc and any documentation-generation tooling dependencies maintainer/docs-only: place them under a dedicated docs alias such as `:quickdoc`, a Babashka task that supplies docs-only `:extra-deps`, or an equivalent non-runtime mechanism. Do not add quickdoc/tooling dependencies to top-level `:deps`, the core or Kaocha published POM dependency metadata, or the runtime dependency surface of either artifact.
 - Prefer a single maintainer command that both agents and CI can run locally, such as `bb api-docs` or `clojure -M:quickdoc`, with the exact choice recorded in `AGENTS.md` if added.
-- The quickdoc classpath must include both `src` and `src-kaocha` plus Kaocha dependencies when documenting `scry.kaocha`; otherwise the optional adapter namespace cannot load.
+- The docs generation command must compose the optional adapter classpath for documenting `scry.kaocha`: include both `src` and `src-kaocha` plus the Kaocha dependencies, for example by combining a docs-only quickdoc alias with the existing optional Kaocha alias.
 - Generated docs should include a clear note that `scry.kaocha` requires the optional adapter artifact/classpath and that APIs are still pre-1.0 public alpha.
 - If quickdoc cannot express the desired public surface without source annotations, use minimal `^:no-doc` metadata or private visibility changes only where they do not alter supported public behavior.
 

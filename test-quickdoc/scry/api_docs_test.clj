@@ -41,6 +41,17 @@
     (testing "committed API docs match the source-controlled generator output"
       (is (= markdown committed-markdown)))
 
+    (testing "generated docs include the required generated intro prose"
+      (assert-includes markdown
+                       ["`scry` is initial public alpha / pre-1.0"
+                        "For installation, workflow-oriented examples, and command-line usage, start with [`README.md`](../README.md)."
+                        "Regenerate the reference from the repository root with:"
+                        "```sh\nbb api-docs\n```"
+                        "Verify that the committed reference is up to date with:"
+                        "```sh\nbb api-docs --check\n```"])
+      (assert-includes markdown
+                       ["The optional `scry.kaocha` namespace is documented here because the generation command composes the optional Kaocha classpath."]))
+
     (testing "generated docs include the curated scry.core public surface"
       (assert-includes markdown
                        ["# <a name=\"scry.core\">scry.core</a>"

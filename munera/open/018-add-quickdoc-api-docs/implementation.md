@@ -154,3 +154,22 @@ Verification:
 ## 2026-06-04 follow-up test review
 
 Reviewed the API-doc content regression tests after the prior test-review follow-up. The focused test now covers reproducibility, curated public vars/arities, CLI examples/non-zero keys, optional Kaocha surface, and omitted helper namespaces; `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? r) (System/exit 1)))"` and `bb api-docs --check` pass. Found one new actionable test-quality gap: the focused content regression does not assert the generated intro/prose contract for the pre-1.0 public-alpha note, README relationship, and regeneration/check commands, so those required notes could be removed from the generator and docs while the current test still passes.
+
+## 2026-06-04 follow-up test-review implementation
+
+Completed the newly added follow-up test-review item. Extended `test-quickdoc/scry/api_docs_test.clj` so the focused API-doc content regression now asserts the generated intro/prose contract for:
+
+- the initial public alpha / pre-1.0 stability note;
+- the README relationship for installation, workflow examples, and CLI usage;
+- the `bb api-docs` regeneration command; and
+- the `bb api-docs --check` committed-doc check command.
+
+The existing optional Kaocha classpath prose assertion remains covered by the same focused content test. Marked the follow-up step complete.
+
+Verification:
+
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? r) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` — pass, all source files formatted correctly.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `bb api-docs --check` — pass, generated API docs are up to date.
+- `git diff --check` — pass.

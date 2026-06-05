@@ -150,3 +150,7 @@ Verification:
 - `bb api-docs --check` — pass, generated API docs are up to date.
 - `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.build-test)] (when-not (ct/successful? r) (System/exit 1)))"` — pass, 6 tests, 176 assertions, 0 failures, 0 errors.
 - `git diff --check` — pass.
+
+## 2026-06-04 follow-up test review
+
+Reviewed the API-doc content regression tests after the prior test-review follow-up. The focused test now covers reproducibility, curated public vars/arities, CLI examples/non-zero keys, optional Kaocha surface, and omitted helper namespaces; `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? r) (System/exit 1)))"` and `bb api-docs --check` pass. Found one new actionable test-quality gap: the focused content regression does not assert the generated intro/prose contract for the pre-1.0 public-alpha note, README relationship, and regeneration/check commands, so those required notes could be removed from the generator and docs while the current test still passes.

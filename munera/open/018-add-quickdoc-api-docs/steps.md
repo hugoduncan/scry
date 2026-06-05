@@ -60,3 +60,7 @@
 ## Test review follow-up
 
 - [x] Add focused API-doc content regression coverage (for example under a `:test:quickdoc:kaocha` check) that asserts the generated/committed reference includes the intended `scry.core`, `scry.cli/run` `[opts]`, and optional `scry.kaocha` surface while omitting implementation namespaces, CLI helper vars, and the `io-boundary` arity.
+
+## Follow-up test review
+
+- [ ] Extend the focused API-doc content regression test to assert the generated intro/prose includes the pre-1.0 public-alpha note, README relationship, and `bb api-docs` / `bb api-docs --check` regeneration/check commands.

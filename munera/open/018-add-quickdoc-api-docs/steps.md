@@ -18,6 +18,7 @@
 ## Slice 3 — Docs tooling integration
 
 - [ ] Add a docs-only quickdoc dependency path through a dedicated `deps.edn` alias, a Babashka task, or equivalent non-runtime mechanism.
+- [ ] Choose and record the concrete source-controlled API-doc generator entry point/location, and ensure both `bb api-docs` and `bb api-docs --check` invoke that same generation path with any generator source path on the docs classpath.
 - [ ] Add `bb api-docs` so it regenerates/overwrites `doc/API.md` from source-controlled inputs.
 - [ ] Add `bb api-docs --check` so it fails non-zero when committed `doc/API.md` would change.
 - [ ] Ensure the generation classpath includes `src`, `src-kaocha`, and the Kaocha dependency so `scry.kaocha` can load.
@@ -47,5 +48,6 @@
 - [ ] Run `bb clj-fmt:check` if Clojure source, generator, build, or task files changed.
 - [ ] Run `bb clj-kondo:lint` if Clojure source, generator, build, or task files changed.
 - [ ] Run focused loading/tests for any touched runtime-adjacent namespace, especially if metadata/visibility changes affect `scry.core`, `scry.cli`, or `scry.kaocha`.
+- [ ] Pin and run a concrete docs-tooling dependency-boundary verification, such as focused build/POM checks or generated POM inspection, proving quickdoc is absent from published core/Kaocha POM dependencies and `scry.kaocha` remains absent from the core artifact.
 - [ ] Run `git diff --check`.
 - [ ] Record implementation decisions, verification commands/results, and any non-blocking open questions in `implementation.md`.

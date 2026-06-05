@@ -26,3 +26,7 @@ Reviewed `design.md` against README/AGENTS guidance and the public source namesp
 ## 2026-06-04 inconsistency follow-up
 
 Completed the two design follow-up items added by the inconsistency review. `design.md` now keeps `scry.cli/run` as the only generated CLI var but explicitly requires quickdoc to show only the user-facing `[opts]` arity, treating the `io-boundary` arity as an implementation/test seam hidden via deterministic source-controlled generation input such as `:arglists '([opts])` metadata or a private helper refactor. It also now requires generated main-style CLI examples to use README-aligned alias forms such as `clojure -M:test -m scry.cli` and optional `clojure -M:test:kaocha -m scry.cli --runner kaocha ...`, with any source docstrings/generation config updated rather than hand-editing generated output. Marked both review-added `design-steps.md` items complete.
+
+## 2026-06-04 plan ambiguity review
+
+Reviewed `plan.md` and `steps.md` against the stable `design.md`, prior implementation notes, README/AGENTS/CHANGELOG, `deps.edn`/`bb.edn`, and the public namespaces `scry.core`, `scry.cli`, and `scry.kaocha`. Found two new actionable ambiguities: the plan does not pin the concrete source-controlled generator entry point/classpath that both `bb api-docs` and `bb api-docs --check` will share, and the docs-only dependency-boundary verification is not concrete enough to prove quickdoc stays out of published POM/runtime surfaces. Added follow-up steps for both.

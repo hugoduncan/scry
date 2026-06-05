@@ -119,3 +119,7 @@ Created from psi integration feedback. Implementation is complete; the notes bel
 2026-06-04 verification (synthetic unknown precedence follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 43 tests, 291 assertions, 0 failures, 0 errors.
 
 2026-06-04 verification (synthetic unknown precedence follow-up): `git diff --check` passed with no whitespace errors.
+2026-06-04 final verification (synthetic unknown precedence follow-up): `clojure -M:test -m scry.cli` passed: 86 tests, 568 assertions, 0 failures, 0 errors.
+2026-06-04 final verification (synthetic unknown precedence follow-up): `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 4 tests, 29 assertions, 0 failures, 0 errors.
+2026-06-04 final verification (synthetic unknown precedence follow-up): `bb clj-kondo:lint` passed with 0 errors and 0 warnings.
+2026-06-04 final verification (synthetic unknown precedence follow-up): `git diff --check` passed with no whitespace errors after removing a trailing blank line from `implementation.md`.

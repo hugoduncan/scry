@@ -92,3 +92,7 @@ Verification:
 - `git diff --check` — pass.
 
 No non-blocking open questions remain for this task.
+
+## 2026-06-04 implementation review
+
+Reviewed the quickdoc generator, generated `doc/API.md`, public docstring changes, dependency/tooling boundary, README/AGENTS/CHANGELOG updates, and task artifacts against the stable design and plan. Re-ran `bb api-docs --check`, touched namespace loading, and focused build/POM checks successfully. Found one actionable issue: generated `scry.cli/run` prose omits the `:error` key from the documented non-zero `ex-info` data even though README and `scry.cli/non-zero-exception` include it. Added a follow-up step.

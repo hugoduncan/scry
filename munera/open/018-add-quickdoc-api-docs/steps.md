@@ -52,3 +52,7 @@
 - [x] Pin and run a concrete docs-tooling dependency-boundary verification, such as focused build/POM checks or generated POM inspection, proving quickdoc is absent from published core/Kaocha POM dependencies and `scry.kaocha` remains absent from the core artifact.
 - [x] Run `git diff --check`.
 - [x] Record implementation decisions, verification commands/results, and any non-blocking open questions in `implementation.md`.
+
+## Implementation review follow-up
+
+- [ ] Update `bb/scry/api_docs.clj` generated `scry.cli/run` prose and regenerate `doc/API.md` so the documented non-zero `ex-info` contract includes the `:error` key alongside `:summary` and `:outcome`, matching README and `scry.cli/non-zero-exception`.

@@ -1,6 +1,6 @@
 # Implementation notes
 
-Created from psi integration feedback. No implementation yet.
+Created from psi integration feedback. Implementation is complete; the notes below record implementation passes, review follow-ups, and verification history.
 
 2026-06-04 architecture review: No new actionable architectural-fit feedback. The design keeps fixes in the CLI-owned progress/result-file/outcome surfaces, uses additive CLI outcome/ex-data classification instead of changing core result maps, and preserves the core/Kaocha dependency boundary; META.md and doc/architecture.md were absent, so review used AGENTS.md/README.md plus design.md.
 
@@ -111,3 +111,5 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 test-shaper review: Found one new actionable test-shaping issue. Current tests cover concrete unknown entries, synthetic passing zero-tests, and synthetic load errors, but not the precedence boundary where a non-var-backed `:unknown` entry with no failures/errors should classify as `:scry.cli/unknown-result` instead of falling through to `:scry.cli/zero-tests`. Add focused coverage for that synthetic unknown-only case, including progress label and no result files.
 
 2026-06-04 plan inconsistency review: Found one actionable inconsistency. `implementation.md` still opens with "No implementation yet" even though later implementation notes and checked `steps.md` items show implementation, follow-ups, reviews, and verification are complete. Added a follow-up item to remove or update the stale opening statement; no other new plan/steps inconsistencies found.
+
+2026-06-04 plan-inconsistency follow-up: Updated the opening implementation note to remove the stale "No implementation yet" wording and state that implementation is complete with follow-up/verification history recorded below. The review-added item in `steps.md` is checked. No code/tests/docs behavior changes were needed for this task-artifact-only follow-up. Verification: `git diff --check` passed with no whitespace errors.

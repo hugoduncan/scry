@@ -88,4 +88,4 @@
 
 ## Latest plan inconsistency review follow-up
 
-- [ ] Remove or update the stale opening `implementation.md` statement that says "No implementation yet" now that later notes and checked steps show implementation, follow-ups, reviews, and verification are complete.
+- [x] Remove or update the stale opening `implementation.md` statement that says "No implementation yet" now that later notes and checked steps show implementation, follow-ups, reviews, and verification are complete.

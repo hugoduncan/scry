@@ -101,3 +101,7 @@
 ## Test-shaper review follow-up (results-dir clear failure portability)
 
 - [x] Make the `.scry-results/` clear/delete failure test robust on non-POSIX filesystems (for example by guarding/skipping the POSIX-permission branch when unsupported) while preserving deterministic coverage of the delete-failure branch where POSIX permissions are available.
+
+## Code-shaper review follow-up
+
+- [ ] Align CLI passing progress with the concrete executable-var model: non-concrete synthetic `:pass` entries should not print a normal test-var dot without an explicit, documented synthetic-pass policy; add focused coverage for the chosen behavior.

@@ -85,6 +85,8 @@ Project: scry
 - Task `008-testing-without-mocks-repl-strategy` plan and steps have been created from the stable design. The plan chooses documentation-only explicit REPL snippets, focused CI core slicing, temporary Kaocha namespace uniqueness/removal, Nullable boundary audit, and focused slice verification as the ordered implementation path.
 ## Active focus
 
+- Task `018-add-quickdoc-api-docs` has been created to add `borkdude/quickdoc` based API reference documentation at `doc/API.md`, including a reproducible regeneration command, curated public API surface for `scry.core`, `scry.cli`, and optional `scry.kaocha`, README linkage, maintainer guidance, and verification notes.
+- Task `018-add-quickdoc-api-docs` architecture review found one actionable architectural follow-up: ensure quickdoc/tooling dependencies remain maintainer/docs-only and do not enter top-level runtime deps or published artifact dependency surfaces, while still composing the optional Kaocha classpath for documenting `scry.kaocha`. Review note and `design-steps.md` follow-up are recorded; `META.md` and `doc/architecture.md` are absent.
 - Task `016-update-skill-cli-repl-usage` has been created to update top-level `SKILL.md` so it clearly distinguishes REPL/in-process `scry.core/run` usage from command-line `scry.cli` usage, including CLI progress, `.scry-results/` files, exit-code semantics, final-verification guidance, and optional Kaocha CLI examples.
 - Task `016-update-skill-cli-repl-usage` architecture review found no new actionable architectural-fit feedback. Review note is recorded in `implementation.md`; META.md and doc/architecture.md were absent, so review used AGENTS.md, README.md, and current SKILL.md plus the task design.
 - Task `016-update-skill-cli-repl-usage` ambiguity review found no new actionable ambiguity feedback. Review note is recorded in `implementation.md`; no `design-steps.md` was created because there were no follow-up items.
@@ -208,6 +210,7 @@ Project: scry
 - Project README: `README.md`
 - Agent guidance: `AGENTS.md`
 - Munera task plan: `munera/plan.md`
+- Open quickdoc API docs task: `munera/open/018-add-quickdoc-api-docs/`
 - Closed CLI synthetic errors/outcome kinds task: `munera/closed/017-cli-synthetic-errors-and-outcome-kinds/`
 - Closed public history secret audit task: `munera/closed/015-run-public-history-secret-audit/`
 - Closed public POM metadata task: `munera/closed/014-add-public-pom-metadata/`

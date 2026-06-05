@@ -360,3 +360,12 @@ Verification:
 - `bb clj-fmt:check` — pass, all source files formatted correctly.
 - `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
 - `git diff --check` — pass.
+
+## 2026-06-04 latest docs review
+
+Reviewed `README.md`, generated `doc/API.md`, `CHANGELOG.md`, `AGENTS.md` API-doc guidance, source docstrings, and `bb/scry/api_docs.clj` against the implemented quickdoc task. Found no new actionable documentation issues; no follow-up steps were added.
+
+Verification during review:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.

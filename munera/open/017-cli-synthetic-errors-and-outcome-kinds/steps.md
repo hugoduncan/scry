@@ -104,4 +104,4 @@
 
 ## Code-shaper review follow-up
 
-- [ ] Align CLI passing progress with the concrete executable-var model: non-concrete synthetic `:pass` entries should not print a normal test-var dot without an explicit, documented synthetic-pass policy; add focused coverage for the chosen behavior.
+- [x] Align CLI passing progress with the concrete executable-var model: non-concrete synthetic `:pass` entries should not print a normal test-var dot without an explicit, documented synthetic-pass policy; add focused coverage for the chosen behavior.

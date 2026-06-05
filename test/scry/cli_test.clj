@@ -693,18 +693,23 @@
   ;; exit code across synthetic and malformed runner-result edges.
   (testing "synthetic-only passing entries are zero executable tests"
     (with-temp-dir [dir]
-      (let [outcome (run-cli-in
+      (let [synthetic-pass {:var nil
+                            :ns 'loader.demo
+                            :status :pass
+                            :assertion-summary {:pass 1 :fail 0 :error 0}
+                            :assertions []}
+            outcome (run-cli-in
                      dir
                      (cli/normalize-exec-opts {})
                      {:run-clojure-test
-                      (fn [_]
-                        (runner-result [{:var nil
-                                         :ns 'loader.demo
-                                         :status :pass
-                                         :assertion-summary {:pass 1 :fail 0 :error 0}
-                                         :assertions []}]))})]
+                      (fn [opts]
+                        ((:progress-callback opts) synthetic-pass)
+                        (runner-result [synthetic-pass]))})]
         (is (= 1 (:exit-code outcome)))
         (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
+        (is (= "Assertions: 1 passed, 0 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
+               (:stdout outcome)))
+        (is (= "" (:stderr outcome)))
         (is (= {:pass 1 :fail 0 :error 0}
                (get-in outcome [:summary :assertions])))
         (is (= {:pass 1 :fail 0 :error 0 :unknown 0}

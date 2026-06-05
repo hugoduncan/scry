@@ -419,7 +419,9 @@
 (defn- progress!
   [synthetic-counters {:keys [out err]} entry]
   (case (:status entry)
-    :pass (do (.write out ".") (.flush out))
+    :pass (when (results/concrete-var-backed-entry? entry)
+            (.write out ".")
+            (.flush out))
     :fail (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))
     :error (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))
     (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))))

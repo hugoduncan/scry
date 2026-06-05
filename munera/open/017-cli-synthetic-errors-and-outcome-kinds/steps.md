@@ -96,4 +96,8 @@
 
 ## Test-shaper review follow-up (results-dir clear failure)
 
-- [ ] Add deterministic CLI coverage for `.scry-results/` clear/delete failure during result-directory preparation (not just create failure), asserting `:scry.cli/runner-error`, non-zero exit, human stderr, no summary/result-files, and no runner invocation after cleanup fails.
+- [x] Add deterministic CLI coverage for `.scry-results/` clear/delete failure during result-directory preparation (not just create failure), asserting `:scry.cli/runner-error`, non-zero exit, human stderr, no summary/result-files, and no runner invocation after cleanup fails.
+
+## Test-shaper review follow-up (results-dir clear failure portability)
+
+- [x] Make the `.scry-results/` clear/delete failure test robust on non-POSIX filesystems (for example by guarding/skipping the POSIX-permission branch when unsupported) while preserving deterministic coverage of the delete-failure branch where POSIX permissions are available.

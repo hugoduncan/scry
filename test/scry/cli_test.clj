@@ -293,37 +293,92 @@
             (is (.isDirectory link))
             (is (= [] (result-files dir)))))))))
 
+(def ^:private non-writable-dir-permissions
+  #{java.nio.file.attribute.PosixFilePermission/OWNER_READ
+    java.nio.file.attribute.PosixFilePermission/OWNER_EXECUTE})
+
+(defn- posix-file-permissions-supported?
+  []
+  (contains? (.supportedFileAttributeViews
+              (java.nio.file.FileSystems/getDefault))
+             "posix"))
+
 (deftest run-cli-results-dir-preparation-failure-test
   ;; If the CLI cannot prepare .scry-results, it reports a runner-error
   ;; outcome before invoking the selected test runner.
-  (with-temp-dir [dir]
-    (let [cwd-file (io/file dir "not-a-directory")
-          runner-called? (atom false)
-          out (string-writer)
-          err (string-writer)]
-      (spit cwd-file "not a directory")
-      (let [outcome (cli/run-cli
-                     (cli/normalize-exec-opts {})
-                     {:cwd (.getPath cwd-file)
-                      :out out
-                      :err err
-                      :run-clojure-test
-                      (fn [_]
-                        (reset! runner-called? true)
-                        (runner-result [{:var 'scry.fixtures.passing/arithmetic-passes
-                                         :ns 'scry.fixtures.passing
-                                         :status :pass
-                                         :assertion-summary {:pass 1 :fail 0 :error 0}
-                                         :assertions []}]))})]
-        (is (= 1 (:exit-code outcome)))
-        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
-        (is (= "" (str out)))
-        (is (str/includes? (str err) "scry CLI error: Could not create"))
-        (is (= false @runner-called?))
-        (is (= nil (:result outcome)))
-        (is (= nil (:summary outcome)))
-        (is (= [] (:result-files outcome)))
-        (is (false? (.exists (io/file cwd-file ".scry-results"))))))))
+  (testing "create failure"
+    (with-temp-dir [dir]
+      (let [cwd-file (io/file dir "not-a-directory")
+            runner-called? (atom false)
+            out (string-writer)
+            err (string-writer)]
+        (spit cwd-file "not a directory")
+        (let [outcome (cli/run-cli
+                       (cli/normalize-exec-opts {})
+                       {:cwd (.getPath cwd-file)
+                        :out out
+                        :err err
+                        :run-clojure-test
+                        (fn [_]
+                          (reset! runner-called? true)
+                          (runner-result [{:var 'scry.fixtures.passing/arithmetic-passes
+                                           :ns 'scry.fixtures.passing
+                                           :status :pass
+                                           :assertion-summary {:pass 1 :fail 0 :error 0}
+                                           :assertions []}]))})]
+          (is (= 1 (:exit-code outcome)))
+          (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+          (is (= "" (str out)))
+          (is (str/includes? (str err) "scry CLI error: Could not create"))
+          (is (= false @runner-called?))
+          (is (= nil (:result outcome)))
+          (is (= nil (:summary outcome)))
+          (is (= [] (:result-files outcome)))
+          (is (false? (.exists (io/file cwd-file ".scry-results"))))))))
+  (testing "clear/delete failure"
+    (if-not (posix-file-permissions-supported?)
+      (is true "POSIX file permissions are not supported on this filesystem")
+      (with-temp-dir [dir]
+        (let [results-dir (io/file dir ".scry-results")
+              stale-file (io/file results-dir "stale.edn")
+              runner-called? (atom false)
+              out (string-writer)
+              err (string-writer)]
+          (.mkdirs results-dir)
+          (spit stale-file "{:stale true}")
+          (let [original-permissions (java.nio.file.Files/getPosixFilePermissions
+                                      (.toPath results-dir)
+                                      (make-array java.nio.file.LinkOption 0))]
+            (java.nio.file.Files/setPosixFilePermissions
+             (.toPath results-dir)
+             non-writable-dir-permissions)
+            (try
+              (let [outcome (cli/run-cli
+                             (cli/normalize-exec-opts {})
+                             {:cwd (.getPath dir)
+                              :out out
+                              :err err
+                              :run-clojure-test
+                              (fn [_]
+                                (reset! runner-called? true)
+                                (runner-result [{:var 'scry.fixtures.passing/arithmetic-passes
+                                                 :ns 'scry.fixtures.passing
+                                                 :status :pass
+                                                 :assertion-summary {:pass 1 :fail 0 :error 0}
+                                                 :assertions []}]))})]
+                (is (= 1 (:exit-code outcome)))
+                (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+                (is (= "" (str out)))
+                (is (str/includes? (str err) "scry CLI error: Could not delete"))
+                (is (= false @runner-called?))
+                (is (= nil (:result outcome)))
+                (is (= nil (:summary outcome)))
+                (is (= [] (:result-files outcome)))
+                (is (.exists stale-file)))
+              (finally
+                (java.nio.file.Files/setPosixFilePermissions
+                 (.toPath results-dir)
+                 original-permissions)))))))))
 
 (deftest run-cli-successful-core-selectors-test
   ;; Successful namespace and directory/ns-pattern selectors run end-to-end,

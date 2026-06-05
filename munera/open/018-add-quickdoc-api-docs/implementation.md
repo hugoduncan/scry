@@ -306,3 +306,13 @@ Verification during review:
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.
 - `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+
+## 2026-06-04 test-shaper review
+
+Reviewed the API-doc regression tests, build dependency-boundary checks, CI wiring, and generated-doc reproducibility checks through the test-shaper lens. Tests are focused on observable generated content and artifact/dependency boundaries, use real quickdoc/build paths, have meaningful exact-surface failures, and are wired into maintainer/CI verification. Found no new actionable test-quality issues; no follow-up steps were added.
+
+Verification during review:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.

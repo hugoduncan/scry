@@ -64,3 +64,7 @@
 ## Follow-up test review
 
 - [x] Extend the focused API-doc content regression test to assert the generated intro/prose includes the pre-1.0 public-alpha note, README relationship, and `bb api-docs` / `bb api-docs --check` regeneration/check commands.
+
+## Latest test review follow-up
+
+- [ ] Wire the focused API-doc content regression (`clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? r) (System/exit 1)))"`) into the documented/automated maintainer verification path, such as CI and/or AGENTS API-doc final-verification guidance, so curated API-doc surface/prose regressions are not manual-only.

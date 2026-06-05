@@ -173,3 +173,8 @@ Verification:
 - `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
 - `bb api-docs --check` — pass, generated API docs are up to date.
 - `git diff --check` — pass.
+
+
+## 2026-06-04 latest test review
+
+Reviewed the focused API-doc content regression, generator/check path, docs workflow guidance, and CI/maintainer verification surface. Existing API-doc tests are well-formed, avoid mocks/stubs, and cover the curated public vars/arities/prose plus omitted implementation namespaces; focused API-doc content tests, `bb api-docs --check`, and lint pass. Found one new actionable test-quality issue: the focused `:quickdoc-test` regression is not wired into CI or maintainer API-doc verification guidance, so curated API-doc surface regressions can pass the normal documented/CI checks unless a reviewer remembers the bespoke command.

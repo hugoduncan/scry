@@ -316,3 +316,12 @@ Verification during review:
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.
 - `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+
+## 2026-06-04 docs review
+
+Reviewed `README.md`, `doc/API.md`, `CHANGELOG.md`, generated-doc generator/source docstrings, and AGENTS API-doc workflow guidance against the implemented task. Found one actionable documentation consistency issue: `README.md` still names `run-cli` outcomes as user-facing, while this task's curated public CLI API docs intentionally expose only `scry.cli/run` / `clojure -X` and hide `run-cli`; README should describe structured CLI / `-X` outcomes without promoting that helper.
+
+Verification during review:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.

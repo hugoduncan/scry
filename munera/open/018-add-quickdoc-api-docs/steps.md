@@ -84,3 +84,7 @@
 ## Latest test review — exact CLI API surface
 
 - [x] Strengthen the focused API-doc content regression to assert the exact allowed var-anchor set for the included `scry.cli` namespace is only `scry.cli/run`, so newly public CLI helper vars cannot be accidentally documented without failing the test.
+
+## Docs review follow-up
+
+- [ ] Update `README.md` CLI outcome wording so it does not present `run-cli` as user-facing public API; describe structured CLI / `clojure -X` outcomes and `:scry.cli/outcome-kind` instead, keeping the generated `doc/API.md` curated `scry.cli/run` surface consistent.

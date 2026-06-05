@@ -226,6 +226,7 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` code-shaper follow-up is complete: CLI progress now prints `.` only for concrete var-backed passing entries; synthetic/non-concrete `:pass` entries are silent in progress, preserve summary counts, and classify as `:scry.cli/zero-tests` when no concrete executable vars exist. Focused core CLI tests pass (43 tests, 308 assertions), optional Kaocha CLI tests pass (4 tests, 29 assertions), full `clojure -M:test -m scry.cli` passes (86 tests, 585 assertions), `bb clj-kondo:lint`, `bb clj-fmt:check`, and `git diff --check` pass.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` is closed. It fixed CLI handling for synthetic/non-var-backed suite-level results, added additive `:scry.cli/outcome-kind` classification for structured CLI callers, documented the contract, and is represented in PR #1 from branch `scry-improvements`.
 
+- Task `018-add-quickdoc-api-docs` docs review found one actionable documentation consistency issue: `README.md` still presents `run-cli` outcomes as user-facing even though the curated generated CLI API surface exposes only `scry.cli/run` / `clojure -X`; a follow-up item was added to update README wording toward structured CLI / `clojure -X` outcomes and `:scry.cli/outcome-kind` without promoting `run-cli`.
 ## Useful links
 
 - Project README: `README.md`

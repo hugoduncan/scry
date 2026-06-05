@@ -58,8 +58,9 @@
   "Transform a raw kaocha result map into scry's inspectable result shape.
 
    `extra` may supply additional :summary entries (e.g. :duration-ms), :scope,
-   and :result-format. Kaocha defaults to :suite scope because this adapter does
-   not currently expose namespace/var selectors matching scry.clojure-test."
+   and :result-format. Kaocha defaults to :suite scope because this adapter's
+   public options focus on suite/config selection rather than core namespace or
+   var selectors."
   ([kaocha-result] (result->scry kaocha-result nil))
   ([kaocha-result extra]
    (let [leaves (filterv #(not (:kaocha.testable/skip %))

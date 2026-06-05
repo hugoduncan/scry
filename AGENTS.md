@@ -195,6 +195,22 @@ Run focused build checks with:
 clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (ct/run-tests 'scry.build-test)"
 ```
 
+## Maintainer API docs workflow
+
+API reference docs are generated with quickdoc and committed at `doc/API.md`. Regenerate after public docstring/API-surface changes with:
+
+```sh
+bb api-docs
+```
+
+Before handing off changes that affect public API docs, verify the committed file is current with:
+
+```sh
+bb api-docs --check
+```
+
+The `:quickdoc` alias is docs-only and should be composed with `:kaocha` by the Babashka task so optional `scry.kaocha` API docs can be generated without adding quickdoc or Kaocha to the core runtime dependency surface or published core POM metadata.
+
 ## Maintainer release workflow
 
 Release automation uses Babashka locally and `.github/workflows/release.yml` in GitHub Actions.

@@ -1,5 +1,5 @@
 (ns scry.cli
-  "Command-line entry points and option normalization for scry."
+  "Command-line and `clojure -X` entry points for scry."
   (:require
    [clojure.edn :as edn]
    [clojure.string :as str]
@@ -652,6 +652,6 @@
            (throw e)))))))
 
 (defn -main
-  "`clojure -M -m scry.cli` entry point."
+  "`clojure -M:test -m scry.cli` entry point."
   [& args]
   (System/exit (main-outcome args)))

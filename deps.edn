@@ -19,6 +19,12 @@
   ;; Maintainer deploy support. Use with clojure -T:build:deploy deploy or deploy-all.
   :deploy {:extra-deps {slipset/deps-deploy {:mvn/version "0.2.2"}}}
 
+  ;; API docs generation. Use with clojure -M:quickdoc:kaocha -m scry.api-docs.
+  ;; Compose :kaocha so the optional adapter namespace can be documented.
+  :quickdoc {:extra-paths ["bb"]
+             :extra-deps {io.github.borkdude/quickdoc {:git/tag "v0.2.6"
+                                                       :git/sha "ce86780"}}}
+
   ;; Focused release helper tests. Adds bb/ so Clojure can load the
   ;; Babashka-compatible release helper namespace.
   :release-test {:extra-paths ["bb"]}

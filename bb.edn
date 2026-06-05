@@ -19,6 +19,9 @@
                                "--lint" "bb"
                                "--lint" "build.clj"
                                "--fail-level" "error")}
+  api-docs {:doc "Regenerate doc/API.md, or check with --check."
+            :task (apply shell "clojure" "-M:quickdoc:kaocha" "-m" "scry.api-docs"
+                         *command-line-args*)}
   release {:doc "Push a release, or dispatch a dry-run with --dry-run [--ref REF]."
            :task (do
                    (require '[scry.release])

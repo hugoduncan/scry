@@ -51,3 +51,44 @@ Reviewed `plan.md` and `steps.md` against the stable `design.md`, prior implemen
 ## 2026-06-04 plan-inconsistency follow-up
 
 Completed the newly added actionable follow-up item from the plan inconsistency review. `steps.md` now aligns Slice 3 with the plan-pinned docs-only dependency implementation: the eventual tooling integration should add a `deps.edn` `:quickdoc` alias that places `bb/` plus pinned quickdoc on the generator classpath, rather than leaving the older generic Babashka-task/equivalent dependency-path alternatives in the implementation checklist. Marked the review-added follow-up item complete. No code/docs implementation was otherwise performed because older unchecked steps predate the preceding review pass.
+
+## 2026-06-04 implementation pass
+
+Implemented the quickdoc API docs slice end to end.
+
+Quickdoc orientation and tooling decisions:
+
+- Upstream quickdoc supports Clojure CLI/Babashka invocation via `quickdoc.api/quickdoc`; the API accepts `:source-paths`, `:outfile`, `:github/repo`, `:git/branch`, `:source-uri`, `:toc`, `:var-links`, `:overrides`, and filename transform options, and returns generated markdown under `:markdown`.
+- Chose the upstream documented pinned dependency `io.github.borkdude/quickdoc` at git tag `v0.2.6`, SHA `ce86780`, because it is the latest release shown in upstream quickdoc docs and has the needed static-analysis override support.
+- Curation uses source-controlled quickdoc options in `bb/scry/api_docs.clj`: explicit file `:source-paths` limit generation to `src/scry/core.clj`, `src/scry/cli.clj`, and `src-kaocha/scry/kaocha.clj`; `:overrides` hides all public `scry.cli` helper vars except `run`; a metadata override supplies `scry.cli/run` `:arglists '([opts])` so the implementation/test `io-boundary` arity is not documented.
+- `bb api-docs --check` compares generated markdown in memory against committed `doc/API.md`, failing non-zero without rewriting the file.
+
+API surface audit:
+
+- `scry.core`: generated docs include `run`, `last-result`, `failures`, `failed-test`, `output`, `report-string`, and advanced `last-run`.
+- `scry.cli`: generated docs include only `run`, with README-aligned `clojure -X:test ...` and `clojure -M:test ...` examples and structured non-zero `ex-info` contract prose. Helpers such as `run-cli`, `main-outcome`, parsers, normalizers, `usage`, and `-main` are intentionally hidden from the generated reference.
+- `scry.kaocha`: generated docs include optional `run` and advanced `result->scry`.
+- Generated docs omit implementation-only namespaces (`scry.capture`, `scry.clojure-test`, `scry.cli.results`) and all CLI helper vars.
+
+Changes made:
+
+- Added docs-only `deps.edn` `:quickdoc` alias with `bb/` and pinned quickdoc; `bb api-docs` composes `:quickdoc:kaocha` so `scry.kaocha` can be documented without changing core runtime deps.
+- Added `bb/scry/api_docs.clj` as the single generator/check entry point and `bb.edn` task wrapper.
+- Generated and committed `doc/API.md` with reproducible intro prose covering pre-1.0 status, README relationship, regeneration/check commands, and optional Kaocha classpath guidance.
+- Adjusted a few public docstrings to keep generated docs user-facing and avoid promoting implementation namespaces; no runtime behavior was changed.
+- Linked `doc/API.md` from README, documented maintainer API-doc commands in AGENTS.md, and added a CHANGELOG Unreleased note.
+
+Verification:
+
+- `bb api-docs` — pass, regenerated `doc/API.md`.
+- `bb api-docs --check` — pass, no changes required.
+- `bb clj-fmt:check` — pass, all source files formatted correctly.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `clojure -M:test:kaocha -e "(require '[scry.core] '[scry.cli] '[scry.kaocha]) (println :loaded)"` — pass, all touched runtime-adjacent namespaces load.
+- `clojure -M:test -e "(require '[scry.core :as scry]) (let [r (scry/run {:namespaces ['scry.capture-test 'scry.clojure-test-test 'scry.cli-test]})] (println (scry/report-string r)) (when-not (:pass? r) (System/exit 1)))"` — pass, 49 tests, 480 pass, 0 fail, 0 error.
+- `clojure -M:test:kaocha -e "(require '[clojure.test :as ct] '[scry.kaocha-test] '[scry.cli-kaocha-test]) (let [adapter-result (ct/run-tests 'scry.kaocha-test) cli-result (ct/run-tests 'scry.cli-kaocha-test)] (when-not (and (ct/successful? adapter-result) (ct/successful? cli-result)) (System/exit 1)))"` — pass, adapter 11 tests/58 assertions and CLI 4 tests/29 assertions.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.build-test)] (when-not (ct/successful? r) (System/exit 1)))"` — pass, 6 tests, 176 assertions, 0 failures, 0 errors. This keeps the published core/Kaocha POM dependency boundary verified.
+- Dependency-boundary inspection: `grep -n "quickdoc" deps.edn` shows quickdoc only under `:quickdoc`; `grep -n "quickdoc" build.clj` and `grep -R "quickdoc" -n target/classes target/*.pom` found no runtime/build/POM quickdoc references.
+- `git diff --check` — pass.
+
+No non-blocking open questions remain for this task.

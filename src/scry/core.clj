@@ -17,8 +17,8 @@
 (defn run
   "Run clojure.test tests in-process and return the inspectable result map.
 
-   See `scry.clojure-test/run` for options. The result is also stored in
-   `last-run`."
+   Supports directory, namespace, namespace-pattern, var, and result-format
+   options documented in the README. The result is also stored in `last-run`."
   ([] (run {}))
   ([opts]
    (reset! last-run (clojure-test/run opts))))

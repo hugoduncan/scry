@@ -71,6 +71,8 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 
 ## Usage
 
+See [`doc/API.md`](doc/API.md) for the generated public API reference.
+
 `scry` is intended to be driven primarily from a REPL so results remain available for follow-up inspection in the same process.
 
 Basic REPL usage:

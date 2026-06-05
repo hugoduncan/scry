@@ -107,3 +107,19 @@ Verification:
 - `bb clj-fmt:check` — pass, all source files formatted correctly.
 - `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
 - `git diff --check` — pass.
+
+## 2026-06-04 follow-up implementation review
+
+Reviewed the completed quickdoc follow-up plus the original generator/tooling/docs changes against the task design and plan. `scry.cli/run` generated prose now matches the non-zero `ex-info` data contract, the generated API surface remains curated, quickdoc remains docs-only, and no new actionable implementation-quality issues were found. No follow-up steps were added.
+
+Verification rerun:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:kaocha -e "(require '[scry.api-docs] '[scry.core] '[scry.cli] '[scry.kaocha]) (println :loaded)"` — pass.
+- `clojure -M:test -e "(require '[scry.core :as scry]) (let [r (scry/run {:namespaces ['scry.capture-test 'scry.clojure-test-test 'scry.cli-test]})] (println (scry/report-string r)) (when-not (:pass? r) (System/exit 1)))"` — pass, 49 tests, 480 pass, 0 fail, 0 error.
+- `clojure -M:test:kaocha -e "(require '[clojure.test :as ct] '[scry.kaocha-test] '[scry.cli-kaocha-test]) (let [adapter-result (ct/run-tests 'scry.kaocha-test) cli-result (ct/run-tests 'scry.cli-kaocha-test)] (when-not (and (ct/successful? adapter-result) (ct/successful? cli-result)) (System/exit 1)))"` — pass, adapter 11 tests/58 assertions and CLI 4 tests/29 assertions.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.build-test)] (when-not (ct/successful? r) (System/exit 1)))"` — pass, 6 tests, 176 assertions, 0 failures, 0 errors.
+- Dependency-boundary grep — quickdoc appears only under `deps.edn` `:quickdoc`; no quickdoc references found in `build.clj` or generated target POM/class outputs.
+- `bb clj-fmt:check` — pass.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `git diff --check` — pass.

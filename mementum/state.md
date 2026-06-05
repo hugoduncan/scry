@@ -197,6 +197,8 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` independent implementation pass found no further concrete implementation work; all steps remain checked and focused/final CLI verification still passes (focused core CLI, optional Kaocha CLI, full `clojure -M:test -m scry.cli`, `bb clj-kondo:lint`, and `git diff --check`).
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest test-shaper review found one actionable test-quality issue: aggregate assertion-failure coverage exercises a concrete passing var plus aggregate fail counts, but not the documented precedence boundary where aggregate fail/error counts exist with no concrete executable canonical entries. A follow-up item was added to cover `:scry.cli/test-failure` precedence over `:scry.cli/zero-tests` for run-level aggregate failures without executable vars.
 
+- Task `017-cli-synthetic-errors-and-outcome-kinds` latest test-shaper follow-up is complete: focused CLI coverage now covers aggregate fail/error assertion counts with no concrete executable canonical entries, asserting `:scry.cli/test-failure` takes precedence over `:scry.cli/zero-tests`, exits non-zero, emits aggregate summary output, and writes no result files. Verification passed: focused core CLI tests (43 tests, 297 assertions), optional Kaocha CLI tests (4 tests, 29 assertions), full `clojure -M:test -m scry.cli` (86 tests, 574 assertions), `bb clj-kondo:lint`, and `git diff --check`.
+
 ## Useful links
 
 - Project README: `README.md`

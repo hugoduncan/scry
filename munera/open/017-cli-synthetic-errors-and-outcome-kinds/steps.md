@@ -92,4 +92,4 @@
 
 ## Test-shaper review follow-up (aggregate failure zero-tests precedence)
 
-- [ ] Add focused CLI outcome coverage for aggregate fail/error assertion counts with no concrete executable canonical entries, asserting `:scry.cli/test-failure` takes precedence over `:scry.cli/zero-tests`, exits non-zero, and writes no result files unless concrete failing/erroring entries exist.
+- [x] Add focused CLI outcome coverage for aggregate fail/error assertion counts with no concrete executable canonical entries, asserting `:scry.cli/test-failure` takes precedence over `:scry.cli/zero-tests`, exits non-zero, and writes no result files unless concrete failing/erroring entries exist.

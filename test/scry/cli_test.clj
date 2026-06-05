@@ -759,6 +759,26 @@
         (is (= {:pass 1 :fail 1 :error 0}
                (get-in outcome [:summary :assertions])))
         (is (= [] (result-files dir))))))
+  (testing "aggregate assertion failures classify before zero executable tests"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 0 :pass 0 :fail 1 :error 1}
+                         :pass? false
+                         :canonical-results []})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+        (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 0 failed, 0 errored\n"
+               (:stdout outcome)))
+        (is (= "" (:stderr outcome)))
+        (is (= {:assertions {:pass 0 :fail 1 :error 1}
+                :tests {:pass 0 :fail 0 :error 0 :unknown 0}
+                :var-count 0}
+               (:summary outcome)))
+        (is (= [] (result-files dir))))))
   (testing "canonical entries with missing or invalid statuses are runner errors"
     (doseq [[label entry] [["missing status"
                             {:var 'scry.fixtures.passing/arithmetic-passes

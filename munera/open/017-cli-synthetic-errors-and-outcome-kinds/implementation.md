@@ -133,3 +133,11 @@ Created from psi integration feedback. Implementation is complete; the notes bel
 2026-06-04 verification (independent pass): `git diff --check` passed with no whitespace errors.
 
 2026-06-04 test-shaper review: Found one new actionable test-shaping issue. Aggregate assertion-failure coverage currently exercises a concrete passing var plus aggregate fail counts, but not the documented precedence boundary where aggregate fail/error counts exist with no concrete executable canonical entries; add focused coverage so `:scry.cli/test-failure` remains ahead of `:scry.cli/zero-tests` for run-level aggregate failures without executable vars.
+
+2026-06-04 test-shaper follow-up (aggregate failure zero-tests precedence): Completed the newly added aggregate assertion-failure precedence coverage. `run-cli-outcome-classification-test` now includes a runner result with aggregate fail/error assertion counts and no canonical executable entries, asserting `:scry.cli/test-failure` takes precedence over `:scry.cli/zero-tests`, exits non-zero, prints the aggregate assertion summary, produces no stderr progress, and writes no result files. The review-added item in `steps.md` is checked.
+
+2026-06-04 verification (aggregate failure zero-tests precedence follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 43 tests, 297 assertions, 0 failures, 0 errors.
+2026-06-04 verification (aggregate failure zero-tests precedence follow-up): `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 4 tests, 29 assertions, 0 failures, 0 errors.
+2026-06-04 final verification (aggregate failure zero-tests precedence follow-up): `clojure -M:test -m scry.cli` passed: 86 tests, 574 assertions, 0 failures, 0 errors.
+2026-06-04 verification (aggregate failure zero-tests precedence follow-up): `bb clj-kondo:lint` passed with 0 errors and 0 warnings.
+2026-06-04 verification (aggregate failure zero-tests precedence follow-up): `git diff --check` passed with no whitespace errors.

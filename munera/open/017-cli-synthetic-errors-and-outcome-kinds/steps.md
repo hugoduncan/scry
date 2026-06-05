@@ -89,3 +89,7 @@
 ## Latest plan inconsistency review follow-up
 
 - [x] Remove or update the stale opening `implementation.md` statement that says "No implementation yet" now that later notes and checked steps show implementation, follow-ups, reviews, and verification are complete.
+
+## Test-shaper review follow-up (aggregate failure zero-tests precedence)
+
+- [ ] Add focused CLI outcome coverage for aggregate fail/error assertion counts with no concrete executable canonical entries, asserting `:scry.cli/test-failure` takes precedence over `:scry.cli/zero-tests`, exits non-zero, and writes no result files unless concrete failing/erroring entries exist.

@@ -131,3 +131,5 @@ Created from psi integration feedback. Implementation is complete; the notes bel
 2026-06-04 verification (independent pass): `clojure -M:test -m scry.cli` passed: 86 tests, 568 assertions, 0 failures, 0 errors.
 2026-06-04 verification (independent pass): `bb clj-kondo:lint` passed with 0 errors and 0 warnings.
 2026-06-04 verification (independent pass): `git diff --check` passed with no whitespace errors.
+
+2026-06-04 test-shaper review: Found one new actionable test-shaping issue. Aggregate assertion-failure coverage currently exercises a concrete passing var plus aggregate fail counts, but not the documented precedence boundary where aggregate fail/error counts exist with no concrete executable canonical entries; add focused coverage so `:scry.cli/test-failure` remains ahead of `:scry.cli/zero-tests` for run-level aggregate failures without executable vars.

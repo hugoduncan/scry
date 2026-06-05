@@ -191,3 +191,5 @@ Created from psi integration feedback. Implementation is complete; the notes bel
 2026-06-05 verification (passing-progress alignment follow-up): `bb clj-kondo:lint` passed with 0 errors and 0 warnings.
 2026-06-05 verification (passing-progress alignment follow-up): `bb clj-fmt:check` passed: all source files formatted correctly.
 2026-06-05 verification (passing-progress alignment follow-up): `git diff --check` passed with no whitespace errors.
+
+2026-06-05 code-shaper review (post-follow-up): No new actionable code-quality issues. Reviewed `scry.cli` progress/outcome classification, `scry.cli.results` synthetic identity/result-file handling, focused core/optional Kaocha CLI tests, and CLI docs after the synthetic-pass progress alignment; the code is locally comprehensible, consistent with the concrete var-backed executable model, and keeps CLI-only responsibilities separated. Verification during review: focused core CLI tests passed (43 tests, 308 assertions); optional Kaocha CLI tests passed (4 tests, 29 assertions); `bb clj-kondo:lint` passed with 0 errors/0 warnings; `bb clj-fmt:check` passed. No follow-up steps were added.

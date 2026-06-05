@@ -203,3 +203,21 @@ Verification during review:
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
 - `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 6 tests, 176 assertions, 0 failures, 0 errors.
+
+## 2026-06-04 dependency-boundary test-review follow-up
+
+Completed the review-added dependency-boundary regression item. Added focused coverage to `test/scry/build_test.clj` that asserts:
+
+- `io.github.borkdude/quickdoc` appears in `deps.edn` only at `[:aliases :quickdoc :extra-deps io.github.borkdude/quickdoc]`, keeping it out of top-level runtime deps and other aliases; and
+- generated core and Kaocha release artifacts omit quickdoc from filesystem POMs, jar-embedded POMs, and packaged jar entries.
+
+Marked the follow-up step complete in `steps.md`.
+
+Verification:
+
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 183 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` — pass, all source files formatted correctly.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `bb api-docs --check` — pass, generated API docs are up to date.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
+- `git diff --check` — pass.

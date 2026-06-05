@@ -71,4 +71,4 @@
 
 ## Follow-up test review — dependency boundary
 
-- [ ] Add focused dependency-boundary regression coverage that asserts quickdoc remains only under the docs-only `:quickdoc` alias and absent from top-level runtime deps, generated core/Kaocha POM dependencies, and packaged artifacts.
+- [x] Add focused dependency-boundary regression coverage that asserts quickdoc remains only under the docs-only `:quickdoc` alias and absent from top-level runtime deps, generated core/Kaocha POM dependencies, and packaged artifacts.

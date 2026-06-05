@@ -32,8 +32,22 @@
 (defn deps-edn []
   (edn/read-string (slurp "deps.edn")))
 
+(def quickdoc-dependency 'io.github.borkdude/quickdoc)
+
 (defn deps-kaocha-version []
   (get-in (deps-edn) [:aliases :kaocha :extra-deps 'lambdaisland/kaocha :mvn/version]))
+
+(defn deps-lib-paths
+  ([deps lib]
+   (deps-lib-paths [] deps lib))
+  ([path value lib]
+   (when (map? value)
+     (mapcat (fn [[k v]]
+               (let [next-path (conj path k)]
+                 (if (= k lib)
+                   [next-path]
+                   (deps-lib-paths next-path v lib))))
+             value))))
 
 (defn jar-entries [jar-file]
   (with-open [jar (JarFile. jar-file)]
@@ -58,6 +72,12 @@
   (first (filter #(and (= group-id (:group-id %))
                        (= artifact-id (:artifact-id %)))
                  (pom-dependencies pom))))
+
+(defn pom-mentions?
+  [pom group-id artifact-id]
+  (or (str/includes? pom group-id)
+      (str/includes? pom artifact-id)
+      (some? (pom-dependency pom group-id artifact-id))))
 
 (defn parse-pom
   [pom]
@@ -155,6 +175,35 @@
                                                "organizationUrl"
                                                "timezone"
                                                "properties"]))))
+
+(deftest quickdoc-dependency-boundary-test
+  ;; quickdoc is a maintainer documentation tool only. It may appear in the
+  ;; docs-only :quickdoc alias, but not in runtime deps, other aliases, POMs,
+  ;; or packaged artifacts.
+  (testing "deps.edn keeps quickdoc confined to the docs-only alias"
+    (let [deps (deps-edn)
+          quickdoc-paths (set (deps-lib-paths deps quickdoc-dependency))]
+      (is (= #{[:aliases :quickdoc :extra-deps quickdoc-dependency]}
+             quickdoc-paths))))
+  (testing "published artifacts omit quickdoc dependency metadata and sources"
+    (if-not (load-build!)
+      (is true "skipping focused build check because :build alias is not active")
+      (let [{:keys [artifacts]} ((requiring-resolve 'build/jars) nil)
+            quickdoc-group "io.github.borkdude"
+            quickdoc-artifact "quickdoc"]
+        (doseq [{:keys [jar-file pom-file lib]} artifacts
+                :let [filesystem-pom (slurp pom-file)
+                      entries (jar-entries jar-file)
+                      pom-entry (str "META-INF/maven/"
+                                     (namespace lib) "/" (name lib) "/pom.xml")
+                      jar-pom (slurp-jar-entry jar-file pom-entry)]]
+          (testing (str lib " pom dependencies")
+            (is (not (pom-mentions? filesystem-pom quickdoc-group quickdoc-artifact)))
+            (is (not (pom-mentions? jar-pom quickdoc-group quickdoc-artifact))))
+          (testing (str lib " packaged contents")
+            (is (not-any? #(or (str/includes? % "quickdoc")
+                               (str/includes? % "borkdude"))
+                          entries))))))))
 
 (deftest version-uses-git-rev-count-test
   ;; The build version is fixed at major/minor 0.1 and uses the current Git

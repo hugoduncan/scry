@@ -244,3 +244,13 @@ Verification:
 - `bb api-docs --check` — pass, generated API docs are up to date.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
 - `git diff --check` — pass.
+
+## 2026-06-04 exact-surface test review
+
+Reviewed the focused API-doc content regression, generator allow-listing, `deps.edn` quickdoc pin/boundary checks, CI wiring, and current generated `doc/API.md`. Existing tests are well-formed, use real generation/build paths without mocks/stubs, and cover reproducibility, required prose, CLI arity/helper omissions, optional Kaocha presence, CI wiring, and quickdoc dependency boundaries. Found one new actionable test-quality issue: the content regression asserts that the required `scry.core` and `scry.kaocha` vars are present, but does not assert the exact allowed var-anchor set for those included namespaces, so a newly public helper in either namespace could be accidentally published by quickdoc without failing the focused regression.
+
+Verification during review:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.

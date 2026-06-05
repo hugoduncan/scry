@@ -76,3 +76,7 @@
 ## Follow-up test review — quickdoc pinning
 
 - [x] Add focused regression coverage that asserts the quickdoc dependency remains pinned to an explicit released version or git tag+sha (not a floating branch/`RELEASE`), while staying confined to the docs-only `:quickdoc` alias.
+
+## Follow-up test review — exact included namespace API surface
+
+- [ ] Strengthen the focused API-doc content regression to assert the exact allowed var-anchor set for included namespaces, especially `scry.core` and `scry.kaocha`, so newly public helper vars in those namespaces cannot be accidentally documented without failing the test.

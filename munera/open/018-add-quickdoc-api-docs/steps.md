@@ -80,3 +80,7 @@
 ## Follow-up test review — exact included namespace API surface
 
 - [x] Strengthen the focused API-doc content regression to assert the exact allowed var-anchor set for included namespaces, especially `scry.core` and `scry.kaocha`, so newly public helper vars in those namespaces cannot be accidentally documented without failing the test.
+
+## Latest test review — exact CLI API surface
+
+- [ ] Strengthen the focused API-doc content regression to assert the exact allowed var-anchor set for the included `scry.cli` namespace is only `scry.cli/run`, so newly public CLI helper vars cannot be accidentally documented without failing the test.

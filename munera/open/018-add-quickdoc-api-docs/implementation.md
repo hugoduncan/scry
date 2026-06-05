@@ -280,3 +280,7 @@ Verification during review:
 - `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
 - `mise exec -- actionlint .github/workflows/ci.yml` — pass.
 - `git diff --check` — pass.
+
+## 2026-06-04 latest test review
+
+Reviewed the current API-doc test surface against the stable design, generator, generated `doc/API.md`, CI wiring, and focused dependency-boundary checks. Verification during review passed: `bb api-docs --check`; focused API-doc content regression (1 test, 48 assertions); focused build/POM checks (7 tests, 184 assertions). Found one new actionable test-quality issue: the focused content regression now enforces exact var-anchor sets for `scry.core` and `scry.kaocha`, but not for `scry.cli`; a newly documented public helper in the included `scry.cli` namespace could slip through unless it matches the current explicit omission list.

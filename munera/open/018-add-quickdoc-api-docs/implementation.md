@@ -254,3 +254,15 @@ Verification during review:
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
 - `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+
+## 2026-06-04 exact-surface test-review follow-up
+
+Completed the review-added exact included namespace API surface regression item. Strengthened `test-quickdoc/scry/api_docs_test.clj` with namespace-section extraction and exact var-anchor set assertions for the included `scry.core` and `scry.kaocha` namespaces. The focused API-doc content regression still asserts required anchors are present, and now also fails if quickdoc publishes an additional public helper var in either namespace without an intentional test update. Marked the follow-up step complete in `steps.md`.
+
+Verification:
+
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 48 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` — pass, all source files formatted correctly.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `bb api-docs --check` — pass, generated API docs are up to date.
+- `git diff --check` — pass.

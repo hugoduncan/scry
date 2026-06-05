@@ -79,4 +79,4 @@
 
 ## Follow-up test review — exact included namespace API surface
 
-- [ ] Strengthen the focused API-doc content regression to assert the exact allowed var-anchor set for included namespaces, especially `scry.core` and `scry.kaocha`, so newly public helper vars in those namespaces cannot be accidentally documented without failing the test.
+- [x] Strengthen the focused API-doc content regression to assert the exact allowed var-anchor set for included namespaces, especially `scry.core` and `scry.kaocha`, so newly public helper vars in those namespaces cannot be accidentally documented without failing the test.

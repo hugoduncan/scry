@@ -20,6 +20,22 @@
   [namespace-name var-name]
   (str "## <a name=\"" namespace-name "/" var-name "\">`" var-name "`</a>"))
 
+(defn namespace-section
+  [markdown namespace-name]
+  (let [anchor (str "# <a name=\"" namespace-name "\">" namespace-name "</a>")
+        start (str/index-of markdown anchor)]
+    (is start (str "expected API docs to contain namespace section " anchor))
+    (when start
+      (let [next-namespace (str/index-of markdown "\n-----\n# <a name=\"" (+ start (count anchor)))
+            end (or next-namespace (count markdown))]
+        (subs markdown start end)))))
+
+(defn var-anchors-in-namespace
+  [markdown namespace-name]
+  (->> (str/split-lines (or (namespace-section markdown namespace-name) ""))
+       (filter #(str/starts-with? % (str "## <a name=\"" namespace-name "/")))
+       set))
+
 (defn var-section
   [markdown namespace-name var-name]
   (let [anchor (var-anchor namespace-name var-name)
@@ -52,7 +68,7 @@
       (assert-includes markdown
                        ["The optional `scry.kaocha` namespace is documented here because the generation command composes the optional Kaocha classpath."]))
 
-    (testing "generated docs include the curated scry.core public surface"
+    (testing "generated docs include exactly the curated scry.core public surface"
       (assert-includes markdown
                        ["# <a name=\"scry.core\">scry.core</a>"
                         (var-anchor "scry.core" "run")
@@ -61,7 +77,15 @@
                         (var-anchor "scry.core" "failed-test")
                         (var-anchor "scry.core" "output")
                         (var-anchor "scry.core" "report-string")
-                        (var-anchor "scry.core" "last-run")]))
+                        (var-anchor "scry.core" "last-run")])
+      (is (= #{(var-anchor "scry.core" "run")
+               (var-anchor "scry.core" "last-result")
+               (var-anchor "scry.core" "failures")
+               (var-anchor "scry.core" "failed-test")
+               (var-anchor "scry.core" "output")
+               (var-anchor "scry.core" "report-string")
+               (var-anchor "scry.core" "last-run")}
+             (var-anchors-in-namespace markdown "scry.core"))))
 
     (testing "generated docs include only the user-facing scry.cli/run API"
       (assert-includes markdown
@@ -79,13 +103,16 @@
                     ["io-boundary"
                      "(run opts io-boundary)"]))
 
-    (testing "generated docs include the optional scry.kaocha public surface"
+    (testing "generated docs include exactly the optional scry.kaocha public surface"
       (assert-includes markdown
                        ["# <a name=\"scry.kaocha\">scry.kaocha</a>"
                         (var-anchor "scry.kaocha" "run")
                         (var-anchor "scry.kaocha" "result->scry")
                         "optional `scry.kaocha` namespace"
-                        "clojure -M:test:kaocha"]))
+                        "clojure -M:test:kaocha"])
+      (is (= #{(var-anchor "scry.kaocha" "run")
+               (var-anchor "scry.kaocha" "result->scry")}
+             (var-anchors-in-namespace markdown "scry.kaocha"))))
 
     (testing "generated docs omit implementation namespaces and CLI helper vars"
       (assert-omits markdown

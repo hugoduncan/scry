@@ -193,6 +193,7 @@ Project: scry
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest plan ambiguity review found no new actionable ambiguity feedback. Reviewed `plan.md`/`steps.md` against the design, current CLI/result-file/outcome implementation, focused tests, and docs; no follow-up items were added.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` current test-shaper follow-up is complete: `.scry-results/` preparation failures are tagged as `:scry.cli/runner-error`, focused CLI coverage asserts create failure yields non-zero runner-error outcome, human stderr, nil result/summary, no result files, and no runner invocation. Verification passed: focused core CLI tests (43 tests, 284 assertions), optional Kaocha CLI tests (4 tests, 29 assertions), full `clojure -M:test -m scry.cli` (86 tests, 561 assertions), `bb clj-kondo:lint`, and `git diff --check`.
 - Task `017-cli-synthetic-errors-and-outcome-kinds` latest test-shaper review found one actionable test-quality issue: add synthetic/non-concrete unknown-only coverage to lock `:scry.cli/unknown-result` precedence over zero-tests, including progress label and no result files.
+- Task `017-cli-synthetic-errors-and-outcome-kinds` latest plan inconsistency review found one actionable inconsistency: `implementation.md` still opens with stale "No implementation yet" wording despite later completed implementation/review/verification notes. A follow-up item was added to update or remove that opening statement.
 
 ## Useful links
 

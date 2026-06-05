@@ -85,3 +85,7 @@
 ## Test-shaper review follow-up (synthetic unknown precedence)
 
 - [ ] Add focused CLI outcome/progress coverage for a synthetic/non-concrete `:unknown`-only canonical result with no concrete vars or higher-precedence failures/errors, asserting it classifies as `:scry.cli/unknown-result` rather than `:scry.cli/zero-tests`, exits non-zero, prints a synthetic unknown progress label, and writes no result files.
+
+## Latest plan inconsistency review follow-up
+
+- [ ] Remove or update the stale opening `implementation.md` statement that says "No implementation yet" now that later notes and checked steps show implementation, follow-ups, reviews, and verification are complete.

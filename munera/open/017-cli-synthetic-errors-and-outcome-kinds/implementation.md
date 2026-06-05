@@ -109,3 +109,5 @@ Created from psi integration feedback. No implementation yet.
 2026-06-04 verification (current test-shaper follow-up): `git diff --check` passed with no whitespace errors.
 
 2026-06-04 test-shaper review: Found one new actionable test-shaping issue. Current tests cover concrete unknown entries, synthetic passing zero-tests, and synthetic load errors, but not the precedence boundary where a non-var-backed `:unknown` entry with no failures/errors should classify as `:scry.cli/unknown-result` instead of falling through to `:scry.cli/zero-tests`. Add focused coverage for that synthetic unknown-only case, including progress label and no result files.
+
+2026-06-04 plan inconsistency review: Found one actionable inconsistency. `implementation.md` still opens with "No implementation yet" even though later implementation notes and checked `steps.md` items show implementation, follow-ups, reviews, and verification are complete. Added a follow-up item to remove or update the stale opening statement; no other new plan/steps inconsistencies found.

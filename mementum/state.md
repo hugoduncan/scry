@@ -85,6 +85,7 @@ Project: scry
 - Task `008-testing-without-mocks-repl-strategy` plan and steps have been created from the stable design. The plan chooses documentation-only explicit REPL snippets, focused CI core slicing, temporary Kaocha namespace uniqueness/removal, Nullable boundary audit, and focused slice verification as the ordered implementation path.
 ## Active focus
 
+- Task `018-add-quickdoc-api-docs` is closed. It added quickdoc-generated `doc/API.md`, docs-only `bb api-docs` / `bb api-docs --check` tooling, focused API-doc regression coverage, CI/maintainer guidance, and a conservative generated public API surface (`scry.core` inspection helpers, `scry.cli/run`, and optional `scry.kaocha/run`). Follow-up refactors tightened public/private boundaries and CLI test seams.
 - Task `018-add-quickdoc-api-docs` conservative public API follow-up is complete: implementation/test-seam CLI vars are now private and tested via `#'`, `scry.cli/run` exposes only the user-facing `[opts]` arity, `-main` remains callable but `^:no-doc`, `scry.core/last-run` and `scry.kaocha/result->scry` are private, generated `doc/API.md` now documents only `scry.core` inspection helpers, `scry.cli/run`, and `scry.kaocha/run`, and focused API-doc/CLI/Kaocha/core/build/lint/format verification passes.
 - Task `018-add-quickdoc-api-docs` architecture-review follow-up is complete: `design.md` now requires quickdoc/tooling dependencies to remain maintainer/docs-only via a dedicated docs alias, Babashka task, or equivalent non-runtime mechanism; forbids adding them to top-level runtime deps or published core/Kaocha dependency metadata; and still requires composing the optional Kaocha classpath for documenting `scry.kaocha`. The review-added `design-steps.md` item is checked.
 - Task `018-add-quickdoc-api-docs` ambiguity follow-up is complete: `design.md` now pins the generated var-level API surface (`scry.core` REPL/API vars plus advanced `last-run`, `scry.cli/run` only for public `-X`, and optional `scry.kaocha/run` plus advanced `result->scry`), chooses `bb api-docs` with `bb api-docs --check` for no-diff verification, and requires generated notes such as pre-1.0 public-alpha and optional Kaocha classpath guidance to come from source-controlled generation config/code rather than hand edits.
@@ -235,7 +236,7 @@ Project: scry
 - Project README: `README.md`
 - Agent guidance: `AGENTS.md`
 - Munera task plan: `munera/plan.md`
-- Open quickdoc API docs task: `munera/open/018-add-quickdoc-api-docs/`
+- Closed quickdoc API docs task: `munera/closed/018-add-quickdoc-api-docs/`
 - Closed CLI synthetic errors/outcome kinds task: `munera/closed/017-cli-synthetic-errors-and-outcome-kinds/`
 - Closed public history secret audit task: `munera/closed/015-run-public-history-secret-audit/`
 - Closed public POM metadata task: `munera/closed/014-add-public-pom-metadata/`

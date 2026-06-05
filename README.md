@@ -83,7 +83,7 @@ Basic REPL usage:
 (scry/run)
 ```
 
-`scry.core/run` stores the most recent result in `scry.core/last-run`, which can be inspected after a run:
+`scry.core/run` stores the most recent result, which can be inspected after a run:
 
 ```clojure
 (scry/last-result)

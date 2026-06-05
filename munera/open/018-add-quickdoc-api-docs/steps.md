@@ -92,3 +92,44 @@
 ## Follow-up docs review — optional Kaocha classpath wording
 
 - [x] Update generated `doc/API.md` source input so the `scry.core` namespace prose says the optional Kaocha adapter is available when the adapter/classpath or artifact is present, not only when a repository-local `:kaocha` alias is present.
+
+## User follow-up — conservative public API surface
+
+- [x] Make implementation/test-seam CLI vars private where feasible, using tests' `#'` idiom instead of keeping helpers public for test convenience.
+- [x] Keep `scry.cli/-main` callable for `clojure -M:test -m scry.cli` while marking it `^:no-doc` so it is not promoted in generated API docs.
+- [x] Make `scry.core/last-run` private and document/use `last-result` as the public inspection helper.
+- [x] Make `scry.kaocha/result->scry` private so the optional adapter generated API surface is limited to `run`.
+- [x] Remove obsolete quickdoc helper-var hide overrides that are no longer needed after privacy changes.
+- [x] Update focused API-doc content regression and regenerate `doc/API.md` to enforce the narrower public surface.
+- [x] Update README/SKILL/AGENTS wording that still mentioned non-public implementation helpers.
+- [x] Run focused API-doc, CLI, optional Kaocha CLI, core, build, lint, format, and whitespace verification after the privacy changes.
+
+## User follow-up — hoist CLI boundary creation
+
+- [x] Refactor private `run-cli` so it is single-arity and requires a complete boundary map.
+- [x] Hoist nil/partial boundary expansion to private top-level entry/test seams (`run-with-boundary` and `main-outcome`).
+- [x] Update CLI tests to construct complete boundaries before calling private `run-cli` via `#'`.
+- [x] Regenerate API docs after source line-anchor changes and rerun focused verification.
+
+## User follow-up — remove implementation boundary override constructor
+
+- [x] Remove private `complete-boundary` from implementation code.
+- [x] Have public/process entry points call `default-boundary` directly.
+- [x] Move override-merging convenience into local test helpers that merge `#'scry.cli/default-boundary` with overrides.
+- [x] Regenerate API docs after source line-anchor changes and rerun focused verification.
+
+## User follow-up — complete boundary at true entry points
+
+- [x] Rename the private boundary constructor to `complete-boundary` to distinguish it from complete boundary values.
+- [x] Refactor `run-with-boundary` so it takes a complete boundary rather than nil/partial boundary overrides.
+- [x] Refactor `main-outcome` so it takes a complete boundary rather than nil/partial boundary overrides.
+- [x] Construct default complete boundaries only at public/process entry points and explicit test setup call sites.
+- [x] Update tests to call `complete-boundary` explicitly before invoking private CLI seams via `#'`.
+- [x] Regenerate API docs after source line-anchor changes and rerun focused verification.
+
+## User follow-up — direct private var invocation in tests
+
+- [x] Remove dereferenced `@#'cli/...` test aliases that snapshot private implementation vars.
+- [x] Update tests to call private implementation vars directly with `#'cli/...` at call sites.
+- [x] Keep boundary override merging in local test helpers that call `#'cli/default-boundary` at use time.
+- [x] Rerun focused CLI, optional Kaocha CLI, API-doc, core, build, lint, format, and whitespace verification.

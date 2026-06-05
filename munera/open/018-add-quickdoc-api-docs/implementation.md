@@ -378,3 +378,116 @@ Verification during review:
 
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.
+
+## 2026-06-05 conservative public API follow-up
+
+User requested a more conservative public API declaration and noted tests can use the `#'` idiom for private vars. Tightened public/private boundaries instead of relying on quickdoc allow-listing for public helper vars:
+
+- Made `scry.cli` implementation/test seams private: `usage`, `normalize-runner`, `normalize-exec-opts`, `parse-main-args`, `run-cli`, and `main-outcome`.
+- Extracted private `run-with-boundary` for tests of the `clojure -X` path's injected IO boundary, leaving public `scry.cli/run` with only the user-facing `[opts]` arity.
+- Kept `scry.cli/-main` callable for `clojure -M:test -m scry.cli` but marked it `^:no-doc`, since entrypoint resolution still needs the var but generated API docs should not promote it.
+- Made `scry.core/last-run` private and updated source/README/generated docs to present `last-result` as the public inspection helper.
+- Made `scry.kaocha/result->scry` private so the optional adapter API docs now expose only `scry.kaocha/run`.
+- Removed obsolete quickdoc `:no-doc` overrides for CLI helper vars that are now private; retained only the `scry.cli/run` doc/arglist override.
+- Updated focused API-doc content regression exact-surface expectations and regenerated `doc/API.md`.
+- Updated SKILL.md and AGENTS.md references from `run-cli` to structured CLI / `-X` outcomes.
+
+Verification:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.
+- `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 43 tests, 308 assertions, 0 failures, 0 errors.
+- `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 4 tests, 29 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` — pass after formatting `test/scry/cli_test.clj` with `bb clj-fmt:fix`.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `clojure -M:test -e "(require '[scry.core :as scry]) (let [r (scry/run {:namespaces ['scry.capture-test 'scry.clojure-test-test 'scry.cli-test]})] (println (scry/report-string r)) (when-not (:pass? r) (System/exit 1)))"` — pass, 49 tests, 480 pass, 0 fail, 0 error.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+- `git diff --check` — pass.
+
+## 2026-06-05 boundary hoisting follow-up
+
+User asked whether CLI boundary creation could be hoisted into top-level entry points instead of passing nil/partial boundaries down. Simplified the CLI seam accordingly:
+
+- `scry.cli/run-cli` is now single-arity and requires a complete boundary map.
+- `run-with-boundary` and `main-outcome` are responsible for expanding nil/partial boundary overrides with defaults at entry/test-seam boundaries.
+- Renamed lower-level parameters from `io-boundary` to `boundary` where they now require complete boundaries.
+- Updated CLI and optional Kaocha CLI tests to construct complete boundaries before calling private `run-cli` via `#'`.
+- Regenerated `doc/API.md` because source line anchors changed.
+
+Verification:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.
+- `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 43 tests, 308 assertions, 0 failures, 0 errors.
+- `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 4 tests, 29 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` — pass.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `clojure -M:test -e "(require '[scry.core :as scry]) (let [r (scry/run {:namespaces ['scry.capture-test 'scry.clojure-test-test 'scry.cli-test]})] (println (scry/report-string r)) (when-not (:pass? r) (System/exit 1)))"` — pass, 49 tests, 480 pass, 0 fail, 0 error.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+- `git diff --check` — pass.
+
+## 2026-06-05 complete-boundary follow-up
+
+User suggested hoisting boundary construction out of `run-with-boundary` as well. Completed that refinement:
+
+- Renamed private boundary constructor to `complete-boundary` to distinguish construction from the complete boundary value.
+- `run-with-boundary` now takes an already complete boundary and no longer accepts nil/partial overrides.
+- `main-outcome` now takes an already complete boundary and no longer accepts nil/partial overrides.
+- Public `run` and `-main` construct the default complete boundary at the true top-level entry points.
+- Tests now call `complete-boundary` explicitly before invoking private `run-cli`, `run-with-boundary`, or `main-outcome` via `#'`.
+
+Verification:
+
+- `bb clj-fmt:check` — pass after formatting `test/scry/cli_test.clj` with `bb clj-fmt:fix`.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 43 tests, 308 assertions, 0 failures, 0 errors.
+- `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 4 tests, 29 assertions, 0 failures, 0 errors.
+- `bb api-docs --check` — pass after regenerating `doc/API.md` for source anchor changes.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.
+- `clojure -M:test -e "(require '[scry.core :as scry]) (let [r (scry/run {:namespaces ['scry.capture-test 'scry.clojure-test-test 'scry.cli-test]})] (println (scry/report-string r)) (when-not (:pass? r) (System/exit 1)))"` — pass, 49 tests, 480 pass, 0 fail, 0 error.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+- `git diff --check` — pass.
+
+## 2026-06-05 remove complete-boundary follow-up
+
+User observed that `complete-boundary` was only needed for non-nil override merging in tests. Removed it from implementation code:
+
+- Deleted private `scry.cli/complete-boundary`.
+- Public `run` and process `-main` now call `default-boundary` directly.
+- Tests own the override-merging convenience through local `test-boundary` helpers that merge `#'scry.cli/default-boundary` with overrides before invoking private seams.
+- Regenerated `doc/API.md` for source anchor changes.
+
+Verification:
+
+- `bb clj-fmt:check` — pass after formatting `test/scry/cli_test.clj` with `bb clj-fmt:fix`.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 43 tests, 308 assertions, 0 failures, 0 errors.
+- `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 4 tests, 29 assertions, 0 failures, 0 errors.
+- `bb api-docs --check` — pass after regenerating `doc/API.md`.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.
+- `clojure -M:test -e "(require '[scry.core :as scry]) (let [r (scry/run {:namespaces ['scry.capture-test 'scry.clojure-test-test 'scry.cli-test]})] (println (scry/report-string r)) (when-not (:pass? r) (System/exit 1)))"` — pass, 49 tests, 480 pass, 0 fail, 0 error.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+- `git diff --check` — pass.
+- `grep -R "complete-boundary\\|defn- boundary" -n src test` — no matches.
+
+## 2026-06-05 direct private var test-call follow-up
+
+User pointed out that defining test vars with `@#'cli/...` snapshots the root value and can go stale if the implementation var is redefined. Fixed the tests to call private vars directly through the var invocation idiom instead of defining dereferenced aliases:
+
+- Removed `def` aliases such as `(def run-cli @#'cli/run-cli)` and `(def normalize-exec-opts @#'cli/normalize-exec-opts)` from CLI tests.
+- Replaced private helper calls with direct var invocation, e.g. `(#'cli/run-cli ...)`, `(#'cli/normalize-exec-opts ...)`, `(#'cli/run-with-boundary ...)`, and `(#'cli/main-outcome ...)`.
+- Kept local `test-boundary` helpers, but they call `(#'cli/default-boundary)` at use time before merging overrides.
+- Avoided comparing a private var value for help text; the parser test now checks returned `:help?` plus `:usage` content.
+
+Verification:
+
+- `bb clj-fmt:check` — pass after formatting `test/scry/cli_test.clj` and `test/scry/cli_kaocha_test.clj` with `bb clj-fmt:fix`.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 43 tests, 309 assertions, 0 failures, 0 errors.
+- `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 4 tests, 29 assertions, 0 failures, 0 errors.
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.
+- `clojure -M:test -e "(require '[scry.core :as scry]) (let [r (scry/run {:namespaces ['scry.capture-test 'scry.clojure-test-test 'scry.cli-test]})] (println (scry/report-string r)) (when-not (:pass? r) (System/exit 1)))"` — pass, 49 tests, 481 pass, 0 fail, 0 error.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+- `grep -R "@#'cli\\|^(def .*#'cli\\|complete-boundary" -n test/scry/cli_test.clj test/scry/cli_kaocha_test.clj src/scry/cli.clj` — no matches.
+- `git diff --check` — pass.

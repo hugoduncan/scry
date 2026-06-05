@@ -53,8 +53,9 @@ Generate documentation only for these namespaces and vars:
   - Exclude private formatting/status helpers.
 - `scry.cli`:
   - Include `run` as the supported `clojure -X` entry point and document the structured CLI outcome/non-zero `ex-info` contract there or in generated namespace prose.
+  - Generate `scry.cli/run` with only its user-facing `[opts]` public arity. The existing `io-boundary` arity is an implementation/test seam, not user API; do not promote it in `doc/API.md`. Hide that seam from quickdoc through a source-controlled deterministic mechanism, preferably explicit `:arglists '([opts])` metadata on `run` or by moving the seam behind a private helper if implementation finds that cleaner. Do not hand-edit `doc/API.md` to remove the seam after generation.
   - Do not document `run-cli`, `main-outcome`, `parse-main-args`, `normalize-exec-opts`, `normalize-runner`, `usage`, `-main`, or other option-normalization/execution helpers as user API. They may remain callable implementation/test seams, but generated public API docs should hide them (for example with `^:no-doc`) unless a later task explicitly promotes them.
-  - Document `clojure -M -m scry.cli` command usage in generated prose, not as a var-level API.
+  - Document main-style CLI command usage in generated prose with the same alias-based forms as README installation examples, especially `clojure -M:test -m scry.cli` for core CLI use and `clojure -M:test:kaocha -m scry.cli --runner kaocha ...` for optional Kaocha use. If source docstrings or generation config provide these examples, update those source-controlled inputs so the generated docs do not use alias-less `clojure -M -m scry.cli` phrasing.
 - `scry.kaocha`:
   - Include `run` as the optional adapter's public in-process runner.
   - Include `result->scry` as an advanced public conversion helper for callers that already have a raw Kaocha result and want scry's result shape.

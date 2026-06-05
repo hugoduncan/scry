@@ -688,6 +688,32 @@
         (is (= {:pass 0 :fail 0 :error 0}
                (get-in outcome [:summary :assertions])))
         (is (= [] (result-files dir))))))
+  (testing "synthetic unknown entries classify before zero executable tests"
+    (with-temp-dir [dir]
+      (let [synthetic-unknown {:var nil
+                               :ns 'loader.demo
+                               :status :unknown
+                               :assertion-summary {:pass 0 :fail 0 :error 0}
+                               :assertions []
+                               :out ""
+                               :err ""}
+            outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [opts]
+                        ((:progress-callback opts) synthetic-unknown)
+                        (runner-result [synthetic-unknown]))})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
+        (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
+               (:stdout outcome)))
+        (is (= "loader.demo/suite-unknown-1\n"
+               (:stderr outcome)))
+        (is (= [] (result-files dir)))
+        (is (= {:pass 0 :fail 0 :error 0 :unknown 1}
+               (get-in outcome [:summary :tests])))
+        (is (= 1 (get-in outcome [:summary :var-count]))))))
   (testing "synthetic load errors take precedence over concrete test failures"
     (with-temp-dir [dir]
       (let [outcome (run-cli-in

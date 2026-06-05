@@ -113,3 +113,9 @@ Created from psi integration feedback. Implementation is complete; the notes bel
 2026-06-04 plan inconsistency review: Found one actionable inconsistency. `implementation.md` still opens with "No implementation yet" even though later implementation notes and checked `steps.md` items show implementation, follow-ups, reviews, and verification are complete. Added a follow-up item to remove or update the stale opening statement; no other new plan/steps inconsistencies found.
 
 2026-06-04 plan-inconsistency follow-up: Updated the opening implementation note to remove the stale "No implementation yet" wording and state that implementation is complete with follow-up/verification history recorded below. The review-added item in `steps.md` is checked. No code/tests/docs behavior changes were needed for this task-artifact-only follow-up. Verification: `git diff --check` passed with no whitespace errors.
+
+2026-06-04 test-shaper follow-up (synthetic unknown precedence): Completed the newly added synthetic unknown-only coverage. `run-cli-outcome-classification-test` now injects a nil-var `:unknown` canonical result through the CLI runner boundary, invokes the real progress callback, and asserts `:scry.cli/unknown-result` takes precedence over zero executable tests, exits non-zero, prints `loader.demo/suite-unknown-1`, writes no result files, and preserves summary counts. The review-added item in `steps.md` is checked.
+
+2026-06-04 verification (synthetic unknown precedence follow-up): `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` passed: 43 tests, 291 assertions, 0 failures, 0 errors.
+
+2026-06-04 verification (synthetic unknown precedence follow-up): `git diff --check` passed with no whitespace errors.

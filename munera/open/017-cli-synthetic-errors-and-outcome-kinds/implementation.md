@@ -170,3 +170,5 @@ Created from psi integration feedback. Implementation is complete; the notes bel
 2026-06-05 verification (results-dir clear failure portability): `bb clj-kondo:lint` passed with 0 errors and 0 warnings.
 2026-06-05 verification (results-dir clear failure portability): `bb clj-fmt:check` passed: all source files formatted correctly.
 2026-06-05 verification (results-dir clear failure portability): `git diff --check` passed with no whitespace errors.
+
+2026-06-05 test-shaper review (fresh pass): No new actionable test-shaping issues. Reviewed focused core CLI tests, optional Kaocha CLI tests, synthetic nil/non-concrete-var result-file/progress coverage, outcome-kind precedence/exit-code coverage, `.scry-results/` create and guarded clear/delete preparation-failure coverage, `clojure -X` ex-data coverage, and related CLI docs against the task design. The tests remain focused, deterministic where platform-sensitive filesystem behavior is guarded, behavior-oriented, and economical. Verification during review: focused core CLI tests passed (43 tests, 306 assertions); optional Kaocha CLI tests passed (4 tests, 29 assertions). No follow-up steps were added.

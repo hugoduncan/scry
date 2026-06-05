@@ -54,7 +54,7 @@ Function.
 
 `clojure -X` entry point for the scry CLI.
 
-Normalizes EDN options, runs the shared CLI implementation, and returns the successful structured outcome map. When the CLI result is non-zero, throws `ex-info` with `:type :scry.cli/non-zero`, `:exit-code`, `:scry.cli/outcome-kind`, `:summary`, and `:outcome` data so `clojure -X` exits non-zero without calling `System/exit`.
+Normalizes EDN options, runs the shared CLI implementation, and returns the successful structured outcome map. When the CLI result is non-zero, throws `ex-info` with `:type :scry.cli/non-zero`, `:exit-code`, `:scry.cli/outcome-kind`, `:summary`, `:error`, and `:outcome` data so `clojure -X` exits non-zero without calling `System/exit`.
 
 Typical invocations:
 

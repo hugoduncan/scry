@@ -55,4 +55,4 @@
 
 ## Implementation review follow-up
 
-- [ ] Update `bb/scry/api_docs.clj` generated `scry.cli/run` prose and regenerate `doc/API.md` so the documented non-zero `ex-info` contract includes the `:error` key alongside `:summary` and `:outcome`, matching README and `scry.cli/non-zero-exception`.
+- [x] Update `bb/scry/api_docs.clj` generated `scry.cli/run` prose and regenerate `doc/API.md` so the documented non-zero `ex-info` contract includes the `:error` key alongside `:summary` and `:outcome`, matching README and `scry.cli/non-zero-exception`.

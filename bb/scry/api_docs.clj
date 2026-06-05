@@ -49,7 +49,7 @@
                                 "and returns the successful structured outcome map. When the "
                                 "CLI result is non-zero, throws `ex-info` with `:type "
                                 ":scry.cli/non-zero`, `:exit-code`, `:scry.cli/outcome-kind`, "
-                                "`:summary`, and `:outcome` data so `clojure -X` exits "
+                                "`:summary`, `:error`, and `:outcome` data so `clojure -X` exits "
                                 "non-zero without calling `System/exit`.\n\n"
                                 "Typical invocations:\n\n"
                                 "```sh\n"

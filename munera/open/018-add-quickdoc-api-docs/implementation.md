@@ -96,3 +96,14 @@ No non-blocking open questions remain for this task.
 ## 2026-06-04 implementation review
 
 Reviewed the quickdoc generator, generated `doc/API.md`, public docstring changes, dependency/tooling boundary, README/AGENTS/CHANGELOG updates, and task artifacts against the stable design and plan. Re-ran `bb api-docs --check`, touched namespace loading, and focused build/POM checks successfully. Found one actionable issue: generated `scry.cli/run` prose omits the `:error` key from the documented non-zero `ex-info` data even though README and `scry.cli/non-zero-exception` include it. Added a follow-up step.
+
+## 2026-06-04 implementation-review follow-up
+
+Completed the review-added documentation-contract follow-up. Updated `bb/scry/api_docs.clj` so the generated `scry.cli/run` non-zero `ex-info` contract lists `:error` alongside `:summary` and `:outcome`, then regenerated `doc/API.md` with `bb api-docs`. Marked the follow-up step complete.
+
+Verification:
+
+- `bb api-docs --check` — pass, generated API docs are up to date.
+- `bb clj-fmt:check` — pass, all source files formatted correctly.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `git diff --check` — pass.

@@ -47,3 +47,7 @@ Marked both newly added follow-up items complete in `steps.md`. Older unchecked 
 ## 2026-06-04 plan inconsistency review
 
 Reviewed `plan.md` and `steps.md` against the stable `design.md`, prior implementation notes, `deps.edn`/`bb.edn`, README/AGENTS/CHANGELOG, and the relevant public source/build tests. Found one new actionable inconsistency: after the plan-ambiguity follow-up, `plan.md` pins a specific docs-only `deps.edn` `:quickdoc` alias that adds `bb/` plus pinned quickdoc and drives `clojure -M:quickdoc:kaocha -m scry.api-docs`, but `steps.md` Slice 3 still allowed the older generic dependency-path alternatives (`deps.edn` alias, Babashka task, or equivalent). Added an unchecked follow-up item to align the implementation step with the plan-pinned `:quickdoc` alias.
+
+## 2026-06-04 plan-inconsistency follow-up
+
+Completed the newly added actionable follow-up item from the plan inconsistency review. `steps.md` now aligns Slice 3 with the plan-pinned docs-only dependency implementation: the eventual tooling integration should add a `deps.edn` `:quickdoc` alias that places `bb/` plus pinned quickdoc on the generator classpath, rather than leaving the older generic Babashka-task/equivalent dependency-path alternatives in the implementation checklist. Marked the review-added follow-up item complete. No code/docs implementation was otherwise performed because older unchecked steps predate the preceding review pass.

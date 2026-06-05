@@ -56,3 +56,7 @@
 ## Implementation review follow-up
 
 - [x] Update `bb/scry/api_docs.clj` generated `scry.cli/run` prose and regenerate `doc/API.md` so the documented non-zero `ex-info` contract includes the `:error` key alongside `:summary` and `:outcome`, matching README and `scry.cli/non-zero-exception`.
+
+## Test review follow-up
+
+- [ ] Add focused API-doc content regression coverage (for example under a `:test:quickdoc:kaocha` check) that asserts the generated/committed reference includes the intended `scry.core`, `scry.cli/run` `[opts]`, and optional `scry.kaocha` surface while omitting implementation namespaces, CLI helper vars, and the `io-boundary` arity.

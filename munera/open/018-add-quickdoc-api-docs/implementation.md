@@ -123,3 +123,7 @@ Verification rerun:
 - `bb clj-fmt:check` — pass.
 - `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
 - `git diff --check` — pass.
+
+## 2026-06-04 test review
+
+Reviewed the task test/verification surface against the design, generated API docs, generator, public namespaces, and dependency-boundary checks. Found one actionable test-quality issue: `bb api-docs --check` proves `doc/API.md` is reproducible, but no automated focused test asserts the curated API-doc content contract (included public vars/arities/prose and omitted implementation namespaces/helpers), so a generator/source/doc change could preserve reproducibility while regressing the documented public surface.

@@ -43,3 +43,7 @@ Verification run now:
 - `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.build-test)] (when-not (ct/successful? r) (System/exit 1)))"` — pass, 6 tests, 176 assertions, 0 failures, 0 errors.
 
 Marked both newly added follow-up items complete in `steps.md`. Older unchecked implementation steps predate the preceding review pass and remain pending for the implementation pass.
+
+## 2026-06-04 plan inconsistency review
+
+Reviewed `plan.md` and `steps.md` against the stable `design.md`, prior implementation notes, `deps.edn`/`bb.edn`, README/AGENTS/CHANGELOG, and the relevant public source/build tests. Found one new actionable inconsistency: after the plan-ambiguity follow-up, `plan.md` pins a specific docs-only `deps.edn` `:quickdoc` alias that adds `bb/` plus pinned quickdoc and drives `clojure -M:quickdoc:kaocha -m scry.api-docs`, but `steps.md` Slice 3 still allowed the older generic dependency-path alternatives (`deps.edn` alias, Babashka task, or equivalent). Added an unchecked follow-up item to align the implementation step with the plan-pinned `:quickdoc` alias.

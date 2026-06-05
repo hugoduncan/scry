@@ -87,4 +87,4 @@
 
 ## Docs review follow-up
 
-- [ ] Update `README.md` CLI outcome wording so it does not present `run-cli` as user-facing public API; describe structured CLI / `clojure -X` outcomes and `:scry.cli/outcome-kind` instead, keeping the generated `doc/API.md` curated `scry.cli/run` surface consistent.
+- [x] Update `README.md` CLI outcome wording so it does not present `run-cli` as user-facing public API; describe structured CLI / `clojure -X` outcomes and `:scry.cli/outcome-kind` instead, keeping the generated `doc/API.md` curated `scry.cli/run` surface consistent.

@@ -325,3 +325,15 @@ Verification during review:
 
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.
+
+## 2026-06-04 docs-review follow-up
+
+Completed the newly added docs-review follow-up. Updated `README.md` CLI outcome wording so it no longer names `run-cli` as user-facing API; the public docs now describe structured CLI outcomes and `:scry.cli/outcome-kind`, keeping README aligned with generated `doc/API.md` where the curated CLI surface is `scry.cli/run` for `clojure -X`.
+
+Marked the docs-review follow-up step complete in `steps.md`.
+
+Verification:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.
+- `git diff --check` — pass.

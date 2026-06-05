@@ -122,7 +122,7 @@ While tests run, the CLI prints one progress item per canonical result: `.` to s
 
 At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Synthetic suite-level failures/errors write readable files such as `.scry-results/suite-error-1.edn` or `.scry-results/my.loader__suite-fail-1.edn`. Passing runs may leave `.scry-results/` as an empty directory.
 
-The CLI exits `0` only when at least one concrete selected/executed test var runs and all vars pass. It exits non-zero for failures, errors, unknown result status, argument/runner errors, synthetic load/suite errors, or zero executable tests. `run-cli` outcomes include machine-readable `:scry.cli/outcome-kind`, and that key is authoritative for exit status: only `:scry.cli/pass` exits `0`; all other kinds exit non-zero.
+The CLI exits `0` only when at least one concrete selected/executed test var runs and all vars pass. It exits non-zero for failures, errors, unknown result status, argument/runner errors, synthetic load/suite errors, or zero executable tests. Structured CLI outcomes include machine-readable `:scry.cli/outcome-kind`, and that key is authoritative for exit status: only `:scry.cli/pass` exits `0`; all other kinds exit non-zero.
 
 Initial outcome kinds are:
 

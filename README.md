@@ -1,5 +1,7 @@
 # scry
 
+[![Clojars Project](https://img.shields.io/clojars/v/org.hugoduncan/scry.svg)](https://clojars.org/org.hugoduncan/scry)
+
 `scry` is an in-process Clojure test runner designed for AI agents and REPL-driven development.
 
 Instead of asking an agent to scrape terminal output, `scry` runs tests in the current Clojure process and returns an inspectable result map containing summaries, result entries, assertion details, stack traces, and captured output at a detail level matched to the invocation scope.

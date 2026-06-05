@@ -83,4 +83,4 @@
 
 ## Latest test review — exact CLI API surface
 
-- [ ] Strengthen the focused API-doc content regression to assert the exact allowed var-anchor set for the included `scry.cli` namespace is only `scry.cli/run`, so newly public CLI helper vars cannot be accidentally documented without failing the test.
+- [x] Strengthen the focused API-doc content regression to assert the exact allowed var-anchor set for the included `scry.cli` namespace is only `scry.cli/run`, so newly public CLI helper vars cannot be accidentally documented without failing the test.

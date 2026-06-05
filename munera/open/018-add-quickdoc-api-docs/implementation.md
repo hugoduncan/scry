@@ -284,3 +284,15 @@ Verification during review:
 ## 2026-06-04 latest test review
 
 Reviewed the current API-doc test surface against the stable design, generator, generated `doc/API.md`, CI wiring, and focused dependency-boundary checks. Verification during review passed: `bb api-docs --check`; focused API-doc content regression (1 test, 48 assertions); focused build/POM checks (7 tests, 184 assertions). Found one new actionable test-quality issue: the focused content regression now enforces exact var-anchor sets for `scry.core` and `scry.kaocha`, but not for `scry.cli`; a newly documented public helper in the included `scry.cli` namespace could slip through unless it matches the current explicit omission list.
+
+## 2026-06-04 exact CLI surface test-review follow-up
+
+Completed the newly added exact CLI API surface follow-up. Strengthened `test-quickdoc/scry/api_docs_test.clj` so the focused API-doc content regression now asserts the exact var-anchor set for the included `scry.cli` namespace is only `scry.cli/run`, matching the existing exact-surface checks for `scry.core` and `scry.kaocha`. This fails if quickdoc ever publishes a newly public CLI helper var without an intentional test update. Marked the review-added step complete in `steps.md`.
+
+Verification:
+
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.
+- `bb api-docs --check` — pass.
+- `bb clj-fmt:check` — pass, all source files formatted correctly.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `git diff --check` — pass.

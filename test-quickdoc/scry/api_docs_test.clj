@@ -87,10 +87,12 @@
                (var-anchor "scry.core" "last-run")}
              (var-anchors-in-namespace markdown "scry.core"))))
 
-    (testing "generated docs include only the user-facing scry.cli/run API"
+    (testing "generated docs include exactly the user-facing scry.cli/run API"
       (assert-includes markdown
                        ["# <a name=\"scry.cli\">scry.cli</a>"
                         (var-anchor "scry.cli" "run")])
+      (is (= #{(var-anchor "scry.cli" "run")}
+             (var-anchors-in-namespace markdown "scry.cli")))
       (assert-includes cli-run-section
                        ["``` clojure\n(run opts)\n```"
                         "clojure -X:test scry.cli/run"

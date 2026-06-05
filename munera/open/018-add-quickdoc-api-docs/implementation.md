@@ -231,3 +231,16 @@ Verification during review:
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
 - `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 183 assertions, 0 failures, 0 errors.
+
+## 2026-06-04 quickdoc pinning test-review follow-up
+
+Completed the review-added quickdoc pinning regression item. Extended `test/scry/build_test.clj` so the focused quickdoc dependency-boundary test now also asserts the `:quickdoc` alias dependency spec is pinned to either an explicit non-floating Maven release version or a git tag plus SHA, and rejects branch-only/floating-style coordinates. The current quickdoc spec remains docs-only at `[:aliases :quickdoc :extra-deps io.github.borkdude/quickdoc]` with `:git/tag "v0.2.6"` and `:git/sha "ce86780"`. Marked the follow-up step complete in `steps.md`.
+
+Verification:
+
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` — pass, all source files formatted correctly.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `bb api-docs --check` — pass, generated API docs are up to date.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
+- `git diff --check` — pass.

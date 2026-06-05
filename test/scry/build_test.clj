@@ -34,6 +34,28 @@
 
 (def quickdoc-dependency 'io.github.borkdude/quickdoc)
 
+(def floating-mvn-versions #{"LATEST" "RELEASE"})
+
+(defn explicit-released-mvn-version?
+  [version]
+  (and (string? version)
+       (not (str/blank? version))
+       (not (floating-mvn-versions version))
+       (not (str/ends-with? version "-SNAPSHOT"))))
+
+(defn explicit-git-tag+sha?
+  [dependency-spec]
+  (and (string? (:git/tag dependency-spec))
+       (not (str/blank? (:git/tag dependency-spec)))
+       (string? (:git/sha dependency-spec))
+       (boolean (re-matches #"[0-9a-fA-F]{7,40}" (:git/sha dependency-spec)))
+       (not (contains? dependency-spec :git/branch))))
+
+(defn pinned-quickdoc-dependency?
+  [dependency-spec]
+  (or (explicit-released-mvn-version? (:mvn/version dependency-spec))
+      (explicit-git-tag+sha? dependency-spec)))
+
 (defn deps-kaocha-version []
   (get-in (deps-edn) [:aliases :kaocha :extra-deps 'lambdaisland/kaocha :mvn/version]))
 
@@ -185,6 +207,12 @@
           quickdoc-paths (set (deps-lib-paths deps quickdoc-dependency))]
       (is (= #{[:aliases :quickdoc :extra-deps quickdoc-dependency]}
              quickdoc-paths))))
+  (testing "quickdoc is pinned to a non-floating dependency coordinate"
+    (let [dependency-spec (get-in (deps-edn)
+                                  [:aliases :quickdoc :extra-deps quickdoc-dependency])]
+      (is (pinned-quickdoc-dependency? dependency-spec)
+          (str "expected quickdoc to use an explicit released version or git tag+sha, got "
+               (pr-str dependency-spec)))))
   (testing "published artifacts omit quickdoc dependency metadata and sources"
     (if-not (load-build!)
       (is true "skipping focused build check because :build alias is not active")

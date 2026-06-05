@@ -75,4 +75,4 @@
 
 ## Follow-up test review — quickdoc pinning
 
-- [ ] Add focused regression coverage that asserts the quickdoc dependency remains pinned to an explicit released version or git tag+sha (not a floating branch/`RELEASE`), while staying confined to the docs-only `:quickdoc` alias.
+- [x] Add focused regression coverage that asserts the quickdoc dependency remains pinned to an explicit released version or git tag+sha (not a floating branch/`RELEASE`), while staying confined to the docs-only `:quickdoc` alias.

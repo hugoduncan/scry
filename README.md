@@ -2,9 +2,14 @@
 
 [![Clojars Project](https://img.shields.io/clojars/v/org.hugoduncan/scry.svg)](https://clojars.org/org.hugoduncan/scry)
 
-`scry` is an in-process Clojure test runner designed for AI agents and REPL-driven development.
+`scry` is a Clojure test runner that produces inspectable, structured artifacts for each failed test instead of human-oriented terminal output that an agent has to scrape.
 
-Instead of asking an agent to scrape terminal output, `scry` runs tests in the current Clojure process and returns an inspectable result map containing summaries, result entries, assertion details, stack traces, and captured output at a detail level matched to the invocation scope.
+It supports two complementary use cases:
+
+- **In the REPL / in-process API**, `scry` runs tests in the current Clojure process and returns an inspectable result map containing summaries, result entries, assertion details, stack traces, and captured output at a detail level matched to the invocation scope. The result stays available for follow-up inspection in the same process.
+- **At the command line**, `scry` runs tests as a process and writes per-failed-test structured artifacts as EDN files under `.scry-results/`, alongside live progress, summary counts, and a meaningful exit code.
+
+Both surfaces are designed for AI agents and REPL-driven development, where programmatic inspection of failures matters more than reading formatted console text.
 
 ## Status
 
@@ -20,7 +25,7 @@ AI coding agents often need to answer questions like:
 - Where did the failure happen?
 - What stdout/stderr was printed by a targeted test?
 
-Traditional command-line test output is optimized for humans. `scry` is optimized for programmatic inspection.
+`scry` answers these directly from its structured results, without parsing console text.
 
 ## Installation
 

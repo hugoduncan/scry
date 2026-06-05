@@ -266,3 +266,17 @@ Verification:
 - `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
 - `bb api-docs --check` — pass, generated API docs are up to date.
 - `git diff --check` — pass.
+
+## 2026-06-04 latest implementation review
+
+Reviewed the post exact-surface follow-up implementation against the stable design and plan, including the quickdoc generator, generated API reference, focused API-doc regression, CI wiring, dependency-boundary checks, and public docs guidance. Found no new actionable implementation-quality issues; no follow-up steps were added.
+
+Verification during review:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 48 assertions, 0 failures, 0 errors.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 184 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` — pass.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `mise exec -- actionlint .github/workflows/ci.yml` — pass.
+- `git diff --check` — pass.

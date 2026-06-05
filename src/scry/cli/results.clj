@@ -30,7 +30,8 @@
         (java.nio.file.Files/delete path)
         (catch java.io.IOException e
           (throw (ex-info (str "Could not delete " (.getPath file))
-                          {:path (.getPath file)}
+                          {:type :scry.cli/runner-error
+                           :path (.getPath file)}
                           e)))))))
 
 (defn prepare-results-dir!
@@ -40,7 +41,8 @@
     (delete-recursive! dir)
     (when-not (.mkdirs dir)
       (throw (ex-info (str "Could not create " (.getPath dir))
-                      {:path (.getPath dir)})))
+                      {:type :scry.cli/runner-error
+                       :path (.getPath dir)})))
     dir))
 
 (defn- encode-char

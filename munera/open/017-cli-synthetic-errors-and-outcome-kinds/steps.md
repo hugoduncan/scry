@@ -80,4 +80,4 @@
 
 ## Current test-shaper review follow-up
 
-- [ ] Add focused CLI coverage for `.scry-results/` preparation failure (create/clear failure), asserting `:scry.cli/runner-error`, non-zero exit, human stderr, no summary/result-files, and no runner invocation after setup fails.
+- [x] Add focused CLI coverage for `.scry-results/` preparation failure (create/clear failure), asserting `:scry.cli/runner-error`, non-zero exit, human stderr, no summary/result-files, and no runner invocation after setup fails.

@@ -172,7 +172,7 @@ REPL runs are encouraged while iterating, but they do not replace final command-
 
 ## Maintainer CI workflow
 
-GitHub Actions CI is configured in `.github/workflows/ci.yml` for pull requests and pushes to `master`. It uses `mise` project tools to run `bb clj-fmt:check` and `bb clj-kondo:lint`, then runs core tests, optional Kaocha tests, focused build checks, and the jar build. Keep its verification commands aligned with the local commands documented below, and use `actions/checkout` with full Git history because the jar version is derived from Git commit count.
+GitHub Actions CI is configured in `.github/workflows/ci.yml` for pull requests and pushes to `master`. It uses `mise` project tools to run `bb clj-fmt:check` and `bb clj-kondo:lint`, verifies generated API docs with `bb api-docs --check` plus focused API-doc content regression tests, then runs core tests, optional Kaocha tests, focused build checks, and the jar build. Keep its verification commands aligned with the local commands documented below, and use `actions/checkout` with full Git history because the jar version is derived from Git commit count.
 
 ## Maintainer build workflow
 
@@ -203,13 +203,14 @@ API reference docs are generated with quickdoc and committed at `doc/API.md`. Re
 bb api-docs
 ```
 
-Before handing off changes that affect public API docs, verify the committed file is current with:
+Before handing off changes that affect public API docs, verify the committed file is current and the curated generated content contract still holds with:
 
 ```sh
 bb api-docs --check
+clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"
 ```
 
-The `:quickdoc` alias is docs-only and should be composed with `:kaocha` by the Babashka task so optional `scry.kaocha` API docs can be generated without adding quickdoc or Kaocha to the core runtime dependency surface or published core POM metadata.
+The focused API-doc content regression checks the documented public surface, required generated prose, and omitted implementation helpers. The `:quickdoc` alias is docs-only and should be composed with `:kaocha` by the Babashka task so optional `scry.kaocha` API docs can be generated without adding quickdoc or Kaocha to the core runtime dependency surface or published core POM metadata.
 
 ## Maintainer release workflow
 

@@ -178,3 +178,18 @@ Verification:
 ## 2026-06-04 latest test review
 
 Reviewed the focused API-doc content regression, generator/check path, docs workflow guidance, and CI/maintainer verification surface. Existing API-doc tests are well-formed, avoid mocks/stubs, and cover the curated public vars/arities/prose plus omitted implementation namespaces; focused API-doc content tests, `bb api-docs --check`, and lint pass. Found one new actionable test-quality issue: the focused `:quickdoc-test` regression is not wired into CI or maintainer API-doc verification guidance, so curated API-doc surface regressions can pass the normal documented/CI checks unless a reviewer remembers the bespoke command.
+
+## 2026-06-04 latest test-review follow-up
+
+Completed the newly added follow-up item from the latest test review. Wired the focused API-doc content regression into both the automated and documented maintainer verification paths:
+
+- `.github/workflows/ci.yml` now has a `Check generated API docs` step after formatting/linting that runs `bb api-docs --check` and the focused `clojure -M:quickdoc:quickdoc-test:kaocha ... scry.api-docs-test` regression command.
+- `AGENTS.md` CI guidance now names the API-doc check/content regression as part of CI.
+- `AGENTS.md` Maintainer API docs workflow now requires both `bb api-docs --check` and the focused API-doc content regression before handing off changes affecting public API docs, and explains that the regression protects the curated public surface, required generated prose, and omitted helpers.
+
+Verification:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
+- `mise exec -- actionlint .github/workflows/ci.yml` — pass.
+- `git diff --check` — pass.

@@ -72,3 +72,7 @@
 ## Follow-up test review — dependency boundary
 
 - [x] Add focused dependency-boundary regression coverage that asserts quickdoc remains only under the docs-only `:quickdoc` alias and absent from top-level runtime deps, generated core/Kaocha POM dependencies, and packaged artifacts.
+
+## Follow-up test review — quickdoc pinning
+
+- [ ] Add focused regression coverage that asserts the quickdoc dependency remains pinned to an explicit released version or git tag+sha (not a floating branch/`RELEASE`), while staying confined to the docs-only `:quickdoc` alias.

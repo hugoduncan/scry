@@ -221,3 +221,13 @@ Verification:
 - `bb api-docs --check` — pass, generated API docs are up to date.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
 - `git diff --check` — pass.
+
+## 2026-06-04 follow-up test review
+
+Reviewed the post-follow-up API-doc test surface against the task design, generator, `deps.edn`, CI wiring, and focused build/POM boundary tests. Existing tests are well-formed and cover reproducibility, curated generated content, required prose, CI/maintainer integration, and quickdoc absence from runtime/POM/artifact surfaces without mocks or stubs. Found one new actionable test-quality issue: the design requires quickdoc to be pinned to an explicit released version or git SHA, but the automated boundary regression only checks where quickdoc appears, not that the dependency coordinate remains non-floating/pinned.
+
+Verification during review:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 44 assertions, 0 failures, 0 errors.
+- `clojure -M:test:build -e "(require '[scry.build-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.build-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 7 tests, 183 assertions, 0 failures, 0 errors.

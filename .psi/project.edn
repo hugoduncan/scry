@@ -1,0 +1,3 @@
+{:agent-session
+ {:project-nrepl
+  {:start-command ["clojure" "-M:test:nrepl"]}}}

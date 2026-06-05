@@ -141,14 +141,17 @@ clojure -X:test scry.cli/run :dirs '["test"]' :namespaces '[my.project-test]'
 CLI contract:
 
 - Prints `.` to stdout for each passing test var.
-- Prints failing/erroring unqualified var names to stderr.
+- Prints failing/erroring/unknown unqualified var names to stderr.
+- Prints synthetic suite-level labels such as `suite-error-1` for failing/erroring/unknown entries without a concrete var.
 - Prints a summary after the run.
 - Clears and recreates `.scry-results/` at run start.
 - Writes namespace-prefixed `.edn` files under `.scry-results/` for failing/erroring vars.
+- Writes deterministic synthetic `.edn` files such as `suite-error-1.edn` for failing/erroring entries without a concrete var.
 - Leaves `.scry-results/` empty on passing runs.
-- Exits non-zero for failures, errors, unknown status, runner/argument errors, or zero executable tests.
+- Exits non-zero for failures, errors, unknown status, runner/argument errors, synthetic load/suite errors, or zero executable tests.
+- Adds machine-readable `:scry.cli/outcome-kind` to `run-cli`/`-X` outcomes. Initial kinds are `:scry.cli/pass`, `:scry.cli/argument-error`, `:scry.cli/runner-error`, `:scry.cli/load-error`, `:scry.cli/test-failure`, `:scry.cli/unknown-result`, and `:scry.cli/zero-tests`.
 
-Do not scrape progress text for details. For `-m` runs, use the process exit code and summary for status, then inspect `.scry-results/*.edn` for failing/erroring var details. For `-X` runs, inspect the returned outcome map on success; on non-zero outcomes catch/read the thrown `ex-info` data, especially `:exit-code`, `:summary`, `:error`, and `:outcome`.
+Do not scrape progress text for details. For `-m` runs, use the process exit code and summary for status, then inspect `.scry-results/*.edn` for failing/erroring var or synthetic suite-level details. For `-X` runs, inspect the returned outcome map on success; on non-zero outcomes catch/read the thrown `ex-info` data, especially top-level `:scry.cli/outcome-kind`, `:exit-code`, `:summary`, `:error`, and `:outcome`. Main-style `-m` parser errors are human/process-oriented; use `-X` or direct APIs when you need structured argument-error classification.
 
 Optional Kaocha CLI mode requires the optional adapter on the classpath:
 

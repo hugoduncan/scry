@@ -1,0 +1,107 @@
+# Steps
+
+## Slice 1: Baseline and focused characterization
+
+- [x] Inspect current `scry.cli`, `scry.cli.results`, focused core CLI tests, and optional Kaocha CLI tests to identify existing naming/progress/outcome seams.
+- [x] Add focused `scry.cli.results` coverage for failing/erroring entries with nil, absent, or otherwise non-concrete `:var` values, including deterministic synthetic filenames.
+- [x] Add focused `run-cli` coverage using the injected `:run-clojure-test` boundary for a synthetic nil-var failing/erroring canonical entry that previously crashed result-file naming.
+- [x] Add focused progress coverage showing synthetic nil-var failing/erroring/unknown entries print useful labels instead of throwing.
+
+## Slice 2: Synthetic entry identity and result files
+
+- [x] Add a helper for recognizing concrete var-backed entries: `:var` is a symbol with both namespace and name.
+- [x] Add synthetic token generation for non-var-backed entries using per-status 1-based counters: `suite-error-N`, `suite-fail-N`, and `suite-unknown-N`.
+- [x] Preserve existing var-backed result-file names exactly for normal test vars.
+- [x] Implement synthetic failing/erroring result-file names with optional encoded `:ns` prefix.
+- [x] Compute result-file assignments from the whole canonical entry collection with a used-filename set and deterministic `--2`, `--3`, ... collision suffixes.
+- [x] Ensure `write-result-files!` writes EDN-readable data for synthetic failing/erroring entries and returns the written paths.
+
+## Slice 3: Synthetic progress labels
+
+- [x] Refactor CLI progress callback creation so each run has per-status synthetic counters.
+- [x] Keep var-backed progress unchanged: passing vars print `.`, failing/erroring/unknown vars print the unqualified var name.
+- [x] Make non-var-backed failing/erroring/unknown progress print synthetic tokens, optionally namespace-prefixed when `:ns` is present.
+- [x] Ensure progress handling tolerates nil/absent/non-concrete `:var` without throwing for all statuses.
+
+## Slice 4: Outcome classification
+
+- [x] Add a classifier that returns `:scry.cli/outcome-kind` using the design precedence and make it authoritative for `:exit-code` (`:scry.cli/pass` => `0`, every other kind => non-zero).
+- [x] Classify structured argument errors as `:scry.cli/argument-error` on `clojure -X`/direct structured surfaces.
+- [x] Classify runner infrastructure errors, including malformed results without vector `:canonical-results`, as `:scry.cli/runner-error`.
+- [x] Classify failing/erroring non-concrete canonical entries as `:scry.cli/load-error` once a valid canonical result vector exists.
+- [x] Classify concrete var-backed failures/errors or aggregate failing/erroring assertion counts as `:scry.cli/test-failure`.
+- [x] Classify canonical `:unknown` entries as `:scry.cli/unknown-result` when no higher-precedence kind applies.
+- [x] Classify no concrete executable var-backed entries as `:scry.cli/zero-tests` when no higher-precedence kind applies.
+- [x] Classify successful runs with at least one concrete executable passing var and no non-zero signal as `:scry.cli/pass`.
+- [x] Add focused tests for pass, normal test failure, synthetic load/suite error, unknown result, zero tests, runner error, aggregate assertion failure classification, and synthetic-only passing entries exiting non-zero as zero-tests.
+
+## Slice 5: `clojure -X` propagation and parser boundary checks
+
+- [x] Add top-level `:scry.cli/outcome-kind` to every `run-cli` outcome map.
+- [x] Add top-level `:scry.cli/outcome-kind` to `:scry.cli/non-zero` ex-data produced by `scry.cli/run`.
+- [x] Verify the embedded `:outcome` in non-zero ex-data contains the same outcome kind.
+- [x] Add focused tests for `clojure -X` argument-error ex-data classification.
+- [x] Add or update focused tests confirming `-m` parser errors remain process-oriented human stderr plus non-zero exit code, without requiring structured outcome maps.
+
+## Slice 6: Documentation
+
+- [x] Update `README.md` command-line usage to document `:scry.cli/outcome-kind`, initial keyword vocabulary, and machine-caller guidance to inspect structured outcomes/result files instead of stderr text.
+- [x] Update top-level `SKILL.md` CLI guidance to tell agents to inspect `:scry.cli/outcome-kind` for `-X` outcomes/non-zero ex-data and `.scry-results/*.edn` for failure detail.
+- [x] Update `AGENTS.md` final-verification/CLI guidance to mention structured CLI outcome classification for agents.
+- [x] Update `CHANGELOG.md` Unreleased with the CLI outcome classification and synthetic suite-level result-file handling.
+
+## Slice 7: Verification and task notes
+
+- [x] Run focused core CLI tests and record the exact command/result in `implementation.md`.
+- [x] Run optional Kaocha CLI focused tests if Kaocha-facing behavior or docs are touched, and record the exact command/result in `implementation.md`.
+- [x] Run the appropriate documented final command-line verification for changed CLI surfaces and record the exact command/result in `implementation.md`.
+- [x] Run `git diff --check` and record the result in `implementation.md`.
+- [x] Update `steps.md` as implementation slices complete.
+
+## Plan ambiguity review follow-up
+
+- [x] Pin whether `:scry.cli/outcome-kind` is authoritative for `:exit-code` (`:scry.cli/pass` yields `0`; every other kind yields non-zero), and update the implementation/test slices so synthetic-only passing entries cannot exit `0` through the old total-entry `var-count` logic.
+- [x] Decide and document how CLI summary `:tests` counts and `:var-count` treat synthetic/non-var-backed canonical entries (count all result entries versus only concrete executable vars), including the expected stdout summary wording for synthetic load/unknown/zero-test cases.
+
+## Implementation review follow-up
+
+- [x] Align outcome classification with the documented precedence by removing or narrowing bare `:pass? false` test-failure classification, and add focused coverage that unknown/zero-test canonical results with no fail/error entries or aggregate fail/error counts still classify as `:scry.cli/unknown-result` / `:scry.cli/zero-tests`.
+- [x] Treat malformed canonical entries with missing or unrecognized `:status` as runner errors instead of allowing concrete-var entries with nil/invalid status to classify as `:scry.cli/pass`.
+- [x] Remove or intentionally mark the unused `result` parameter in `scry.cli/classify-outcome` so `bb clj-kondo:lint` is clean.
+
+## Test-shaper review follow-up
+
+- [x] Add focused outcome-kind coverage for mixed synthetic load-error plus concrete var failure results, asserting `:scry.cli/load-error` takes precedence over `:scry.cli/test-failure`.
+- [x] Add focused synthetic result-file collision coverage where both the base synthetic filename and its `--2` suffix are already reserved, asserting assignment advances deterministically to `--3` instead of reusing a path.
+
+## Latest test-shaper review follow-up
+
+- [x] Add focused `scry.cli/run` (`clojure -X`) coverage for an injected synthetic nil/non-concrete-var load-error result, asserting top-level and embedded non-zero ex-data classify as `:scry.cli/load-error` and preserving synthetic result-file behavior where practical.
+
+## Current test-shaper review follow-up
+
+- [x] Add focused CLI coverage for `.scry-results/` preparation failure (create/clear failure), asserting `:scry.cli/runner-error`, non-zero exit, human stderr, no summary/result-files, and no runner invocation after setup fails.
+
+## Test-shaper review follow-up (synthetic unknown precedence)
+
+- [x] Add focused CLI outcome/progress coverage for a synthetic/non-concrete `:unknown`-only canonical result with no concrete vars or higher-precedence failures/errors, asserting it classifies as `:scry.cli/unknown-result` rather than `:scry.cli/zero-tests`, exits non-zero, prints a synthetic unknown progress label, and writes no result files.
+
+## Latest plan inconsistency review follow-up
+
+- [x] Remove or update the stale opening `implementation.md` statement that says "No implementation yet" now that later notes and checked steps show implementation, follow-ups, reviews, and verification are complete.
+
+## Test-shaper review follow-up (aggregate failure zero-tests precedence)
+
+- [x] Add focused CLI outcome coverage for aggregate fail/error assertion counts with no concrete executable canonical entries, asserting `:scry.cli/test-failure` takes precedence over `:scry.cli/zero-tests`, exits non-zero, and writes no result files unless concrete failing/erroring entries exist.
+
+## Test-shaper review follow-up (results-dir clear failure)
+
+- [x] Add deterministic CLI coverage for `.scry-results/` clear/delete failure during result-directory preparation (not just create failure), asserting `:scry.cli/runner-error`, non-zero exit, human stderr, no summary/result-files, and no runner invocation after cleanup fails.
+
+## Test-shaper review follow-up (results-dir clear failure portability)
+
+- [x] Make the `.scry-results/` clear/delete failure test robust on non-POSIX filesystems (for example by guarding/skipping the POSIX-permission branch when unsupported) while preserving deterministic coverage of the delete-failure branch where POSIX permissions are available.
+
+## Code-shaper review follow-up
+
+- [x] Align CLI passing progress with the concrete executable-var model: non-concrete synthetic `:pass` entries should not print a normal test-var dot without an explicit, documented synthetic-pass policy; add focused coverage for the chosen behavior.

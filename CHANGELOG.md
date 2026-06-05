@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added machine-readable CLI outcome classification via `:scry.cli/outcome-kind` on `run-cli`/`clojure -X` outcomes and non-zero ex-data, distinguishing pass, argument error, runner error, synthetic load error, test failure, unknown result, and zero-test outcomes without parsing stderr.
+- Fixed CLI progress and `.scry-results/` handling for synthetic suite-level failing/erroring entries without concrete vars, writing deterministic files such as `suite-error-1.edn` instead of crashing on nil `:var` values.
+
 ## [0.1.26] - 2026-06-04
 
 - Fixed nested/reentrant in-process capture so nested `scry`, optional Kaocha, and raw `clojure.test` runs no longer leak inner events or output into an enclosing `scry` result, while preserving inner raw `clojure.test` assertion counters.

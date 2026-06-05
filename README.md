@@ -114,11 +114,23 @@ clojure -X:test scry.cli/run :dirs '["test"]' :namespaces '[my.project-test]'
 clojure -X:test scry.cli/run :vars '[my.project-test/specific-test]'
 ```
 
-While tests run, the CLI prints one progress item per test var: `.` to stdout for passing vars and the unqualified test name to stderr for failing or erroring vars. After the run it prints a stdout summary with passed, failed, and errored assertion and test-var counts.
+While tests run, the CLI prints one progress item per canonical result: `.` to stdout for passing vars and the unqualified test name to stderr for failing, erroring, or unknown vars. Synthetic suite-level entries without a concrete var print deterministic labels such as `suite-error-1`, `suite-fail-1`, or `suite-unknown-1`, optionally namespace-prefixed for context. After the run it prints a stdout summary with passed, failed, and errored assertion and result-entry counts.
 
-At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Passing runs may leave `.scry-results/` as an empty directory.
+At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Synthetic suite-level failures/errors write readable files such as `.scry-results/suite-error-1.edn` or `.scry-results/my.loader__suite-fail-1.edn`. Passing runs may leave `.scry-results/` as an empty directory.
 
-The CLI exits `0` only when at least one selected/executed test var runs and all vars pass. It exits non-zero for failures, errors, unknown var status, argument/runner errors, or zero executable tests. The `-X` entry point returns the successful outcome map; on non-zero outcomes it throws `ex-info` with structured `:exit-code`, `:summary`, `:error`, and `:outcome` data.
+The CLI exits `0` only when at least one concrete selected/executed test var runs and all vars pass. It exits non-zero for failures, errors, unknown result status, argument/runner errors, synthetic load/suite errors, or zero executable tests. `run-cli` outcomes include machine-readable `:scry.cli/outcome-kind`, and that key is authoritative for exit status: only `:scry.cli/pass` exits `0`; all other kinds exit non-zero.
+
+Initial outcome kinds are:
+
+- `:scry.cli/pass` — at least one concrete test var ran and no non-zero signal applies.
+- `:scry.cli/argument-error` — structured option parsing/normalization failed before runner execution.
+- `:scry.cli/runner-error` — CLI/runner infrastructure failed before yielding inspectable canonical results.
+- `:scry.cli/load-error` — canonical results contain failing/erroring synthetic entries without a concrete var, such as suite-level load failures.
+- `:scry.cli/test-failure` — concrete test vars failed/errored, or aggregate assertion counts report failures/errors.
+- `:scry.cli/unknown-result` — canonical results include unknown-status entries with no higher-precedence signal.
+- `:scry.cli/zero-tests` — runner execution completed but no concrete executable test-var entries were produced.
+
+The `-X` entry point returns the successful outcome map; on non-zero outcomes it throws `ex-info` with structured `:exit-code`, top-level `:scry.cli/outcome-kind`, `:summary`, `:error`, and `:outcome` data. The embedded `:outcome` contains the same outcome kind. Machine callers should inspect `:scry.cli/outcome-kind` and `.scry-results/*.edn` instead of parsing human stderr progress or `scry CLI error:` text. Main-style `-m` parser errors remain process-oriented human stderr plus non-zero exit; use `-X` or direct API calls when argument-error classification is needed.
 
 Kaocha CLI mode is available when the optional adapter is on the classpath:
 

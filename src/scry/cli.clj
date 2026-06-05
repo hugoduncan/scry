@@ -406,30 +406,94 @@
          (str ", " (:unknown tests) " unknown"))
        "\n"))
 
+(defn- progress-label
+  [synthetic-counters entry]
+  (if (results/concrete-var-backed-entry? entry)
+    (name (:var entry))
+    (let [status (:status entry)
+          ordinal (swap! synthetic-counters update status (fnil inc 0))]
+      (results/synthetic-display-label
+       entry
+       (results/synthetic-token status (get ordinal status))))))
+
 (defn- progress!
-  [{:keys [out err]} entry]
+  [synthetic-counters {:keys [out err]} entry]
   (case (:status entry)
-    :pass (do (.write out ".") (.flush out))
-    :fail (do (.write err (str (name (:var entry)) "\n")) (.flush err))
-    :error (do (.write err (str (name (:var entry)) "\n")) (.flush err))
-    (do (.write err (str (name (:var entry)) "\n")) (.flush err))))
+    :pass (when (results/concrete-var-backed-entry? entry)
+            (.write out ".")
+            (.flush out))
+    :fail (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))
+    :error (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))
+    (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))))
 
 (defn- write-summary!
   [{:keys [out]} summary]
   (.write out (summary-text summary))
   (.flush out))
 
+(defn- positive-count?
+  [m k]
+  (pos? (long (or (get m k) 0))))
+
+(defn- load-error-entry?
+  [entry]
+  (and (results/failure-entry? entry)
+       (not (results/concrete-var-backed-entry? entry))))
+
+(defn- concrete-failure-entry?
+  [entry]
+  (and (results/failure-entry? entry)
+       (results/concrete-var-backed-entry? entry)))
+
+(defn- aggregate-failure?
+  [{:keys [assertions]}]
+  (or (positive-count? assertions :fail)
+      (positive-count? assertions :error)))
+
+(defn- classify-outcome
+  [entries summary]
+  (cond
+    (some load-error-entry? entries)
+    :scry.cli/load-error
+
+    (or (some concrete-failure-entry? entries)
+        (aggregate-failure? summary))
+    :scry.cli/test-failure
+
+    (some #(= :unknown (:status %)) entries)
+    :scry.cli/unknown-result
+
+    (not-any? results/concrete-var-backed-entry? entries)
+    :scry.cli/zero-tests
+
+    :else
+    :scry.cli/pass))
+
 (defn- exit-code
-  [{:keys [assertions tests var-count]} result]
-  (if (and (not (false? (:pass? result)))
-           (pos? var-count)
-           (zero? (:fail assertions 0))
-           (zero? (:error assertions 0))
-           (zero? (:fail tests 0))
-           (zero? (:error tests 0))
-           (zero? (:unknown tests 0)))
+  [outcome-kind]
+  (if (= :scry.cli/pass outcome-kind)
     0
     1))
+
+(defn- error-outcome-kind
+  [^Throwable e]
+  (case (:type (ex-data e))
+    :scry.cli/argument-error :scry.cli/argument-error
+    :scry.cli/runner-error :scry.cli/runner-error
+    :scry.cli/runner-error))
+
+(def ^:private canonical-entry-statuses #{:pass :fail :error :unknown})
+
+(defn- valid-canonical-entry?
+  [entry]
+  (and (map? entry)
+       (contains? canonical-entry-statuses (:status entry))))
+
+(defn- canonical-entry-error-data
+  [index entry]
+  {:type :scry.cli/runner-error
+   :index index
+   :entry entry})
 
 (defn- canonical-result-entries
   [result]
@@ -437,6 +501,10 @@
     (when-not (vector? entries)
       (throw (ex-info "Runner result did not include :canonical-results"
                       {:type :scry.cli/runner-error})))
+    (doseq [[index entry] (map-indexed vector entries)]
+      (when-not (valid-canonical-entry? entry)
+        (throw (ex-info "Runner result included malformed canonical entry"
+                        (canonical-entry-error-data index entry)))))
     entries))
 
 (defn- runner-error
@@ -464,19 +532,19 @@
     runner))
 
 (defn- run-kaocha
-  [opts io-boundary]
+  [opts io-boundary progress-callback]
   (let [run-kaocha (resolve-kaocha-runner io-boundary)]
-    (run-kaocha (assoc opts :progress-callback #(progress! io-boundary %)))))
+    (run-kaocha (assoc opts :progress-callback progress-callback))))
 
 (defn- run-normalized
-  [opts io-boundary]
+  [opts io-boundary progress-callback]
   (case (:runner opts)
     :clojure-test
     ((:run-clojure-test io-boundary)
-     (assoc opts :progress-callback #(progress! io-boundary %)))
+     (assoc opts :progress-callback progress-callback))
 
     :kaocha
-    (run-kaocha opts io-boundary)))
+    (run-kaocha opts io-boundary progress-callback)))
 
 (defn run-cli
   "Run scry from normalized CLI options and return a structured outcome.
@@ -489,33 +557,40 @@
    (let [io-boundary (boundary io-boundary)]
      (try
        (let [dir (results/prepare-results-dir! io-boundary)
-             result (run-normalized normalized-options io-boundary)
+             synthetic-counters (atom {})
+             progress-callback #(progress! synthetic-counters io-boundary %)
+             result (run-normalized normalized-options io-boundary progress-callback)
              entries (canonical-result-entries result)
              summary (cli-summary result entries)
              result-files (results/write-result-files! dir entries)
-             code (exit-code summary result)]
+             outcome-kind (classify-outcome entries summary)
+             code (exit-code outcome-kind)]
          (write-summary! io-boundary summary)
          {:exit-code code
+          :scry.cli/outcome-kind outcome-kind
           :result result
           :summary summary
           :result-files result-files
           :error nil})
        (catch Throwable e
-         (.write (:err io-boundary) (str "scry CLI error: " (.getMessage e) "\n"))
-         (.flush (:err io-boundary))
-         {:exit-code 1
-          :result nil
-          :summary nil
-          :result-files []
-          :error {:message (.getMessage e)
-                  :data (ex-data e)
-                  :exception e}})))))
+         (let [outcome-kind (error-outcome-kind e)]
+           (.write (:err io-boundary) (str "scry CLI error: " (.getMessage e) "\n"))
+           (.flush (:err io-boundary))
+           {:exit-code (exit-code outcome-kind)
+            :scry.cli/outcome-kind outcome-kind
+            :result nil
+            :summary nil
+            :result-files []
+            :error {:message (.getMessage e)
+                    :data (ex-data e)
+                    :exception e}}))))))
 
 (defn- non-zero-exception
   [message outcome]
   (ex-info message
            {:type :scry.cli/non-zero
             :exit-code (:exit-code outcome)
+            :scry.cli/outcome-kind (:scry.cli/outcome-kind outcome)
             :summary (:summary outcome)
             :error (:error outcome)
             :outcome outcome}))
@@ -523,6 +598,7 @@
 (defn- argument-error-outcome
   [^Throwable e]
   {:exit-code 1
+   :scry.cli/outcome-kind :scry.cli/argument-error
    :result nil
    :summary nil
    :result-files []

@@ -5,6 +5,7 @@
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [scry.cli :as cli]
+   [scry.cli.results :as cli-results]
    [scry.fixtures.arbitrary]
    [scry.fixtures.asserting-fixtures]
    [scry.fixtures.colliding-a]
@@ -233,6 +234,18 @@
     (.mkdirs results-dir)
     (spit (io/file results-dir "stale.edn") "{:stale true}")))
 
+(defn- runner-result
+  [entries]
+  {:summary (reduce (fn [summary entry]
+                      (merge-with + summary (:assertion-summary entry)))
+                    {:test (count entries)
+                     :pass 0
+                     :fail 0
+                     :error 0}
+                    entries)
+   :pass? (not-any? #(contains? #{:fail :error :unknown} (:status %)) entries)
+   :canonical-results (vec entries)})
+
 (defn- create-symlink!
   [link target]
   (try
@@ -253,6 +266,7 @@
     (let [outcome (run-cli-in dir (cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.passing/arithmetic-passes]}))]
       (is (= 0 (:exit-code outcome)))
+      (is (= :scry.cli/pass (:scry.cli/outcome-kind outcome)))
       (is (= ".Assertions: 2 passed, 0 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
              (:stdout outcome)))
       (is (= "" (:stderr outcome)))
@@ -278,6 +292,93 @@
                  (java.nio.file.Files/isSymbolicLink (.toPath link))))
             (is (.isDirectory link))
             (is (= [] (result-files dir)))))))))
+
+(def ^:private non-writable-dir-permissions
+  #{java.nio.file.attribute.PosixFilePermission/OWNER_READ
+    java.nio.file.attribute.PosixFilePermission/OWNER_EXECUTE})
+
+(defn- posix-file-permissions-supported?
+  []
+  (contains? (.supportedFileAttributeViews
+              (java.nio.file.FileSystems/getDefault))
+             "posix"))
+
+(deftest run-cli-results-dir-preparation-failure-test
+  ;; If the CLI cannot prepare .scry-results, it reports a runner-error
+  ;; outcome before invoking the selected test runner.
+  (testing "create failure"
+    (with-temp-dir [dir]
+      (let [cwd-file (io/file dir "not-a-directory")
+            runner-called? (atom false)
+            out (string-writer)
+            err (string-writer)]
+        (spit cwd-file "not a directory")
+        (let [outcome (cli/run-cli
+                       (cli/normalize-exec-opts {})
+                       {:cwd (.getPath cwd-file)
+                        :out out
+                        :err err
+                        :run-clojure-test
+                        (fn [_]
+                          (reset! runner-called? true)
+                          (runner-result [{:var 'scry.fixtures.passing/arithmetic-passes
+                                           :ns 'scry.fixtures.passing
+                                           :status :pass
+                                           :assertion-summary {:pass 1 :fail 0 :error 0}
+                                           :assertions []}]))})]
+          (is (= 1 (:exit-code outcome)))
+          (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+          (is (= "" (str out)))
+          (is (str/includes? (str err) "scry CLI error: Could not create"))
+          (is (= false @runner-called?))
+          (is (= nil (:result outcome)))
+          (is (= nil (:summary outcome)))
+          (is (= [] (:result-files outcome)))
+          (is (false? (.exists (io/file cwd-file ".scry-results"))))))))
+  (testing "clear/delete failure"
+    (if-not (posix-file-permissions-supported?)
+      (is true "POSIX file permissions are not supported on this filesystem")
+      (with-temp-dir [dir]
+        (let [results-dir (io/file dir ".scry-results")
+              stale-file (io/file results-dir "stale.edn")
+              runner-called? (atom false)
+              out (string-writer)
+              err (string-writer)]
+          (.mkdirs results-dir)
+          (spit stale-file "{:stale true}")
+          (let [original-permissions (java.nio.file.Files/getPosixFilePermissions
+                                      (.toPath results-dir)
+                                      (make-array java.nio.file.LinkOption 0))]
+            (java.nio.file.Files/setPosixFilePermissions
+             (.toPath results-dir)
+             non-writable-dir-permissions)
+            (try
+              (let [outcome (cli/run-cli
+                             (cli/normalize-exec-opts {})
+                             {:cwd (.getPath dir)
+                              :out out
+                              :err err
+                              :run-clojure-test
+                              (fn [_]
+                                (reset! runner-called? true)
+                                (runner-result [{:var 'scry.fixtures.passing/arithmetic-passes
+                                                 :ns 'scry.fixtures.passing
+                                                 :status :pass
+                                                 :assertion-summary {:pass 1 :fail 0 :error 0}
+                                                 :assertions []}]))})]
+                (is (= 1 (:exit-code outcome)))
+                (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+                (is (= "" (str out)))
+                (is (str/includes? (str err) "scry CLI error: Could not delete"))
+                (is (= false @runner-called?))
+                (is (= nil (:result outcome)))
+                (is (= nil (:summary outcome)))
+                (is (= [] (:result-files outcome)))
+                (is (.exists stale-file)))
+              (finally
+                (java.nio.file.Files/setPosixFilePermissions
+                 (.toPath results-dir)
+                 original-permissions)))))))))
 
 (deftest run-cli-successful-core-selectors-test
   ;; Successful namespace and directory/ns-pattern selectors run end-to-end,
@@ -306,6 +407,102 @@
         (is (= ['scry.fixtures.passing/arithmetic-passes]
                (mapv :var (:canonical-results (:result outcome)))))))))
 
+(deftest result-file-assignments-synthetic-entries-test
+  ;; Synthetic suite-level entries without concrete vars receive deterministic
+  ;; result-file names while var-backed names remain unchanged.
+  (testing "non-concrete var shapes and optional namespace prefixes"
+    (let [entries [{:var 'scry.fixtures.failing/equality-fails
+                    :status :fail}
+                   {:var nil
+                    :status :error}
+                   {:status :fail}
+                   {:var 'not-qualified
+                    :ns 'loader.demo
+                    :status :error}]
+          assignments (cli-results/result-file-assignments entries)]
+      (is (= ["scry.fixtures.failing__equality-fails.edn"
+              "suite-error-1.edn"
+              "suite-fail-1.edn"
+              "loader.demo__suite-error-2.edn"]
+             (mapv :filename assignments)))
+      (is (= entries (mapv :entry assignments)))))
+  (testing "synthetic filenames avoid var-backed collisions"
+    (let [entries [{:var 'loader.demo/suite-error-1
+                    :status :pass}
+                   {:var 'not-qualified
+                    :ns 'loader.demo
+                    :status :error}]
+          assignments (cli-results/result-file-assignments entries)]
+      (is (= ["loader.demo__suite-error-1--2.edn"]
+             (mapv :filename assignments)))))
+  (testing "synthetic filename collisions advance past reserved suffixes"
+    (let [entries [{:var 'loader.demo/suite-error-1
+                    :status :pass}
+                   {:var 'loader.demo/suite-error-1--2
+                    :status :pass}
+                   {:var nil
+                    :ns 'loader.demo
+                    :status :error}]
+          assignments (cli-results/result-file-assignments entries)]
+      (is (= ["loader.demo__suite-error-1--3.edn"]
+             (mapv :filename assignments))))))
+
+(deftest run-cli-synthetic-nil-var-results-test
+  ;; Synthetic nil/absent/non-concrete entries write readable result files and
+  ;; print useful progress labels instead of deriving names from nil vars.
+  (with-temp-dir [dir]
+    (write-stale-result! dir)
+    (let [synthetic-error {:var nil
+                           :ns 'loader.demo
+                           :status :error
+                           :assertion-summary {:pass 0 :fail 0 :error 1}
+                           :assertions [{:type :error
+                                         :message "could not load tests"}]
+                           :out "load out\n"
+                           :err "load err\n"}
+          synthetic-fail {:status :fail
+                          :assertion-summary {:pass 0 :fail 1 :error 0}
+                          :assertions [{:type :fail
+                                        :message "suite failed"}]
+                          :out ""
+                          :err ""}
+          synthetic-unknown {:var 'not-qualified
+                             :ns 'loader.demo
+                             :status :unknown
+                             :assertion-summary {:pass 0 :fail 0 :error 0}
+                             :assertions []
+                             :out ""
+                             :err ""}
+          outcome (run-cli-in dir
+                              (cli/normalize-exec-opts {})
+                              {:run-clojure-test
+                               (fn [opts]
+                                 (doseq [entry [synthetic-error
+                                                synthetic-fail
+                                                synthetic-unknown]]
+                                   ((:progress-callback opts) entry))
+                                 (runner-result [synthetic-error
+                                                 synthetic-fail
+                                                 synthetic-unknown]))})
+          files (result-files dir)
+          error-data (edn/read-string
+                      (slurp (io/file dir ".scry-results"
+                                      "loader.demo__suite-error-1.edn")))
+          fail-data (edn/read-string
+                     (slurp (io/file dir ".scry-results"
+                                     "suite-fail-1.edn")))]
+      (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
+      (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 1 failed, 1 errored, 1 unknown\n"
+             (:stdout outcome)))
+      (is (= "loader.demo/suite-error-1\nsuite-fail-1\nloader.demo/suite-unknown-1\n"
+             (:stderr outcome)))
+      (is (= ["loader.demo__suite-error-1.edn" "suite-fail-1.edn"] files))
+      (is (= nil (:var error-data)))
+      (is (= 'loader.demo (:ns error-data)))
+      (is (= :error (:status error-data)))
+      (is (= :fail (:status fail-data))))))
+
 (deftest run-cli-failing-run-test
   ;; A failing CLI run prints unqualified failing names to stderr, writes
   ;; detailed EDN files, removes stale files, and exits non-zero.
@@ -318,6 +515,7 @@
           failure-file (io/file dir ".scry-results" "scry.fixtures.failing__equality-fails.edn")
           failure-data (edn/read-string (slurp failure-file))]
       (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
       (is (= ".Assertions: 1 passed, 1 failed, 0 errored\nTests: 1 passed, 1 failed, 0 errored\n"
              (:stdout outcome)))
       (is (= "equality-fails\n" (:stderr outcome)))
@@ -472,6 +670,7 @@
     (let [outcome (run-cli-in dir (cli/normalize-exec-opts
                                    {:vars ['scry.fixtures.unknown/no-assertions]}))]
       (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
              (:stdout outcome)))
       (is (= "no-assertions\n" (:stderr outcome)))
@@ -488,6 +687,200 @@
                :out ""
                :err ""}]
              (:canonical-results (:result outcome)))))))
+
+(deftest run-cli-outcome-classification-test
+  ;; Outcome-kind classification is machine-readable and authoritative for
+  ;; exit code across synthetic and malformed runner-result edges.
+  (testing "synthetic-only passing entries are zero executable tests"
+    (with-temp-dir [dir]
+      (let [synthetic-pass {:var nil
+                            :ns 'loader.demo
+                            :status :pass
+                            :assertion-summary {:pass 1 :fail 0 :error 0}
+                            :assertions []}
+            outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [opts]
+                        ((:progress-callback opts) synthetic-pass)
+                        (runner-result [synthetic-pass]))})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
+        (is (= "Assertions: 1 passed, 0 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
+               (:stdout outcome)))
+        (is (= "" (:stderr outcome)))
+        (is (= {:pass 1 :fail 0 :error 0}
+               (get-in outcome [:summary :assertions])))
+        (is (= {:pass 1 :fail 0 :error 0 :unknown 0}
+               (get-in outcome [:summary :tests]))))))
+  (testing "unknown entries are not masked by bare pass? false"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 1 :pass 0 :fail 0 :error 0}
+                         :pass? false
+                         :canonical-results [{:var 'scry.fixtures.unknown/no-assertions
+                                              :ns 'scry.fixtures.unknown
+                                              :status :unknown
+                                              :assertion-summary {:pass 0 :fail 0 :error 0}
+                                              :assertions []}]})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
+        (is (= {:pass 0 :fail 0 :error 0}
+               (get-in outcome [:summary :assertions])))
+        (is (= [] (result-files dir))))))
+  (testing "zero executable tests are not masked by bare pass? false"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 0 :pass 0 :fail 0 :error 0}
+                         :pass? false
+                         :canonical-results []})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
+        (is (= {:pass 0 :fail 0 :error 0}
+               (get-in outcome [:summary :assertions])))
+        (is (= [] (result-files dir))))))
+  (testing "synthetic unknown entries classify before zero executable tests"
+    (with-temp-dir [dir]
+      (let [synthetic-unknown {:var nil
+                               :ns 'loader.demo
+                               :status :unknown
+                               :assertion-summary {:pass 0 :fail 0 :error 0}
+                               :assertions []
+                               :out ""
+                               :err ""}
+            outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [opts]
+                        ((:progress-callback opts) synthetic-unknown)
+                        (runner-result [synthetic-unknown]))})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
+        (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
+               (:stdout outcome)))
+        (is (= "loader.demo/suite-unknown-1\n"
+               (:stderr outcome)))
+        (is (= [] (result-files dir)))
+        (is (= {:pass 0 :fail 0 :error 0 :unknown 1}
+               (get-in outcome [:summary :tests])))
+        (is (= 1 (get-in outcome [:summary :var-count]))))))
+  (testing "synthetic load errors take precedence over concrete test failures"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        (runner-result [{:var nil
+                                         :ns 'loader.demo
+                                         :status :error
+                                         :assertion-summary {:pass 0 :fail 0 :error 1}
+                                         :assertions [{:type :error
+                                                       :message "could not load tests"}]}
+                                        {:var 'scry.fixtures.failing/equality-fails
+                                         :ns 'scry.fixtures.failing
+                                         :status :fail
+                                         :assertion-summary {:pass 0 :fail 1 :error 0}
+                                         :assertions [{:type :fail
+                                                       :message "expected values to match"}]}]))})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
+        (is (= {:pass 0 :fail 1 :error 1}
+               (get-in outcome [:summary :assertions])))
+        (is (= ["loader.demo__suite-error-1.edn"
+                "scry.fixtures.failing__equality-fails.edn"]
+               (result-files dir))))))
+  (testing "aggregate assertion failures classify as test failures"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 1 :pass 1 :fail 1 :error 0}
+                         :pass? false
+                         :canonical-results [{:var 'scry.fixtures.passing/arithmetic-passes
+                                              :ns 'scry.fixtures.passing
+                                              :status :pass
+                                              :assertion-summary {:pass 1 :fail 0 :error 0}
+                                              :assertions []}]})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+        (is (= {:pass 1 :fail 1 :error 0}
+               (get-in outcome [:summary :assertions])))
+        (is (= [] (result-files dir))))))
+  (testing "aggregate assertion failures classify before zero executable tests"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 0 :pass 0 :fail 1 :error 1}
+                         :pass? false
+                         :canonical-results []})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+        (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 0 failed, 0 errored\n"
+               (:stdout outcome)))
+        (is (= "" (:stderr outcome)))
+        (is (= {:assertions {:pass 0 :fail 1 :error 1}
+                :tests {:pass 0 :fail 0 :error 0 :unknown 0}
+                :var-count 0}
+               (:summary outcome)))
+        (is (= [] (result-files dir))))))
+  (testing "canonical entries with missing or invalid statuses are runner errors"
+    (doseq [[label entry] [["missing status"
+                            {:var 'scry.fixtures.passing/arithmetic-passes
+                             :ns 'scry.fixtures.passing
+                             :assertion-summary {:pass 1 :fail 0 :error 0}
+                             :assertions []}]
+                           ["invalid status"
+                            {:var 'scry.fixtures.passing/arithmetic-passes
+                             :ns 'scry.fixtures.passing
+                             :status :bogus
+                             :assertion-summary {:pass 1 :fail 0 :error 0}
+                             :assertions []}]]]
+      (testing label
+        (with-temp-dir [dir]
+          (let [outcome (run-cli-in
+                         dir
+                         (cli/normalize-exec-opts {})
+                         {:run-clojure-test
+                          (fn [_]
+                            {:summary {:test 1 :pass 1 :fail 0 :error 0}
+                             :pass? true
+                             :canonical-results [entry]})})]
+            (is (= 1 (:exit-code outcome)))
+            (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+            (is (= nil (:result outcome)))
+            (is (= [] (result-files dir)))
+            (is (str/includes? (:stderr outcome)
+                               "Runner result included malformed canonical entry")))))))
+  (testing "malformed runner results are runner errors"
+    (with-temp-dir [dir]
+      (let [outcome (run-cli-in
+                     dir
+                     (cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [_]
+                        {:summary {:test 0 :pass 0 :fail 0 :error 0}
+                         :pass? true
+                         :canonical-results nil})})]
+        (is (= 1 (:exit-code outcome)))
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (str/includes? (:stderr outcome)
+                           "Runner result did not include :canonical-results"))))))
 
 (deftest run-cli-core-runner-does-not-resolve-kaocha-test
   ;; Core runner execution is independent of optional Kaocha resolution: a
@@ -526,6 +919,7 @@
         (let [outcome (run-cli-in dir (cli/normalize-exec-opts
                                        {:namespaces ['scry.fixtures.asserting-fixtures]}))]
           (is (= 1 (:exit-code outcome)))
+          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
           (is (= ".Assertions: 3 passed, 2 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
                  (:stdout outcome)))
           (is (= "" (:stderr outcome)))
@@ -551,6 +945,7 @@
   (with-temp-dir [dir]
     (let [outcome (run-cli-in dir (cli/normalize-exec-opts {:namespaces ['clojure.core]}))]
       (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored\n"
              (:stdout outcome)))
       (is (= [] (result-files dir)))))
@@ -564,6 +959,7 @@
                                 :out out
                                 :err err})]
       (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (= [] (result-files dir)))
       (is (str/includes? (str err) "scry CLI error:"))
       (is (instance? java.io.FileNotFoundException (-> outcome :error :exception)))))
@@ -578,6 +974,7 @@
       (is (= 1 (:exit-code outcome)))
       (is (= "" (:stdout outcome)))
       (is (= [] (result-files dir)))
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (:stderr outcome)
                          "scry CLI error: Kaocha CLI mode requires the optional scry.kaocha adapter"))
       (is (= {:type :scry.cli/runner-error :runner :kaocha}
@@ -594,6 +991,7 @@
       (is (= 1 (:exit-code outcome)))
       (is (= "" (:stdout outcome)))
       (is (= [] (result-files dir)))
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (:stderr outcome)
                          "scry CLI error: Could not load Kaocha CLI runner"))
       (is (= {:type :scry.cli/runner-error :runner :kaocha}
@@ -610,6 +1008,7 @@
           (is (= 1 (:exit-code outcome)))
           (is (= "" (:stdout outcome)))
           (is (= [] (result-files dir)))
+          (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
           (is (str/includes? (:stderr outcome)
                              "scry CLI error: Resolved Kaocha CLI runner is not invokable"))
           (is (= {:type :scry.cli/runner-error :runner :kaocha}
@@ -624,6 +1023,7 @@
           outcome (cli/run {:vars ['scry.fixtures.passing/arithmetic-passes]}
                            {:cwd (.getPath dir) :out out :err err})]
       (is (= 0 (:exit-code outcome)))
+      (is (= :scry.cli/pass (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (str out) "Assertions: 2 passed"))
       (is (= "" (str err)))))
   (with-temp-dir [dir]
@@ -637,9 +1037,54 @@
       (is (some? thrown))
       (is (= :scry.cli/non-zero (:type (ex-data thrown))))
       (is (= 1 (:exit-code (ex-data thrown))))
+      (is (= :scry.cli/test-failure
+             (:scry.cli/outcome-kind (ex-data thrown))))
+      (is (= :scry.cli/test-failure
+             (get-in (ex-data thrown) [:outcome :scry.cli/outcome-kind])))
       (is (= {:pass 0 :fail 1 :error 0}
              (get-in (ex-data thrown) [:summary :assertions])))
       (is (str/includes? (str err) "equality-fails"))))
+  (testing "synthetic load errors use the structured non-zero -X contract"
+    (with-temp-dir [dir]
+      (let [out (string-writer)
+            err (string-writer)
+            synthetic-error {:var nil
+                             :ns 'loader.demo
+                             :status :error
+                             :assertion-summary {:pass 0 :fail 0 :error 1}
+                             :assertions [{:type :error
+                                           :message "could not load tests"}]
+                             :out "load out\n"
+                             :err "load err\n"}
+            thrown (try
+                     (cli/run {}
+                              {:cwd (.getPath dir)
+                               :out out
+                               :err err
+                               :run-clojure-test
+                               (fn [opts]
+                                 ((:progress-callback opts) synthetic-error)
+                                 (runner-result [synthetic-error]))})
+                     nil
+                     (catch clojure.lang.ExceptionInfo e e))
+            data (ex-data thrown)
+            result-file (io/file dir ".scry-results" "loader.demo__suite-error-1.edn")
+            result-data (edn/read-string (slurp result-file))]
+        (is (some? thrown))
+        (is (= :scry.cli/non-zero (:type data)))
+        (is (= 1 (:exit-code data)))
+        (is (= :scry.cli/load-error (:scry.cli/outcome-kind data)))
+        (is (= :scry.cli/load-error
+               (get-in data [:outcome :scry.cli/outcome-kind])))
+        (is (= {:pass 0 :fail 0 :error 1}
+               (get-in data [:summary :assertions])))
+        (is (= [(.getPath result-file)]
+               (get-in data [:outcome :result-files])))
+        (is (= ["loader.demo__suite-error-1.edn"] (result-files dir)))
+        (is (= :error (:status result-data)))
+        (is (= nil (:var result-data)))
+        (is (= 'loader.demo (:ns result-data)))
+        (is (str/includes? (str err) "loader.demo/suite-error-1")))))
   (testing "argument errors use the structured non-zero -X contract"
     (let [thrown (try
                    (cli/run {:runner :unknown})
@@ -649,6 +1094,10 @@
       (is (= :scry.cli/non-zero (:type (ex-data thrown))))
       (is (= 1 (:exit-code (ex-data thrown))))
       (is (nil? (:summary (ex-data thrown))))
+      (is (= :scry.cli/argument-error
+             (:scry.cli/outcome-kind (ex-data thrown))))
+      (is (= :scry.cli/argument-error
+             (get-in (ex-data thrown) [:outcome :scry.cli/outcome-kind])))
       (is (= :scry.cli/argument-error
              (get-in (ex-data thrown) [:error :data :type])))
       (is (str/includes? (get-in (ex-data thrown) [:error :message])

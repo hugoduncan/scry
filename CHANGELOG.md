@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.28] - 2026-06-04
+
 - Added machine-readable CLI outcome classification via `:scry.cli/outcome-kind` on `run-cli`/`clojure -X` outcomes and non-zero ex-data, distinguishing pass, argument error, runner error, synthetic load error, test failure, unknown result, and zero-test outcomes without parsing stderr.
 - Fixed CLI progress and `.scry-results/` handling for synthetic suite-level failing/erroring entries without concrete vars, writing deterministic files such as `suite-error-1.edn` instead of crashing on nil `:var` values.
 

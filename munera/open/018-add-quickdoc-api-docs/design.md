@@ -38,10 +38,29 @@ The source tree also contains implementation namespaces and public-looking helpe
 
 - Pin the quickdoc dependency to an explicit released version or git SHA; do not depend on a floating branch.
 - Keep quickdoc and any documentation-generation tooling dependencies maintainer/docs-only: place them under a dedicated docs alias such as `:quickdoc`, a Babashka task that supplies docs-only `:extra-deps`, or an equivalent non-runtime mechanism. Do not add quickdoc/tooling dependencies to top-level `:deps`, the core or Kaocha published POM dependency metadata, or the runtime dependency surface of either artifact.
-- Prefer a single maintainer command that both agents and CI can run locally, such as `bb api-docs` or `clojure -M:quickdoc`, with the exact choice recorded in `AGENTS.md` if added.
-- The docs generation command must compose the optional adapter classpath for documenting `scry.kaocha`: include both `src` and `src-kaocha` plus the Kaocha dependencies, for example by combining a docs-only quickdoc alias with the existing optional Kaocha alias.
-- Generated docs should include a clear note that `scry.kaocha` requires the optional adapter artifact/classpath and that APIs are still pre-1.0 public alpha.
+- Use `bb api-docs` as the single maintainer entry point for API docs. It should wrap the Clojure quickdoc invocation rather than making agents remember a long alias combination. `bb api-docs` regenerates/overwrites `doc/API.md`; `bb api-docs --check` regenerates to a temporary output or otherwise compares deterministic generated content and fails non-zero if the committed `doc/API.md` would change. Final verification should record `bb api-docs --check`; implementation may also record one explicit regeneration run.
+- Implement the command with a docs-only quickdoc classpath, for example a `:quickdoc` alias invoked with the existing `:kaocha` alias (`clojure -M:quickdoc:kaocha ...`) or an equivalent docs-only mechanism. The effective generation classpath must include `src`, `src-kaocha`, and the Kaocha dependency so `scry.kaocha` can load, while keeping quickdoc/Kaocha out of core runtime deps and published core POM metadata.
+- The generated API reference must be fully reproducible. `doc/API.md` should be treated as generated output with no required hand-edited sections after generation. Required prose such as the pre-1.0 public-alpha status note, the optional `scry.kaocha` adapter/classpath note, regeneration command, and relationship to README workflow docs must live in source-controlled generation configuration/code (for example a generator namespace or config map that supplies quickdoc intro/footer text, or deterministic pre/post-processing owned by the generator). A rerun of `bb api-docs` must recreate those notes exactly.
 - If quickdoc cannot express the desired public surface without source annotations, use minimal `^:no-doc` metadata or private visibility changes only where they do not alter supported public behavior.
+
+## Public API surface for generated docs
+
+Generate documentation only for these namespaces and vars:
+
+- `scry.core`:
+  - Include `run`, `last-result`, `failures`, `failed-test`, `output`, and `report-string` as the user-facing REPL/in-process API.
+  - Include `last-run` only as a documented advanced state holder because README already names it; prefer `last-result` in prose/examples.
+  - Exclude private formatting/status helpers.
+- `scry.cli`:
+  - Include `run` as the supported `clojure -X` entry point and document the structured CLI outcome/non-zero `ex-info` contract there or in generated namespace prose.
+  - Do not document `run-cli`, `main-outcome`, `parse-main-args`, `normalize-exec-opts`, `normalize-runner`, `usage`, `-main`, or other option-normalization/execution helpers as user API. They may remain callable implementation/test seams, but generated public API docs should hide them (for example with `^:no-doc`) unless a later task explicitly promotes them.
+  - Document `clojure -M -m scry.cli` command usage in generated prose, not as a var-level API.
+- `scry.kaocha`:
+  - Include `run` as the optional adapter's public in-process runner.
+  - Include `result->scry` as an advanced public conversion helper for callers that already have a raw Kaocha result and want scry's result shape.
+  - Exclude all private config, suite-selection, progress, and conversion helpers.
+
+Do not include implementation-only namespaces in generated docs, including `scry.capture`, `scry.clojure-test`, and `scry.cli.results`.
 
 ## Acceptance criteria
 

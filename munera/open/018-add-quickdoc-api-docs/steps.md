@@ -91,4 +91,4 @@
 
 ## Follow-up docs review — optional Kaocha classpath wording
 
-- [ ] Update generated `doc/API.md` source input so the `scry.core` namespace prose says the optional Kaocha adapter is available when the adapter/classpath or artifact is present, not only when a repository-local `:kaocha` alias is present.
+- [x] Update generated `doc/API.md` source input so the `scry.core` namespace prose says the optional Kaocha adapter is available when the adapter/classpath or artifact is present, not only when a repository-local `:kaocha` alias is present.

@@ -346,3 +346,17 @@ Verification during review:
 
 - `bb api-docs --check` — pass.
 - `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 50 assertions, 0 failures, 0 errors.
+
+## 2026-06-04 optional Kaocha classpath docs-review follow-up
+
+Completed the newly added docs-review follow-up. Updated the source-controlled `scry.core` namespace prose so generated `doc/API.md` says the optional Kaocha adapter is available when the adapter artifact or equivalent optional Kaocha classpath is present, instead of saying it is loaded only when the repository-local `:kaocha` alias is present. Regenerated `doc/API.md` with `bb api-docs` and strengthened the focused API-doc content regression to assert the artifact/classpath-oriented wording remains present.
+
+Marked the follow-up step complete in `steps.md`.
+
+Verification:
+
+- `bb api-docs --check` — pass.
+- `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` — pass, 1 test, 51 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` — pass, all source files formatted correctly.
+- `bb clj-kondo:lint` — pass, 0 errors, 0 warnings.
+- `git diff --check` — pass.

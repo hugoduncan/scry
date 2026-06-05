@@ -75,8 +75,9 @@ Public entry point for scry, an in-process test runner for AI agents.
 
    [`run`](#scry.core/run) executes clojure.test tests in-process and returns an inspectable
    result map; the most recent result is also retained in [`last-run`](#scry.core/last-run) so it can
-   be inspected interactively after the run. The kaocha adapter lives in
-   [`scry.kaocha`](#scry.kaocha) (loaded only when the :kaocha alias is present).
+   be inspected interactively after the run. The optional Kaocha adapter lives
+   in [`scry.kaocha`](#scry.kaocha) and is available when the adapter artifact or equivalent
+   optional Kaocha classpath is present.
 
 
 
@@ -89,7 +90,7 @@ Public entry point for scry, an in-process test runner for AI agents.
 Function.
 
 Return the failure/error entry for fully-qualified test var symbol `var-sym`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L47-L53">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L48-L54">Source</a></sub></p>
 
 ## <a name="scry.core/failures">`failures`</a>
 ``` clojure
@@ -103,7 +104,7 @@ Return failure/error entries of `result` (defaults to the last run).
    Prefers the compatibility :failures collection when present and otherwise
    filters canonical :results. Returns an empty vector when the selected result
    format omits both collections.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L35-L45">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L36-L46">Source</a></sub></p>
 
 ## <a name="scry.core/last-result">`last-result`</a>
 ``` clojure
@@ -112,7 +113,7 @@ Return failure/error entries of `result` (defaults to the last run).
 Function.
 
 Return the most recent run result, or nil if nothing has run.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L26-L29">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L27-L30">Source</a></sub></p>
 
 ## <a name="scry.core/last-run">`last-run`</a>
 
@@ -120,7 +121,7 @@ Return the most recent run result, or nil if nothing has run.
 
 
 Atom holding the most recent run result, for post-run inspection.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L13-L15">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L14-L16">Source</a></sub></p>
 
 ## <a name="scry.core/output">`output`</a>
 ``` clojure
@@ -130,7 +131,7 @@ Atom holding the most recent run result, for post-run inspection.
 Function.
 
 Return {:out s :err s} captured for failed test var `var-sym`, when present.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L55-L60">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L56-L61">Source</a></sub></p>
 
 ## <a name="scry.core/report-string">`report-string`</a>
 ``` clojure
@@ -140,7 +141,7 @@ Return {:out s :err s} captured for failed test var `var-sym`, when present.
 Function.
 
 Render a human/agent-readable report of `result` (defaults to last run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L86-L94">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L87-L95">Source</a></sub></p>
 
 ## <a name="scry.core/run">`run`</a>
 ``` clojure
@@ -153,7 +154,7 @@ Run clojure.test tests in-process and return the inspectable result map.
 
    Supports directory, namespace, namespace-pattern, var, and result-format
    options documented in the README. The result is also stored in [`last-run`](#scry.core/last-run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L17-L24">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L18-L25">Source</a></sub></p>
 
 -----
 # <a name="scry.kaocha">scry.kaocha</a>

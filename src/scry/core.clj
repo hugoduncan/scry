@@ -3,8 +3,9 @@
 
    `run` executes clojure.test tests in-process and returns an inspectable
    result map; the most recent result is also retained in `last-run` so it can
-   be inspected interactively after the run. The kaocha adapter lives in
-   `scry.kaocha` (loaded only when the :kaocha alias is present)."
+   be inspected interactively after the run. The optional Kaocha adapter lives
+   in `scry.kaocha` and is available when the adapter artifact or equivalent
+   optional Kaocha classpath is present."
   (:require
    [clojure.string :as str]
    [scry.capture :as capture]

@@ -66,7 +66,8 @@
                         "Verify that the committed reference is up to date with:"
                         "```sh\nbb api-docs --check\n```"])
       (assert-includes markdown
-                       ["The optional `scry.kaocha` namespace is documented here because the generation command composes the optional Kaocha classpath."]))
+                       ["The optional `scry.kaocha` namespace is documented here because the generation command composes the optional Kaocha classpath."
+                        "The optional Kaocha adapter lives\n   in [`scry.kaocha`](#scry.kaocha) and is available when the adapter artifact or equivalent\n   optional Kaocha classpath is present."]))
 
     (testing "generated docs include exactly the curated scry.core public surface"
       (assert-includes markdown

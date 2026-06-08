@@ -280,4 +280,6 @@ Note: Kaocha's capture-output plugin merges stdout and stderr into one captured 
 
 ## Contributor and agent guidance
 
-Development workflow, repository conventions, test commands, and architectural constraints live in [`AGENTS.md`](AGENTS.md), not in this README.
+This project is run via AI.
+
+If you want a change, please open an issue.

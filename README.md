@@ -15,6 +15,10 @@ Both surfaces are designed for AI agents and REPL-driven development, where prog
 
 Initial public alpha / pre-1.0. The documented core `clojure.test` runner/API, CLI, scoped result model, nested in-process capture isolation, build/release automation, and optional Kaocha adapter are usable and tested. APIs and result shapes should still be treated as pre-1.0 and may evolve before a future stable release.
 
+## AI Disclaimer
+
+The project leans heavily on AI-generated code and AI review processes.
+
 ## Why scry?
 
 AI coding agents often need to answer questions like:
@@ -280,6 +284,4 @@ Note: Kaocha's capture-output plugin merges stdout and stderr into one captured 
 
 ## Contributor and agent guidance
 
-This project is run via AI.
-
-If you want a change, please open an issue.
+If you want a change, please open an issue rather than a PR.

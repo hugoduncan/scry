@@ -162,12 +162,12 @@
    keeps :each setup/teardown output with its var and leaves :once output as
    run/orphan output."
   [context vars progress-callback]
-  (doseq [[ns vars] (group-by (comp :ns meta) vars)]
-    (let [once-fixture-fn (test/join-fixtures (::test/once-fixtures (meta ns)))
-          each-fixture-fn (test/join-fixtures (::test/each-fixtures (meta ns)))]
+  (doseq [[test-ns ns-vars] (group-by (comp :ns meta) vars)]
+    (let [once-fixture-fn (test/join-fixtures (::test/once-fixtures (meta test-ns)))
+          each-fixture-fn (test/join-fixtures (::test/each-fixtures (meta test-ns)))]
       (once-fixture-fn
        (fn []
-         (doseq [v vars]
+         (doseq [v ns-vars]
            (when (:test (meta v))
              (capture/with-output-owner
                context

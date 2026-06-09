@@ -175,8 +175,8 @@
     (vec values)))
 
 (defn- reject-keys
-  [opts keys message]
-  (let [present-keys (filter #(present? opts %) keys)]
+  [opts option-keys message]
+  (let [present-keys (filter #(present? opts %) option-keys)]
     (when (seq present-keys)
       (argument-error message {:options (vec present-keys)}))))
 
@@ -185,9 +185,10 @@
   (let [base (or result-format {})]
     (reduce (fn [fmt scope]
               (update-in fmt [scope :top-level-keys]
-                         (fn [keys]
-                           (-> (or keys (get-in capture/default-result-format
-                                                [scope :top-level-keys]))
+                         (fn [top-level-keys]
+                           (-> (or top-level-keys
+                                   (get-in capture/default-result-format
+                                           [scope :top-level-keys]))
                                vec
                                (into [:summary :pass? :canonical-results])
                                distinct
@@ -521,8 +522,8 @@
 
 (defn- run-kaocha
   [opts boundary progress-callback]
-  (let [run-kaocha (resolve-kaocha-runner boundary)]
-    (run-kaocha (assoc opts :progress-callback progress-callback))))
+  (let [kaocha-runner (resolve-kaocha-runner boundary)]
+    (kaocha-runner (assoc opts :progress-callback progress-callback))))
 
 (defn- run-normalized
   [opts boundary progress-callback]

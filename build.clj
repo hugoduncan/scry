@@ -133,19 +133,19 @@
    The adapter pom deliberately reads this source of truth so alias and release
    artifact metadata cannot drift silently."
   []
-  (let [version (get-in (deps-edn) [:aliases :kaocha :extra-deps kaocha-dependency :mvn/version])]
-    (when (str/blank? version)
+  (let [kaocha-version (get-in (deps-edn) [:aliases :kaocha :extra-deps kaocha-dependency :mvn/version])]
+    (when (str/blank? kaocha-version)
       (throw (ex-info "deps.edn :kaocha alias is missing lambdaisland/kaocha :mvn/version"
                       {:dependency kaocha-dependency})))
-    version))
+    kaocha-version))
 
 (defn- lib-parts
   [lib-symbol]
-  (let [namespace (namespace lib-symbol)
-        name (name lib-symbol)]
-    (if namespace
-      [namespace name]
-      [name name])))
+  (let [group (namespace lib-symbol)
+        artifact (name lib-symbol)]
+    (if group
+      [group artifact]
+      [artifact artifact])))
 
 (defn- xml-escape
   [value]

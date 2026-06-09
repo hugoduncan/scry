@@ -131,9 +131,7 @@ While tests run, the CLI prints one progress item per result: `.` to stdout for 
 
 At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Passing runs may leave `.scry-results/` as an empty directory.
 
-The CLI exits `0` only when at least one concrete test var runs and all vars pass; every other case exits non-zero. Structured outcomes carry a machine-readable `:scry.cli/outcome-kind`, which is authoritative for exit status: only `:scry.cli/pass` exits `0`. See the [`scry.cli/run` API reference](doc/API.md#scry.cli/run) for the full set of outcome kinds.
-
-The `-X` entry point returns the successful outcome map; on non-zero outcomes it throws `ex-info` with structured `:exit-code`, `:scry.cli/outcome-kind`, `:summary`, `:error`, and `:outcome` data. Machine callers should inspect `:scry.cli/outcome-kind` and `.scry-results/*.edn` rather than parsing human stderr.
+The CLI exits `0` only when at least one concrete test var runs and all vars pass; every other case exits non-zero. Structured outcomes carry a machine-readable `:scry.cli/outcome-kind` that is authoritative for exit status. The `-X` entry point returns the outcome map on success and throws `ex-info` with structured data on non-zero outcomes. Inspect `:scry.cli/outcome-kind` and `.scry-results/*.edn` rather than parsing human stderr. See the [`scry.cli/run` API reference](doc/API.md#scry.cli/run) for the full set of outcome kinds and the thrown `ex-info` data.
 
 Kaocha CLI mode is available when the optional adapter is on the classpath:
 
@@ -149,7 +147,7 @@ Use `clojure -M:test -m scry.cli --help` for supported main-style flags.
 
 ## `clojure.test` runner
 
-The default runner is implemented in `scry.clojure-test` and supports:
+`scry/run` runs `clojure.test` tests and supports these selectors:
 
 ```clojure
 (scry/run)
@@ -163,81 +161,18 @@ It preserves normal `clojure.test` behavior such as `:once` and `:each` fixtures
 
 Nested in-process test runs (including `scry.kaocha/run` and raw `clojure.test` calls) are isolated from an enclosing `scry` run, so inner vars, assertions, and output do not pollute the outer result.
 
-## Scoped result shape
+## Result shape
 
-A result has this top-level shape by default:
+`scry/run` returns a map whose top level defaults to:
 
-```clojure
-{:summary {:test 0
-           :pass 0
-           :fail 0
-           :error 0
-           :duration-ms 0.0
-           :var-count 0
-           :fail-var-count 0}
- :pass? true
- :results []
- :failures []}
-```
+- `:summary` — pass/fail/error and var counts plus duration.
+- `:pass?` — overall boolean.
+- `:results` — the canonical formatted result entries.
+- `:failures` — a compatibility subset of the failing/erroring entries.
 
-`:results` is the canonical formatted collection. `:failures` is retained as a compatibility collection containing the failing/erroring subset when included by the selected format.
+Entry detail scales with invocation scope: broad/suite runs return compact failing-only entries, a single namespace returns every executed var with assertion details, and a single var also captures `:out`/`:err`. The `:result-format` option overrides the returned keys and inclusions per scope.
 
-The default detail level depends on how the run was invoked:
-
-- Suite or multi scope (`(scry/run)`, multiple namespaces, or multiple vars): compact entries for failing/erroring vars only, with `:assertion-summary`; no per-assertion details or output.
-- Single namespace scope (`{:namespaces ['my.project-test]}`): entries for every executed var, including passing vars, with all assertion details; no stdout/stderr keys.
-- Single var scope (`{:vars [#'my.project-test/specific-test]}`): one entry with all assertion details and captured `:out`/`:err`.
-
-Detailed entries look like:
-
-```clojure
-{:var 'my.project-test/specific-test
- :ns 'my.project-test
- :status :pass ;; :pass, :fail, :error, or rarely :unknown
- :assertions [{:type :pass
-               :message nil
-               :expected '(= 2 (+ 1 1))
-               :actual '(= 2 (+ 1 1))
-               :file "project_test.clj"
-               :line 42
-               :contexts ["outer testing" "inner testing"]}]
- :out "captured stdout"   ;; single var scope by default
- :err "captured stderr"}
-```
-
-Error assertions also include `:stacktrace`.
-
-Suite-scope compact entries look like:
-
-```clojure
-{:var 'my.project-test/failing-test
- :ns 'my.project-test
- :status :fail
- :assertion-summary {:pass 0 :fail 1 :error 0}}
-```
-
-## Custom result formatting
-
-Returned keys and inclusions can be configured per invocation scope with `:result-format`:
-
-```clojure
-(scry/run
- {:namespaces ['my.project-test]
-  :result-format
-  {:namespace {:top-level-keys [:summary :pass? :results]
-               :entry-keys [:var :status]
-               :assertions? true
-               :output? false}}})
-```
-
-Scopes are `:suite`, `:namespace`, and `:var`. Supported per-scope options are:
-
-- `:top-level-keys` — top-level keys to return.
-- `:entry-keys` — keys to project for each result entry.
-- `:assertions?` — authoritative assertion gate; `true` adds `:assertions`, `false` removes it.
-- `:output?` — authoritative output gate; `true` adds `:out`/`:err`, `false` removes them.
-
-If custom `:top-level-keys` omits both `:results` and `:failures`, helpers such as `scry/failures` return empty/nil values because there is no collection to inspect.
+See the [`scry.core/run` API reference](doc/API.md#scry.core/run) for the full result map, entry shapes, scope rules, and `:result-format` options.
 
 ## Kaocha adapter
 
@@ -252,13 +187,9 @@ A Kaocha adapter lives in `scry.kaocha` and is only available when the Kaocha ad
 (k/run {:config full-kaocha-config}) ;; full config override
 ```
 
-When `:config` is omitted, the adapter loads the current project's `tests.edn` if it exists. Projects without `tests.edn` keep the synthetic fallback `:unit` suite using `:source-paths`, `:test-paths`, and `:ns-patterns` options.
+When `:config` is omitted, the adapter loads the current project's `tests.edn` if it exists, or otherwise builds a synthetic `:unit` suite from `:source-paths`, `:test-paths`, and `:ns-patterns`. Use `:suite` for a single selector or `:suites` for a non-empty collection. The adapter transforms Kaocha's result tree into the same scoped result model, defaulting to suite scope. Kaocha merges stdout and stderr, so combined output is placed in `:out` with an empty `:err`.
 
-Suite selectors match configured suite ids by exact value first, then by unique text (`"string"` ids/selectors as-is, keywords and symbols by `name`). Unknown or ambiguous selectors throw `ex-info`. Use `:suite` for one selector; plural `:suites` must be a non-empty collection. Supplying both `:suite` and `:suites` is an API error.
-
-The adapter transforms Kaocha's result tree into the same scoped result model and defaults to suite scope because its public options do not mirror `scry.clojure-test` namespace/var selectors.
-
-Note: Kaocha's capture-output plugin merges stdout and stderr into one captured stream. `scry.kaocha` places that combined output in `:out` and leaves `:err` empty.
+See the [`scry.kaocha/run` API reference](doc/API.md#scry.kaocha/run) for the supported options and selector-matching rules.
 
 ## License
 

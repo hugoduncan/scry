@@ -98,7 +98,7 @@ Public entry point for scry, an in-process test runner for AI agents.
 Function.
 
 Return the failure/error entry for fully-qualified test var symbol `var-sym`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L49-L55">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L123-L129">Source</a></sub></p>
 
 ## <a name="scry.core/failures">`failures`</a>
 ``` clojure
@@ -112,7 +112,7 @@ Return failure/error entries of `result` (defaults to the last run).
    Prefers the compatibility :failures collection when present and otherwise
    filters canonical :results. Returns an empty vector when the selected result
    format omits both collections.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L37-L47">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L111-L121">Source</a></sub></p>
 
 ## <a name="scry.core/last-result">`last-result`</a>
 ``` clojure
@@ -121,7 +121,7 @@ Return failure/error entries of `result` (defaults to the last run).
 Function.
 
 Return the most recent run result, or nil if nothing has run.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L28-L31">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L102-L105">Source</a></sub></p>
 
 ## <a name="scry.core/output">`output`</a>
 ``` clojure
@@ -131,7 +131,7 @@ Return the most recent run result, or nil if nothing has run.
 Function.
 
 Return {:out s :err s} captured for failed test var `var-sym`, when present.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L57-L62">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L131-L136">Source</a></sub></p>
 
 ## <a name="scry.core/report-string">`report-string`</a>
 ``` clojure
@@ -141,7 +141,7 @@ Return {:out s :err s} captured for failed test var `var-sym`, when present.
 Function.
 
 Render a human/agent-readable report of `result` (defaults to last run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L88-L96">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L162-L170">Source</a></sub></p>
 
 ## <a name="scry.core/run">`run`</a>
 ``` clojure
@@ -152,10 +152,84 @@ Function.
 
 Run clojure.test tests in-process and return the inspectable result map.
 
-   Supports directory, namespace, namespace-pattern, var, and result-format
-   options documented in the README. The result is also available through
-   [`last-result`](#scry.core/last-result).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L18-L26">Source</a></sub></p>
+   Options:
+     :dirs          test directories to scan (default ["test"])
+     :namespaces    explicit collection of namespace symbols to run
+     :ns-pattern    regex matching namespace names to run
+     :vars          explicit collection of test var refs to run
+     :result-format per-scope formatting overrides (see below)
+
+   The result is also available through [`last-result`](#scry.core/last-result).
+
+   Result shape
+
+   By default a result has this top-level shape:
+
+       {:summary {:test 0 :pass 0 :fail 0 :error 0 :duration-ms 0.0
+                  :var-count 0 :fail-var-count 0}
+        :pass? true
+        :results []
+        :failures []}
+
+   `:results` is the canonical formatted collection. `:failures` is a
+   compatibility collection holding the failing/erroring subset when the
+   selected format includes it.
+
+   Scoped detail
+
+   Default entry detail depends on how the run was invoked:
+
+   - Suite or multi scope (`(run)`, multiple namespaces, or multiple vars):
+     compact entries for failing/erroring vars only, each with
+     `:assertion-summary`; no per-assertion details or output.
+   - Single namespace scope (`{:namespaces ['my.ns-test]}`): an entry for every
+     executed var, including passing vars, with all assertion details; no
+     stdout/stderr keys.
+   - Single var scope (`{:vars [#'my.ns-test/a-test]}`): one entry with all
+     assertion details and captured `:out`/`:err`.
+
+   A detailed entry looks like:
+
+       {:var 'my.ns-test/a-test
+        :ns 'my.ns-test
+        :status :pass ;; :pass, :fail, :error, or rarely :unknown
+        :assertions [{:type :pass :message nil
+                      :expected '(= 2 (+ 1 1)) :actual '(= 2 (+ 1 1))
+                      :file "ns_test.clj" :line 42
+                      :contexts ["outer" "inner"]}]
+        :out "captured stdout"
+        :err "captured stderr"}
+
+   Error assertions also include `:stacktrace`. A compact suite-scope entry
+   looks like:
+
+       {:var 'my.ns-test/a-test :ns 'my.ns-test :status :fail
+        :assertion-summary {:pass 0 :fail 1 :error 0}}
+
+   Custom result formatting
+
+   `:result-format` overrides returned keys and inclusions per scope. Scopes are
+   `:suite`, `:namespace`, and `:var`; each supports:
+
+     :top-level-keys  top-level keys to return
+     :entry-keys      keys to project for each result entry
+     :assertions?     authoritative assertion gate; true adds `:assertions`,
+                      false removes it
+     :output?         authoritative output gate; true adds `:out`/`:err`,
+                      false removes them
+
+   For example:
+
+       (run {:namespaces ['my.ns-test]
+             :result-format {:namespace {:top-level-keys [:summary :pass? :results]
+                                         :entry-keys [:var :status]
+                                         :assertions? true
+                                         :output? false}}})
+
+   If custom `:top-level-keys` omits both `:results` and `:failures`, helpers
+   such as [`failures`](#scry.core/failures) return empty/nil values because there is no collection to
+   inspect.
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/core.clj#L18-L100">Source</a></sub></p>
 
 -----
 # <a name="scry.kaocha">scry.kaocha</a>
@@ -192,5 +266,20 @@ Run kaocha tests in-process and return scry's inspectable result map.
      :result-format      suite-scope formatting overrides
      :progress-callback  optional function called after each completed test var
 
+   When :config is omitted, the current project's tests.edn is loaded if it
+   exists; otherwise a synthetic :unit suite is built from :source-paths,
+   :test-paths, and :ns-patterns.
+
+   Suite selectors match configured suite ids by exact value first, then by
+   unique text (`"string"` ids/selectors as-is, keywords and symbols by
+   `name`). Use :suite for a single selector; :suites must be a non-empty
+   collection. Unknown or ambiguous selectors, and supplying both :suite and
+   :suites, throw `ex-info`.
+
+   The adapter defaults to suite scope because its public options do not mirror
+   the namespace/var selectors of [`scry.core/run`](#scry.core/run). Kaocha's capture-output
+   plugin merges stdout and stderr, so combined output is placed in :out and
+   :err is empty.
+
    Returns the same scoped result model as [`scry.core/run`](#scry.core/run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L270-L298">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L270-L313">Source</a></sub></p>

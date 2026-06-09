@@ -280,6 +280,21 @@
      :result-format      suite-scope formatting overrides
      :progress-callback  optional function called after each completed test var
 
+   When :config is omitted, the current project's tests.edn is loaded if it
+   exists; otherwise a synthetic :unit suite is built from :source-paths,
+   :test-paths, and :ns-patterns.
+
+   Suite selectors match configured suite ids by exact value first, then by
+   unique text (`\"string\"` ids/selectors as-is, keywords and symbols by
+   `name`). Use :suite for a single selector; :suites must be a non-empty
+   collection. Unknown or ambiguous selectors, and supplying both :suite and
+   :suites, throw `ex-info`.
+
+   The adapter defaults to suite scope because its public options do not mirror
+   the namespace/var selectors of `scry.core/run`. Kaocha's capture-output
+   plugin merges stdout and stderr, so combined output is placed in :out and
+   :err is empty.
+
    Returns the same scoped result model as `scry.core/run`."
   ([] (run {}))
   ([opts]

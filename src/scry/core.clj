@@ -18,9 +18,83 @@
 (defn run
   "Run clojure.test tests in-process and return the inspectable result map.
 
-   Supports directory, namespace, namespace-pattern, var, and result-format
-   options documented in the README. The result is also available through
-   `last-result`."
+   Options:
+     :dirs          test directories to scan (default [\"test\"])
+     :namespaces    explicit collection of namespace symbols to run
+     :ns-pattern    regex matching namespace names to run
+     :vars          explicit collection of test var refs to run
+     :result-format per-scope formatting overrides (see below)
+
+   The result is also available through `last-result`.
+
+   Result shape
+
+   By default a result has this top-level shape:
+
+       {:summary {:test 0 :pass 0 :fail 0 :error 0 :duration-ms 0.0
+                  :var-count 0 :fail-var-count 0}
+        :pass? true
+        :results []
+        :failures []}
+
+   `:results` is the canonical formatted collection. `:failures` is a
+   compatibility collection holding the failing/erroring subset when the
+   selected format includes it.
+
+   Scoped detail
+
+   Default entry detail depends on how the run was invoked:
+
+   - Suite or multi scope (`(run)`, multiple namespaces, or multiple vars):
+     compact entries for failing/erroring vars only, each with
+     `:assertion-summary`; no per-assertion details or output.
+   - Single namespace scope (`{:namespaces ['my.ns-test]}`): an entry for every
+     executed var, including passing vars, with all assertion details; no
+     stdout/stderr keys.
+   - Single var scope (`{:vars [#'my.ns-test/a-test]}`): one entry with all
+     assertion details and captured `:out`/`:err`.
+
+   A detailed entry looks like:
+
+       {:var 'my.ns-test/a-test
+        :ns 'my.ns-test
+        :status :pass ;; :pass, :fail, :error, or rarely :unknown
+        :assertions [{:type :pass :message nil
+                      :expected '(= 2 (+ 1 1)) :actual '(= 2 (+ 1 1))
+                      :file \"ns_test.clj\" :line 42
+                      :contexts [\"outer\" \"inner\"]}]
+        :out \"captured stdout\"
+        :err \"captured stderr\"}
+
+   Error assertions also include `:stacktrace`. A compact suite-scope entry
+   looks like:
+
+       {:var 'my.ns-test/a-test :ns 'my.ns-test :status :fail
+        :assertion-summary {:pass 0 :fail 1 :error 0}}
+
+   Custom result formatting
+
+   `:result-format` overrides returned keys and inclusions per scope. Scopes are
+   `:suite`, `:namespace`, and `:var`; each supports:
+
+     :top-level-keys  top-level keys to return
+     :entry-keys      keys to project for each result entry
+     :assertions?     authoritative assertion gate; true adds `:assertions`,
+                      false removes it
+     :output?         authoritative output gate; true adds `:out`/`:err`,
+                      false removes them
+
+   For example:
+
+       (run {:namespaces ['my.ns-test]
+             :result-format {:namespace {:top-level-keys [:summary :pass? :results]
+                                         :entry-keys [:var :status]
+                                         :assertions? true
+                                         :output? false}}})
+
+   If custom `:top-level-keys` omits both `:results` and `:failures`, helpers
+   such as `failures` return empty/nil values because there is no collection to
+   inspect."
   ([] (run {}))
   ([opts]
    (reset! last-run (clojure-test/run opts))))

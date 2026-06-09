@@ -223,9 +223,7 @@
 
 (defn- array-data
   [value]
-  (mapv (fn [idx]
-          (edn-readable-data (java.lang.reflect.Array/get value idx)))
-        (range (java.lang.reflect.Array/getLength value))))
+  (mapv edn-readable-data value))
 
 (defn edn-readable-data
   "Recursively coerce data into values readable by clojure.edn/read-string.

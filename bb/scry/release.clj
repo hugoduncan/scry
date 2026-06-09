@@ -203,7 +203,7 @@
     (when-not (re-matches #"\d+" count-text)
       (throw (ex-info "Unable to compute version: git rev-list --count returned an invalid count"
                       {:commit commit :out count-text})))
-    (Long/parseLong count-text)))
+    (parse-long count-text)))
 
 (defn clean-working-tree?
   "Returns true when git status --porcelain succeeds and is blank."

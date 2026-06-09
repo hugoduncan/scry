@@ -54,6 +54,16 @@ Function.
 
 Normalizes EDN options, runs the shared CLI implementation, and returns the successful structured outcome map. When the CLI result is non-zero, throws `ex-info` with `:type :scry.cli/non-zero`, `:exit-code`, `:scry.cli/outcome-kind`, `:summary`, `:error`, and `:outcome` data so `clojure -X` exits non-zero without calling `System/exit`.
 
+The structured outcome's `:scry.cli/outcome-kind` is authoritative for exit status; only `:scry.cli/pass` exits `0`. The outcome kinds are:
+
+- `:scry.cli/pass` — at least one test var ran and all passed.
+- `:scry.cli/argument-error` — option parsing or normalization failed.
+- `:scry.cli/runner-error` — runner infrastructure failed before producing results.
+- `:scry.cli/load-error` — a suite-level load failure produced no concrete var.
+- `:scry.cli/test-failure` — test vars failed or errored.
+- `:scry.cli/unknown-result` — unknown-status entries with no higher-precedence signal.
+- `:scry.cli/zero-tests` — no executable test vars were produced.
+
 Typical invocations:
 
 ```sh

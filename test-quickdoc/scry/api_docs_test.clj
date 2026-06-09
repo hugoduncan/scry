@@ -99,7 +99,14 @@
                         ":type :scry.cli/non-zero"
                         ":summary"
                         ":error"
-                        ":outcome"])
+                        ":outcome"
+                        "only `:scry.cli/pass` exits `0`"
+                        "`:scry.cli/argument-error`"
+                        "`:scry.cli/runner-error`"
+                        "`:scry.cli/load-error`"
+                        "`:scry.cli/test-failure`"
+                        "`:scry.cli/unknown-result`"
+                        "`:scry.cli/zero-tests`"])
       (assert-omits cli-run-section
                     ["io-boundary"
                      "(run opts io-boundary)"]))

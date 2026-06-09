@@ -253,6 +253,16 @@ Dependency boundary:
 - `scry.cli` is part of the core jar, but must not require `scry.kaocha` at namespace load time; Kaocha CLI mode uses dynamic loading and requires the optional adapter jar/alias.
 - Kaocha support belongs under `src-kaocha/` and is available only with the `:kaocha` alias.
 
+Nested in-process runner isolation:
+
+Each core `scry` run installs its own dynamically scoped capture context so that nested in-process runs do not pollute the enclosing result:
+
+- Nested `scry` runs return their own result maps without adding inner vars, assertions, failures, or output to the outer run.
+- `scry.kaocha/run` disables any enclosing `scry` capture while Kaocha executes, then converts Kaocha's own result tree into `scry` data.
+- Raw nested `clojure.test/run-tests`, `test-vars`, and `test-var` calls for non-owned vars are ignored by the enclosing `scry` capture while preserving their own `clojure.test` assertion counters.
+
+This isolation is intended for same-thread, cooperative nested test execution. Arbitrary parallel runners, late asynchronous `clojure.test/report` events emitted after the owning run exits, and deliberately spoofed events for a currently owned var are outside the supported attribution model.
+
 ## Testing expectations
 
 For changes to the `clojure.test` runner or capture machinery, verify at least:

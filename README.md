@@ -127,23 +127,13 @@ clojure -X:test scry.cli/run :dirs '["test"]' :namespaces '[my.project-test]'
 clojure -X:test scry.cli/run :vars '[my.project-test/specific-test]'
 ```
 
-While tests run, the CLI prints one progress item per canonical result: `.` to stdout for passing vars and the unqualified test name to stderr for failing, erroring, or unknown vars. Synthetic suite-level entries without a concrete var print deterministic labels such as `suite-error-1`, `suite-fail-1`, or `suite-unknown-1`, optionally namespace-prefixed for context. After the run it prints a stdout summary with passed, failed, and errored assertion and result-entry counts.
+While tests run, the CLI prints one progress item per result: `.` to stdout for passing vars and the unqualified test name to stderr for failing, erroring, or unknown vars. After the run it prints a stdout summary with passed, failed, and errored assertion and result-entry counts.
 
-At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Synthetic suite-level failures/errors write readable files such as `.scry-results/suite-error-1.edn` or `.scry-results/my.loader__suite-fail-1.edn`. Passing runs may leave `.scry-results/` as an empty directory.
+At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Passing runs may leave `.scry-results/` as an empty directory.
 
-The CLI exits `0` only when at least one concrete selected/executed test var runs and all vars pass. It exits non-zero for failures, errors, unknown result status, argument/runner errors, synthetic load/suite errors, or zero executable tests. Structured CLI outcomes include machine-readable `:scry.cli/outcome-kind`, and that key is authoritative for exit status: only `:scry.cli/pass` exits `0`; all other kinds exit non-zero.
+The CLI exits `0` only when at least one concrete test var runs and all vars pass; every other case exits non-zero. Structured outcomes carry a machine-readable `:scry.cli/outcome-kind`, which is authoritative for exit status: only `:scry.cli/pass` exits `0`. See the [`scry.cli/run` API reference](doc/API.md#scry.cli/run) for the full set of outcome kinds.
 
-Initial outcome kinds are:
-
-- `:scry.cli/pass` — at least one concrete test var ran and no non-zero signal applies.
-- `:scry.cli/argument-error` — structured option parsing/normalization failed before runner execution.
-- `:scry.cli/runner-error` — CLI/runner infrastructure failed before yielding inspectable canonical results.
-- `:scry.cli/load-error` — canonical results contain failing/erroring synthetic entries without a concrete var, such as suite-level load failures.
-- `:scry.cli/test-failure` — concrete test vars failed/errored, or aggregate assertion counts report failures/errors.
-- `:scry.cli/unknown-result` — canonical results include unknown-status entries with no higher-precedence signal.
-- `:scry.cli/zero-tests` — runner execution completed but no concrete executable test-var entries were produced.
-
-The `-X` entry point returns the successful outcome map; on non-zero outcomes it throws `ex-info` with structured `:exit-code`, top-level `:scry.cli/outcome-kind`, `:summary`, `:error`, and `:outcome` data. The embedded `:outcome` contains the same outcome kind. Machine callers should inspect `:scry.cli/outcome-kind` and `.scry-results/*.edn` instead of parsing human stderr progress or `scry CLI error:` text. Main-style `-m` parser errors remain process-oriented human stderr plus non-zero exit; use `-X` or direct API calls when argument-error classification is needed.
+The `-X` entry point returns the successful outcome map; on non-zero outcomes it throws `ex-info` with structured `:exit-code`, `:scry.cli/outcome-kind`, `:summary`, `:error`, and `:outcome` data. Machine callers should inspect `:scry.cli/outcome-kind` and `.scry-results/*.edn` rather than parsing human stderr.
 
 Kaocha CLI mode is available when the optional adapter is on the classpath:
 
@@ -169,17 +159,9 @@ The default runner is implemented in `scry.clojure-test` and supports:
 (scry/run {:vars [#'my.project-test/specific-test]})
 ```
 
-It preserves normal `clojure.test` behavior such as `:once` and `:each` fixtures using a local fixture-preserving execution loop around `clojure.test/test-var`. This lets `scry` own per-var output capture while retaining the standard fixture grouping and ordering semantics.
+It preserves normal `clojure.test` behavior such as `:once` and `:each` fixtures, including standard fixture grouping and ordering semantics.
 
-## Nested in-process runner isolation
-
-Each core `scry` run installs its own dynamically scoped capture context. If a test invokes another in-process runner, inner runner events and output are isolated from the enclosing `scry` result:
-
-- Nested `scry` runs return their own result maps without adding inner vars, assertions, failures, or output to the outer run.
-- Optional `scry.kaocha/run` disables any enclosing `scry` capture while Kaocha executes, then converts Kaocha's own result tree into `scry` data.
-- Raw nested `clojure.test/run-tests`, `test-vars`, and `test-var` calls for non-owned vars are ignored by the enclosing `scry` capture while preserving their own `clojure.test` assertion counters.
-
-This isolation is intended for same-thread, cooperative nested test execution. Arbitrary parallel runners, late asynchronous `clojure.test/report` events emitted after the owning run exits, and deliberately spoofed events for a currently owned var are outside the supported attribution model.
+Nested in-process test runs (including `scry.kaocha/run` and raw `clojure.test` calls) are isolated from an enclosing `scry` run, so inner vars, assertions, and output do not pollute the outer result.
 
 ## Scoped result shape
 
@@ -274,7 +256,7 @@ When `:config` is omitted, the adapter loads the current project's `tests.edn` i
 
 Suite selectors match configured suite ids by exact value first, then by unique text (`"string"` ids/selectors as-is, keywords and symbols by `name`). Unknown or ambiguous selectors throw `ex-info`. Use `:suite` for one selector; plural `:suites` must be a non-empty collection. Supplying both `:suite` and `:suites` is an API error.
 
-The adapter preserves supplied full `:config` maps without merging fallback paths into them, then applies suite selection and quiet scry runtime defaults: capture-output plugin enabled, reporter `[]`, and color disabled. It transforms Kaocha's result tree into the same scoped result model and defaults to suite scope because its public options do not mirror `scry.clojure-test` namespace/var selectors.
+The adapter transforms Kaocha's result tree into the same scoped result model and defaults to suite scope because its public options do not mirror `scry.clojure-test` namespace/var selectors.
 
 Note: Kaocha's capture-output plugin merges stdout and stderr into one captured stream. `scry.kaocha` places that combined output in `:out` and leaves `:err` empty.
 

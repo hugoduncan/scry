@@ -80,11 +80,11 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 
 ## Usage
 
-See [`doc/API.md`](doc/API.md) for the generated public API reference.
+See [`doc/API.md`](doc/API.md) for the generated public API reference. `scry` runs `clojure.test` tests from a REPL through `scry.core/run` and from the command line through `scry.cli`.
 
-`scry` is intended to be driven primarily from a REPL so results remain available for follow-up inspection in the same process.
+### REPL usage
 
-Basic REPL usage:
+`scry.core/run` runs tests in the current process and returns an inspectable result map. The most recent result is retained for follow-up inspection in the same process.
 
 ```clojure
 (require '[scry.core :as scry])
@@ -92,7 +92,7 @@ Basic REPL usage:
 (scry/run)
 ```
 
-`scry.core/run` stores the most recent result, which can be inspected after a run:
+Inspect the most recent result after a run:
 
 ```clojure
 (scry/last-result)
@@ -105,9 +105,9 @@ Basic REPL usage:
 (println (scry/report-string (scry/last-result)))
 ```
 
-## Command-line usage
+### Command-line usage
 
-`scry` also provides a dedicated command-line runner for shell and CI use. The CLI is separate from `scry.core/run`: REPL/API calls stay quiet and structured, while the CLI prints live progress, writes failure details, and returns process-oriented status.
+`scry.cli` runs tests as a process for shell and CI use. It prints live per-var progress, writes structured failure EDN under `.scry-results/`, and returns a process-oriented exit code.
 
 Run with either `-m` or `-X`:
 

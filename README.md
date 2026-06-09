@@ -4,6 +4,8 @@
 
 `scry` is a Clojure test runner that produces inspectable, structured artifacts for each failed test instead of human-oriented terminal output that an agent has to scrape.
 
+It solves an issue I observed, with AI constantly re-running tests, trying to narrow down relevant test information.
+
 It supports two complementary use cases:
 
 - **In the REPL / in-process API**, `scry` runs tests in the current Clojure process and returns an inspectable result map containing summaries, result entries, assertion details, stack traces, and captured output at a detail level matched to the invocation scope. The result stays available for follow-up inspection in the same process.

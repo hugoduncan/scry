@@ -57,11 +57,14 @@ core↛Kaocha load-time boundary and the `:scry.cli/outcome-kind` contract.
    option value-type coercion.
    - `-X` map path (`normalize-kaocha-options`): top-level keys outside the
      scry-managed set become `:kaocha-extra` entries (typed EDN values kept
-     as-is) instead of being dropped.
+     as-is) instead of being dropped, merged into any pre-existing
+     `:kaocha-extra` map (see "Plan-review resolutions" for exclusion + merge).
    - `-m` flag path (`parse-main-args`): add a named `--focus` flag and a
      generic `--kaocha-opt KEY VALUE` flag, both accumulating into a raw
      `:kaocha-extra` map carried through `main-opts->exec-opts`. Unknown flags
-     still hit the `argument-error` default branch.
+     still hit the `argument-error` default branch. In `:clojure-test` (core)
+     mode these Kaocha-only flags are rejected via the `:kaocha-extra` addition
+     to the core-mode reject set (see "Plan-review resolutions").
 
 2. **Adapter merge + coercion (`scry.kaocha/run`, src-kaocha).** Merge
    `:kaocha-extra` into the resolved config's `:kaocha/cli-options` with
@@ -82,6 +85,45 @@ core↛Kaocha load-time boundary and the `:scry.cli/outcome-kind` contract.
 Implement as a derived set so it stays in sync with the existing
 `core-only-keys`/`kaocha-only-keys`/`kaocha-fallback-keys` definitions in
 `scry.cli`.
+
+`:kaocha-extra` is **also** added to this derived set, but for a different
+reason than the keys above: it is not scry-internal data to drop, it is the
+forwarded payload container itself. On the `-m` path `parse-main-args`
+pre-builds a `:kaocha-extra` map that arrives in `normalize-kaocha-options` as a
+top-level opts key; including it in the excluded set prevents the `-X`
+collection step from re-collecting it into a nested `:kaocha-extra`. See
+"Plan-review resolutions" for the exclusion + merge rule.
+
+### Plan-review resolutions (`:kaocha-extra` exclusion, merge, core-mode disposition)
+
+Two plan-review ambiguities about the shared `normalize-kaocha-options` and
+core-mode reject paths are resolved here; Slice 1 and Slice 2 implement them.
+
+- **`:kaocha-extra` exclusion + merge rule (`-X` collection).** Add
+  `:kaocha-extra` to the derived `scry-managed-keys` set (above) so the `-X`
+  collection step never re-collects an already-present `:kaocha-extra` map into a
+  nested `:kaocha-extra`. The collection step builds a map from the remaining
+  non-scry-managed top-level keys, `merge`s it into any pre-existing
+  `:kaocha-extra` map, and `assoc`s the combined `:kaocha-extra` onto
+  `normalized` only when non-empty. Collected top-level extras win on key
+  conflict. In practice the two sources never conflict: `-m` and `-X` are
+  distinct, non-overlapping invocation paths — the `-m` path supplies only a
+  pre-built `:kaocha-extra` map with no scattered top-level extras, and the
+  documented `-X` surface is scattered top-level keys (e.g.
+  `:focus "my.ns/test-foo"`) with no explicit `:kaocha-extra` map. An explicit
+  `-X` `:kaocha-extra` map is undocumented but tolerated by this merge.
+
+- **Core-mode (`:clojure-test`) disposition — reject.** Core mode *rejects*
+  `:kaocha-extra`, matching the `:scry.cli/outcome-kind` contract and the "core
+  mode unaffected" constraint. Add `:kaocha-extra` to the existing
+  `normalize-core-options` reject set (`reject-keys` over
+  `kaocha-only-keys ∪ kaocha-fallback-keys`, `src/scry/cli.clj:201`) rather than
+  a bespoke check, so `--runner clojure-test --focus …` (or `--kaocha-opt …`)
+  surfaces as `:scry.cli/argument-error` ("Kaocha options require :runner
+  :kaocha") instead of being silently ignored. The `-m` flags populate
+  `:kaocha-extra` before `normalize-exec-opts` dispatches on `:runner`, so a
+  Kaocha-only flag can reach the core branch; this reject is what makes Slice 2's
+  "rejected in core mode" claim concrete.
 
 ## Key file locations (from entity-resolution + design-review notes)
 

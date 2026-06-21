@@ -85,7 +85,7 @@
 
 ## Plan review — ambiguity review
 
-- [ ] Resolve how the normalized `:kaocha-extra` key is handled by the
+- [x] Resolve how the normalized `:kaocha-extra` key is handled by the
   `-X`-style collection step in `normalize-kaocha-options`. The enumerated
   closed scry-managed key set (plan "Scry-managed key set" + Slice 1) does
   **not** list `:kaocha-extra` itself, yet on the `-m` path the flags pre-build
@@ -98,7 +98,7 @@
   pre-existing (`-m`) `:kaocha-extra` map merges with `-X`-collected top-level
   extras in the single shared `normalize-kaocha-options`. Specify the exclusion
   and the merge rule.
-- [ ] Specify the mechanism by which `--focus` / `--kaocha-opt` (Kaocha-only
+- [x] Specify the mechanism by which `--focus` / `--kaocha-opt` (Kaocha-only
   `-m` flags) are handled in `:clojure-test` (core) mode. Slice 2 asserts they
   are "rejected", but the `-m` flags populate `:kaocha-extra` in raw opts
   independent of runner, and the existing `normalize-core-options` reject set

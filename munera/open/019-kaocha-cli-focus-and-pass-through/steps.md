@@ -3,12 +3,17 @@
 ## Slice 1 — Core `-X` pass-through collection (`scry.cli`)
 
 - [ ] Add a derived `scry-managed-keys` set in `src/scry/cli.clj` combining
-  `:runner`, `core-only-keys`, `:result-format`, `:progress-callback`, and the
-  explicit Kaocha keys (`:suite :suites :config :dirs :source-paths :test-paths
-  :ns-patterns`); define it from existing key-set vars so it stays in sync.
+  `:runner`, `core-only-keys`, `:result-format`, `:progress-callback`,
+  `:kaocha-extra`, and the explicit Kaocha keys (`:suite :suites :config :dirs
+  :source-paths :test-paths :ns-patterns`); define it from existing key-set vars
+  so it stays in sync. Include `:kaocha-extra` so the `-X` collection step never
+  re-collects an already-present `:kaocha-extra` map (e.g. one carried in from
+  the `-m` path) into a nested `:kaocha-extra`.
 - [ ] In `normalize-kaocha-options`, after the existing `cond->`, collect all
-  `opts` keys not in `scry-managed-keys` into a `:kaocha-extra` map and
-  `assoc` it onto `normalized` only when non-empty.
+  `opts` keys not in `scry-managed-keys` into a map, `merge` it into any
+  pre-existing top-level `:kaocha-extra` map (collected top-level extras win on
+  conflict), and `assoc` the combined `:kaocha-extra` onto `normalized` only when
+  non-empty.
 - [ ] Confirm `reject-keys` for `core-only-keys` still runs first (core
   selectors remain rejected, not forwarded).
 - [ ] In `test/scry/cli_test.clj`, add a test: `-X` opts `{:runner :kaocha
@@ -16,6 +21,9 @@
   "my.ns/test-foo"}`.
 - [ ] Add a test asserting no scry-managed key (`:runner`, `:result-format`,
   `:suite`, `:dirs`, etc.) ever appears under `:kaocha-extra`.
+- [ ] Add a test that a pre-existing top-level `:kaocha-extra` map (the `-m`
+  shape) survives `normalize-kaocha-options` unchanged — not nested under a
+  second `:kaocha-extra` — and that scattered top-level extras merge into it.
 - [ ] Add a test that `:kaocha-extra` is absent when no extra keys are supplied.
 - [ ] Run focused `scry.cli-test` in the REPL/`:test` slice; confirm green.
 
@@ -31,18 +39,22 @@
   (`:scry.cli/argument-error`) for any flag outside the opt-in surface.
 - [ ] Carry `:kaocha-extra` through `main-opts->exec-opts` (do not strip it) so
   it reaches `normalize-exec-opts`/`normalize-kaocha-options` intact.
-- [ ] Decide and implement how `-m` `:kaocha-extra` survives
-  `normalize-kaocha-options` without being treated as an unknown top-level key:
-  pass it through unchanged (it is already a single collected map, not the
-  scattered top-level keys of the `-X` path).
+- [ ] Carry the `-m` `:kaocha-extra` map through `normalize-kaocha-options`
+  unchanged via the Slice 1 exclusion: because `:kaocha-extra` is in
+  `scry-managed-keys`, the collection step does not re-collect it, and the merge
+  step preserves it (there are no scattered `-m` extras to merge). See plan
+  "Plan-review resolutions".
 - [ ] Update CLI `usage` text to document `--focus SYM` and
   `--kaocha-opt KEY VALUE` (Kaocha mode only).
 - [ ] In `test/scry/cli_test.clj`, add tests: `--runner kaocha --focus
   my.ns/test-foo` parses to opts with `:kaocha-extra {:focus ["my.ns/test-foo"]}`
   (or chosen scalar/coll shape); `--kaocha-opt foo bar` → `:kaocha-extra {:foo
   "bar"}`; an unrecognized flag still raises `:scry.cli/argument-error`.
-- [ ] Confirm `--focus`/`--kaocha-opt` used in `:clojure-test` mode are rejected
-  (they are Kaocha-only) — add/confirm a test.
+- [ ] Reject `--focus`/`--kaocha-opt` in `:clojure-test` (core) mode by adding
+  `:kaocha-extra` to the `normalize-core-options` reject set
+  (`kaocha-only-keys ∪ kaocha-fallback-keys`, `src/scry/cli.clj:201`); confirm
+  `--runner clojure-test --focus …` raises `:scry.cli/argument-error` — add a
+  test.
 - [ ] Run focused `scry.cli-test`; confirm green.
 
 ## Slice 3 — Adapter merge + `:focus` coercion (`scry.kaocha/run`, src-kaocha)

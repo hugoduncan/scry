@@ -339,3 +339,26 @@ Task info useful for the fix:
   branch).
 - Both steps are exercisable in `test/scry/cli_test.clj` without the `:kaocha`
   alias (core normalization + core-mode rejection are pure core paths).
+
+## Plan-review follow-ups executed (2026-06-21)
+
+Resolved both plan-review ambiguity design-steps (`design-steps.md` → "Plan
+review — ambiguity review", now checked) in `plan.md` + `steps.md`:
+
+- `:kaocha-extra` is added to the derived `scry-managed-keys` set so the `-X`
+  collection step never re-collects/nests it; the collection step `merge`s
+  collected top-level extras into any pre-existing `:kaocha-extra` (collected
+  wins on conflict), assoc only when non-empty. `-m` and `-X` are disjoint
+  invocation paths so the conflict case is only an undocumented-but-tolerated
+  explicit `-X` `:kaocha-extra`. Codified in plan "Plan-review resolutions" +
+  Slice 1 steps (new merge test added).
+- Core (`:clojure-test`) mode *rejects* `:kaocha-extra` by adding it to the
+  `normalize-core-options` reject set (`src/scry/cli.clj:201`), yielding
+  `:scry.cli/argument-error`. Codified in plan "Plan-review resolutions" +
+  Slice 2 reject step (now names the concrete enforcement point + test).
+
+For the implementer: `:kaocha-extra` does not yet exist in `src/scry/cli.clj`
+(it is introduced by Slice 1). The reject-set line is currently
+`(into kaocha-only-keys kaocha-fallback-keys)` at `src/scry/cli.clj:201`; the
+message "Kaocha options require :runner :kaocha" already fits a Kaocha-only flag
+reaching core mode, so reuse it rather than adding a new message.

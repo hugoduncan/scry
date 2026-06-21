@@ -217,6 +217,8 @@ OQ3 and belongs to plan/implementation.
 
 - This shared design-review session (architecture + ambiguity + inconsistency)
   added **zero** new design-steps. The design has converged: all 8 prior
+  (Note: a further shared design-review session ran later — see the
+  architecture turn note below — and also added zero new design-steps.)
   design-steps are checked/executed, and design.md is stable. No design edits
   are pending — the next lifecycle step can proceed to plan/implementation.
 - All actionable principles and concrete file paths for implementation are
@@ -228,3 +230,16 @@ OQ3 and belongs to plan/implementation.
   reject-vs-merge; OQ3 `:focus` direct-key vs `apply-cli-args`) are the real
   remaining decisions and belong to plan/implementation, not further design
   review.
+
+## Design review — architecture turn (2026-06-21, another shared design-review session, first turn)
+
+- No architectural review feedback. design.md unchanged since `9e5dec6`
+  (batch follow-up execution); reviewed against AGENTS.md (sole architecture
+  authority — no META.md / doc/architecture.md). All prior architecture
+  follow-ups remain executed and coherent: (1) core↛Kaocha load boundary —
+  `:kaocha-extra` raw data + key routing only in core `scry.cli`, value-type
+  coercion in `scry.kaocha/run` (src-kaocha); (2) `:scry.cli/outcome-kind`
+  contract — asymmetric/bounded pass-through (`-m` opt-in, unknown flags still
+  `:scry.cli/argument-error`; `-X` documented trade-off); closed scry-managed
+  exclusion set prevents mode/internal-key leakage. The 3 Open Questions remain
+  plan/implementation decisions, not architectural misfits. Nothing new to file.

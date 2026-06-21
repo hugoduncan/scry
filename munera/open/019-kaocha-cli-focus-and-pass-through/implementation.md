@@ -192,3 +192,13 @@ OQ3 and belongs to plan/implementation.
   internal/mode-key leakage; API-doc regeneration constraint noted for any
   `scry.kaocha/run` surface change. Design is architecturally coherent; nothing
   new to file.
+
+## Design review — ambiguity turn (2026-06-21, new shared design-review session, second turn)
+
+- No new ambiguity review feedback. Design is precise modulo its 3 explicit
+  Open Questions (OQ1 named-vs-generic `-m` surface; OQ2 reject-vs-merge for
+  `:config` + pass-through; OQ3 `:focus` key mapping), which are surfaced as
+  open choices rather than latent ambiguities. Prior ambiguity steps
+  (exclusion-set enumeration, value-coercion specification) and this lifecycle's
+  architecture coercion-placement step are already executed and reflected in the
+  updated design; nothing new to file.

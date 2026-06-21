@@ -452,3 +452,25 @@ reaching core mode, so reuse it rather than adding a new message.
   re-filed. Nothing new to file. (Plan/steps not reviewed — design-only turn.)
   This shared design-review session (all three turns) added zero new design-steps;
   design remains converged and stable.
+
+## After the new shared design-review session (2026-06-21) — for the next lifecycle step
+
+- This shared design-review session (architecture + ambiguity + inconsistency)
+  added **zero** new design-steps. No new follow-ups exist to address. design.md
+  is unchanged since `9e5dec6` and remains converged; all design-steps stay
+  checked. Plan/steps already passed two shared plan-review sessions
+  (also zero new steps) — proceed to implementation starting at **Slice 1**.
+- Do not re-derive guidance. Actionable principles + concrete file/line pointers
+  are already captured above; start from these notes (do not re-read from
+  scratch):
+  - "For the slice addressing these design-steps" (boundary, outcome-kind,
+    API-docs principles).
+  - "Plan-review follow-ups executed" + "For the slice addressing the
+    plan-review design-steps" (`:kaocha-extra` exclusion/merge; core-mode reject
+    at `src/scry/cli.clj:201`; cli.clj + src-kaocha/scry/kaocha.clj line refs).
+  - "After the second shared plan-review session" (route `:focus` into
+    `:kaocha/cli-options`, not config top-level; keep `-X` scalar vs `-m` vector
+    `:focus` asymmetry, normalized by Slice 3 coercion).
+- The 3 Open Questions are already resolved in plan.md "Open Question
+  resolutions" (OQ1 named `--focus`; OQ2 `:config` precedence; OQ3
+  `:kaocha/cli-options`) — implementation follows plan.md, not further design review.

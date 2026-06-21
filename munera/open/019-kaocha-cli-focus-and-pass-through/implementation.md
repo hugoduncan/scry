@@ -243,3 +243,12 @@ OQ3 and belongs to plan/implementation.
   `:scry.cli/argument-error`; `-X` documented trade-off); closed scry-managed
   exclusion set prevents mode/internal-key leakage. The 3 Open Questions remain
   plan/implementation decisions, not architectural misfits. Nothing new to file.
+
+## Design review — ambiguity turn (2026-06-21, another shared design-review session, second turn)
+
+- No ambiguity review feedback. design.md unchanged; reviewed using
+  already-loaded context. Design is precise modulo its 3 explicit Open Questions
+  (OQ1/OQ2/OQ3), surfaced as open choices not latent ambiguities. Prior
+  ambiguity steps (exclusion-set enumeration; `-m` value-coercion spec) and the
+  architecture coercion-placement step are already executed/reflected. Nothing
+  new to file.

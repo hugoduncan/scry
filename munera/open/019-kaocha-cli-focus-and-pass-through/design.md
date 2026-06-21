@@ -16,7 +16,7 @@ Pass unrecognized options through to the Kaocha runner by forwarding them into t
 
 1. In `normalize-kaocha-options`, collect all keys from the raw opts that are not in the known scry-managed set (core-only keys, known kaocha keys, and shared keys like `:result-format`). These become `:kaocha-extra` in the normalized map.
 
-2. In `scry.kaocha/run`, merge `:kaocha-extra` into the resolved Kaocha config before running. This means unknown options like `:focus` end up as `:focus` in the Kaocha config, which Kaocha's `api/run` will process.
+2. In `scry.kaocha/run`, merge `:kaocha-extra` into the resolved Kaocha config before running. This means unknown options like `:focus` end up as `:focus` in the Kaocha config, which Kaocha's `kaocha.api/run` will process.
 
 3. Add `-m` CLI flag parsing for `--focus` (and potentially `--focus-only`, `--exclude`) as convenience, mapping them to the appropriate config keys. Alternatively, add a generic `--kaocha-opt KEY VALUE` mechanism for arbitrary pass-through.
 
@@ -40,4 +40,4 @@ Pass unrecognized options through to the Kaocha runner by forwarding them into t
 
 - Should `--focus` be a named CLI flag, or should we add a generic `--kaocha-opt KEY VALUE` for arbitrary pass-through? Named flags are more discoverable but require maintenance per Kaocha option. A generic mechanism is more flexible but less user-friendly.
 - If `:config` is supplied alongside pass-through options, should they be rejected (clean boundary) or merged (convenience)?
-- Does `:focus` map directly to a Kaocha config key, or does it need special handling through `config/apply-cli-args`?
+- Does `:focus` map directly to a Kaocha config key, or does it need special handling through `kaocha.config/apply-cli-args`?

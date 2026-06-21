@@ -19,6 +19,22 @@
   eroded. (Mechanism is already an Open Question; this item is about the
   architectural impact on the validation boundary and `outcome-kind` contract,
   not the named-vs-generic choice itself.)
+- [ ] Resolve the layering tension in where `-m` per-option value coercion
+  lives, relative to the core↛Kaocha dependency boundary. Approach step 4 places
+  coercion in core `scry.cli` ("coerced to the type Kaocha expects for each
+  option *before being placed in* `:kaocha-extra`"), but coercing to the
+  Kaocha-expected type is Kaocha-domain knowledge that the architecture keeps in
+  `src-kaocha/` (AGENTS.md: `scry.cli` must not require `scry.kaocha` at load
+  time; Kaocha support belongs under `src-kaocha/`). This also conflicts with
+  Open Question 3, which points at `kaocha.config/apply-cli-args` — a Kaocha API
+  resident in `src-kaocha/scry/kaocha.clj` — as the natural interpreter of
+  raw CLI option strings. The design should state which side of the boundary
+  performs Kaocha-type coercion: keep `:kaocha-extra` as raw forwarded data and
+  let `scry.kaocha/run` (src-kaocha, possibly via `apply-cli-args`) interpret
+  it, versus embedding per-Kaocha-option type knowledge in core `scry.cli`.
+  (Distinct from the resolved value-coercion ambiguity item below, which asks
+  *whether/how* values are coerced; this item is about *where* that logic sits
+  relative to the architectural boundary.)
 
 ## Ambiguity review
 

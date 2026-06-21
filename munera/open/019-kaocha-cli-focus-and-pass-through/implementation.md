@@ -50,6 +50,21 @@ entity ambiguities — left for design/plan resolution, not forced here.
   (2) internal tension between Constraint ":config must take full precedence"
   and the offered "merged" resolution for :config + pass-through.
 
+## Design review — architecture turn (2026-06-21, shared design-review session)
+
+- Architecture review added 1 new design step. Prior architecture follow-up
+  (validation boundary / outcome-kind for blanket pass-through) is already
+  executed and respected: `:kaocha-extra` is raw data collected in core
+  `scry.cli` (no load-time Kaocha require), merged in `scry.kaocha/run`
+  (src-kaocha); bounded/asymmetric pass-through preserves the outcome-kind
+  contract. New finding is a layering misfit: Approach step 4 places `-m`
+  per-option value coercion in core `scry.cli` ("before being placed in
+  `:kaocha-extra`"), but Kaocha-type coercion is Kaocha-domain knowledge the
+  architecture keeps in src-kaocha, and OQ3 itself points at
+  `kaocha.config/apply-cli-args` (src-kaocha) as interpreter. Filed as
+  actionable because it is a boundary/placement question distinct from the
+  already-resolved value-coercion *ambiguity* step (whether/how vs where).
+
 ## For the slice addressing these design-steps
 
 Principles to maintain:

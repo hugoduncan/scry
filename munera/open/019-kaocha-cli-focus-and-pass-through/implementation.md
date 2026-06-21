@@ -202,3 +202,13 @@ OQ3 and belongs to plan/implementation.
   (exclusion-set enumeration, value-coercion specification) and this lifecycle's
   architecture coercion-placement step are already executed and reflected in the
   updated design; nothing new to file.
+
+## Design review — inconsistency turn (2026-06-21, new shared design-review session, third turn)
+
+- No new inconsistency review feedback. The 3 prior inconsistency steps
+  (Context "silently dropped" claim; `:config` precedence-vs-merge wording;
+  Acceptance cmd1 `--focus` vs OQ1) are executed and reflected in the updated
+  design. Re-evaluated step 2's declarative ":focus → :focus config processed
+  by kaocha.api/run" vs OQ3's open interpretation-mechanism question: step 4
+  self-qualifies step 2 as OQ3, design text unchanged, and the prior session
+  already considered-but-did-not-file this as co-located with OQ3. Not re-filed.

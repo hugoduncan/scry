@@ -49,3 +49,29 @@ entity ambiguities — left for design/plan resolution, not forced here.
   "Unknown option" for unknown flags); only `-X` map normalization drops them;
   (2) internal tension between Constraint ":config must take full precedence"
   and the offered "merged" resolution for :config + pass-through.
+
+## For the slice addressing these design-steps
+
+Principles to maintain:
+- Keep the dependency boundary: `:kaocha-extra` collection stays in core
+  `scry.cli` (must not require `scry.kaocha` at load time); the config merge
+  stays in `scry.kaocha/run` (src-kaocha). AGENTS.md is the architecture
+  authority (no META.md / doc/architecture.md exist).
+- Preserve the CLI's explicit-validation + `:scry.cli/outcome-kind` contract;
+  prefer bounded/opt-in pass-through over default-forward of arbitrary keys.
+- If `scry.kaocha/run`'s public option surface changes (e.g. documenting
+  `:kaocha-extra`), regenerate `doc/API.md` via `bb api-docs` and re-run
+  `bb api-docs --check` + the api-docs regression test.
+
+Relevant non-task file locations (in addition to entity-resolution notes above):
+- `parse-main-args` — `src/scry/cli.clj:279`; default branch throws the
+  "Unknown option" `argument-error` (basis for inconsistency finding 1).
+- Recognized key sets — `src/scry/cli.clj:34-37`: `ns-pattern-keys`,
+  `core-only-keys`, `kaocha-only-keys`, `kaocha-fallback-keys` (basis for the
+  enumeration ambiguity step; `:runner`/`:progress-callback`/`:result-format`
+  are not in these sets).
+- Outcome classification — `classify-outcome` (`src/scry/cli.clj:442`),
+  `error-outcome-kind` (`:467`), `exit-code`/`run` wiring (~`:548-575`).
+- Tests to extend: `test/scry/cli_test.clj` (core CLI),
+  `test/scry/cli_kaocha_test.clj` and `test/scry/kaocha_test.clj` (require the
+  `:kaocha` alias).

@@ -19,3 +19,21 @@
   eroded. (Mechanism is already an Open Question; this item is about the
   architectural impact on the validation boundary and `outcome-kind` contract,
   not the named-vs-generic choice itself.)
+
+## Ambiguity review
+
+- [ ] Precisely enumerate the closed "known scry-managed set" excluded from
+  pass-through. Approach step 1 describes it loosely as "core-only keys, known
+  kaocha keys, and shared keys *like* `:result-format`"; the "like" leaves the
+  exact set undefined. The design should list every recognized/excluded key —
+  including `:runner`, `:result-format`, `:progress-callback`, and each known
+  kaocha key (`:suite`, `:suites`, `:config`, `:dirs`, `:source-paths`,
+  `:test-paths`, `:ns-patterns`) — so scry-internal and mode-selector keys are
+  never accidentally forwarded into the Kaocha config as `:kaocha-extra`.
+- [ ] Specify how pass-through option *values* are typed/coerced on the `-m`
+  path, where every value arrives as a raw string (unlike typed `-X` EDN values
+  such as `:focus "my.ns/test-foo"`). The acceptance requires
+  `--focus my.ns/test-foo` to actually focus, which depends on the value
+  reaching Kaocha in the expected type. (Distinct from Open Question 3, which
+  concerns *key* mapping rather than *value* coercion; this applies to arbitrary
+  `-m` pass-through values, not only `:focus`.)

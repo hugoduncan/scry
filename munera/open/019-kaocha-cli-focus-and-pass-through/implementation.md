@@ -38,3 +38,9 @@ entity ambiguities — left for design/plan resolution, not forced here.
   unrecognized keys risks eroding the deliberate "reject unknown options"
   architecture (`parse-main-args` argument-error path), distinct from the
   named-vs-generic Open Question.
+- Ambiguity review added 2 new design steps: (1) imprecise closed exclusion set
+  for pass-through ("known scry-managed set ... like :result-format") risks
+  leaking scry-internal/mode keys (`:runner`, `:progress-callback`) into Kaocha
+  config; (2) unspecified value coercion for `-m` raw-string pass-through values
+  vs typed `-X` EDN values. The three existing Open Questions were treated as
+  already-surfaced ambiguities and not re-filed.

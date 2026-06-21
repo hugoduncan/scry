@@ -252,3 +252,14 @@ OQ3 and belongs to plan/implementation.
   ambiguity steps (exclusion-set enumeration; `-m` value-coercion spec) and the
   architecture coercion-placement step are already executed/reflected. Nothing
   new to file.
+
+## Design review — inconsistency turn (2026-06-21, another shared design-review session, third turn)
+
+- No inconsistency review feedback. design.md unchanged; reviewed using
+  already-loaded context. The 3 prior inconsistency steps (Context "silently
+  dropped" `-m`-vs-`-X` distinction; `:config` precedence-vs-merge wording;
+  Acceptance cmd1 `--focus` vs OQ1) are executed/reflected. Step 2's
+  declarative `:focus` config claim is self-qualified by step 4 as OQ3 —
+  co-located, not a latent contradiction; not refiled. Nothing new to file.
+  This shared design-review session (all three turns) added zero new
+  design-steps; design remains converged and stable.

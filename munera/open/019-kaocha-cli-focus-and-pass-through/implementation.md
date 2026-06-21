@@ -362,3 +362,20 @@ For the implementer: `:kaocha-extra` does not yet exist in `src/scry/cli.clj`
 `(into kaocha-only-keys kaocha-fallback-keys)` at `src/scry/cli.clj:201`; the
 message "Kaocha options require :runner :kaocha" already fits a Kaocha-only flag
 reaching core mode, so reuse it rather than adding a new message.
+
+## Plan review — ambiguity turn (2026-06-21, another shared plan-review session, first turn)
+
+- No new ambiguity review feedback. Reviewed plan.md + steps.md (steps.md
+  read-only) against `src/scry/cli.clj` (key sets, `normalize-core-options`/
+  `normalize-kaocha-options`, `reject-keys`, `parse-main-args`) and
+  `src-kaocha/scry/kaocha.clj` `run` pipeline. The 3 Open Questions are
+  concretely resolved in plan "Open Question resolutions" (decisions, not
+  ambiguities), and the prior plan-review ambiguity steps (`:kaocha-extra`
+  exclusion+merge in the shared `normalize-kaocha-options`; core-mode reject via
+  the `normalize-core-options` reject set) are executed/reflected in plan +
+  steps. Considered-but-not-filed minor residuals: `-m` `--focus` vector-shape
+  vs `-X` `:focus` scalar-shape divergence (deliberately absorbed by Slice 3
+  "scalar or collection" coercion); `-X` stray top-level `:focus` in core mode
+  silently ignored (matches unchanged baseline, "core mode unaffected"); and
+  `--focus`/`--kaocha-opt focus` key collision (out-of-scope edge case). None
+  block/mislead an implementer. Nothing new to file.

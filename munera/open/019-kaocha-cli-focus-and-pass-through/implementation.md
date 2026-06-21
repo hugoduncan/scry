@@ -263,3 +263,20 @@ OQ3 and belongs to plan/implementation.
   co-located, not a latent contradiction; not refiled. Nothing new to file.
   This shared design-review session (all three turns) added zero new
   design-steps; design remains converged and stable.
+
+## For the slice addressing the design-steps (2026-06-21, after second shared design-review session)
+
+- This second full shared design-review session (architecture + ambiguity +
+  inconsistency) added **zero** new design-steps. design.md is unchanged since
+  `9e5dec6` and remains converged; all 8 design-steps stay checked. No new
+  design edits are pending — the next lifecycle step can proceed to
+  plan/implementation.
+- Do not re-derive guidance: the actionable principles, decisions, and concrete
+  non-task file paths are already captured above. Start from:
+  - "For the slice addressing these design-steps" (boundary, outcome-kind,
+    API-docs principles).
+  - "Design follow-up execution" + "shared design-review batch" notes
+    (cli.clj + src-kaocha/scry/kaocha.clj line refs, test files, the
+    raw-`-m`-string vs typed-`-X`-EDN coercion implementer note).
+  - "Design-review session outcome" note (the 3 Open Questions OQ1/OQ2/OQ3 are
+    the real remaining decisions, belonging to plan/implementation).

@@ -44,3 +44,8 @@ entity ambiguities — left for design/plan resolution, not forced here.
   config; (2) unspecified value coercion for `-m` raw-string pass-through values
   vs typed `-X` EDN values. The three existing Open Questions were treated as
   already-surfaced ambiguities and not re-filed.
+- Inconsistency review added 2 new design steps: (1) Context's "silently
+  dropped" claim is false for the `-m` path (`parse-main-args` throws
+  "Unknown option" for unknown flags); only `-X` map normalization drops them;
+  (2) internal tension between Constraint ":config must take full precedence"
+  and the offered "merged" resolution for :config + pass-through.

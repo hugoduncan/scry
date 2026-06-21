@@ -37,3 +37,20 @@
   reaching Kaocha in the expected type. (Distinct from Open Question 3, which
   concerns *key* mapping rather than *value* coercion; this applies to arbitrary
   `-m` pass-through values, not only `:focus`.)
+
+## Inconsistency review
+
+- [ ] Correct the Context's claim that unknown options are "silently dropped
+  during normalization" with "no effect". That holds only for the `-X` map path
+  (`normalize-kaocha-options`'s `cond->`). The `-m` path (`parse-main-args`)
+  rejects unknown flags with `argument-error` ("Unknown option: <flag>"), so the
+  acceptance command `clojure -M:test:kaocha -m scry.cli ... --focus
+  my.ns/test-foo` would currently *error*, not no-op. The design should reflect
+  that `-m` pass-through requires explicit flag parsing to clear the
+  "Unknown option" rejection, not just config forwarding.
+- [ ] Reconcile the internal tension between the Constraint that explicit
+  `:config` "must still take full precedence" and the offered "merged" option
+  for `:config` + pass-through (stated both in Constraints and Open Questions).
+  "Full precedence" and "merge pass-through keys into the config" conflict;
+  clarify whether `:config` wins only on conflicting keys (merge adds the rest)
+  or is wholly authoritative (pass-through rejected when `:config` is supplied).

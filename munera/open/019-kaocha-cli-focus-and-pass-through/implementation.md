@@ -178,3 +178,17 @@ coerce raw-string `:kaocha-extra` values that originate from the `-m` path, whil
 `-X` `:kaocha-extra` values arrive already typed (EDN). `kaocha.config/apply-cli-args`
 is built for raw CLI strings and is the natural coercion path; settling that is
 OQ3 and belongs to plan/implementation.
+
+## Design review — architecture turn (2026-06-21, new shared design-review session, first turn)
+
+- No new architectural review feedback. Reviewed current (updated) design.md
+  against AGENTS.md (the architecture authority; no META.md / doc/architecture.md
+  exist). The two prior architecture follow-ups are already executed and reflected:
+  (1) core↛Kaocha load boundary — `:kaocha-extra` is raw data collected in core
+  `scry.cli` (key routing only), value-type coercion deferred to `scry.kaocha/run`
+  in src-kaocha (Approach step 4); (2) outcome-kind contract — asymmetric/bounded
+  pass-through (`-m` opt-in, unknown flags still `:scry.cli/argument-error`; `-X`
+  documented mistyped-key trade-off). Closed scry-managed exclusion set prevents
+  internal/mode-key leakage; API-doc regeneration constraint noted for any
+  `scry.kaocha/run` surface change. Design is architecturally coherent; nothing
+  new to file.

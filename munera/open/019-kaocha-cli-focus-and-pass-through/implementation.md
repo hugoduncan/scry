@@ -474,3 +474,22 @@ reaching core mode, so reuse it rather than adding a new message.
 - The 3 Open Questions are already resolved in plan.md "Open Question
   resolutions" (OQ1 named `--focus`; OQ2 `:config` precedence; OQ3
   `:kaocha/cli-options`) — implementation follows plan.md, not further design review.
+
+## Plan review — ambiguity turn (2026-06-21, third shared plan-review session, first turn)
+
+- No new ambiguity review feedback. Verified plan.md/steps.md against current
+  `src/scry/cli.clj` (key sets `:36-38`, `reject-keys` `:177`,
+  `normalize-core-options` reject set `:201`, `normalize-kaocha-options` `:209`,
+  `parse-main-args` flag clauses + unknown-flag `argument-error` default) and
+  `src-kaocha/scry/kaocha.clj` `run` pipeline (`resolve-config` → `select-suites`
+  → `apply-runtime-defaults` → `apply-progress-reporter` → `api/run`); all line
+  refs accurate. The two prior plan-review ambiguity steps (`:kaocha-extra`
+  exclusion/merge; core-mode reject) are executed/codified in plan "Plan-review
+  resolutions" + Slices 1–2; OQ1/OQ2/OQ3 are resolved decisions, not ambiguities.
+  Weighed-but-not-filed (already-considered or non-actionable): designed `-X`
+  scalar vs `-m` vector `:focus` shape asymmetry (Slice 3 "scalar or collection"
+  coercion); `--focus`/`--kaocha-opt focus` key collision (out-of-scope edge);
+  `:config`-authoritative conflict scoped uniformly at `:kaocha/cli-options`
+  across all three resolve-config paths; merge slot order-independent vs
+  `apply-runtime-defaults` (disjoint config keys). Nothing blocks/misleads an
+  implementer. Nothing new to file.

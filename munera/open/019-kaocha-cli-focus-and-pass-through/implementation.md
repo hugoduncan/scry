@@ -151,3 +151,30 @@ Relevant non-task file locations (in addition to entity-resolution notes above):
 - Tests to extend: `test/scry/cli_test.clj` (core CLI),
   `test/scry/cli_kaocha_test.clj` and `test/scry/kaocha_test.clj` (require the
   `:kaocha` alias).
+
+## Design follow-up execution — shared design-review batch (2026-06-21)
+
+Batch baseline: parent of architecture turn `018967f` is `119754f` (previous
+follow-up completion). Candidate set from `git diff 119754f..HEAD -- design-steps.md`
+= exactly the 2 added unchecked items below; both still unchecked at start, both
+executed:
+
+- Architecture coercion-placement → fixed by editing Approach **step 4**:
+  per-option *value-type* coercion now lives in `scry.kaocha/run` (src-kaocha),
+  `:kaocha-extra` stays raw forwarded data in core `scry.cli`. Core keeps only
+  *key* routing (`:dirs`→`:test-paths`). Preserves core↛Kaocha load boundary.
+  OQ3's *mechanism* (`:focus` direct key vs `kaocha.config/apply-cli-args`)
+  deliberately left open — this item resolved *where*, not *how*.
+- Inconsistency (Acceptance cmd1 `--focus` vs OQ1) → fixed by committing OQ1 to
+  **at least a named `--focus` flag** (Approach step 3 + OQ1 reworded in
+  lockstep). Acceptance command 1 now stands unchanged. Chose the
+  "commit OQ1 to named `--focus`" branch over restating cmd1 because `--focus`
+  is the motivating headline feature; this is a `-m` surface/mechanism decision,
+  not a scope change. Remaining OQ1 question narrowed to: also add extra named
+  flags / generic `--kaocha-opt`?
+
+Implementer note (new, from step-4 boundary placement): `scry.kaocha/run` must
+coerce raw-string `:kaocha-extra` values that originate from the `-m` path, while
+`-X` `:kaocha-extra` values arrive already typed (EDN). `kaocha.config/apply-cli-args`
+is built for raw CLI strings and is the natural coercion path; settling that is
+OQ3 and belongs to plan/implementation.

@@ -19,7 +19,7 @@
   eroded. (Mechanism is already an Open Question; this item is about the
   architectural impact on the validation boundary and `outcome-kind` contract,
   not the named-vs-generic choice itself.)
-- [ ] Resolve the layering tension in where `-m` per-option value coercion
+- [x] Resolve the layering tension in where `-m` per-option value coercion
   lives, relative to the core↛Kaocha dependency boundary. Approach step 4 places
   coercion in core `scry.cli` ("coerced to the type Kaocha expects for each
   option *before being placed in* `:kaocha-extra`"), but coercing to the
@@ -70,7 +70,7 @@
   "Full precedence" and "merge pass-through keys into the config" conflict;
   clarify whether `:config` wins only on conflicting keys (merge adds the rest)
   or is wholly authoritative (pass-through rejected when `:config` is supplied).
-- [ ] Reconcile Acceptance command 1
+- [x] Reconcile Acceptance command 1
   (`-m scry.cli --runner kaocha --focus my.ns/test-foo`) with Open Question 1.
   The acceptance criterion hard-codes a named `--focus` flag on the `-m` path,
   but OQ1 leaves the `-m` pass-through surface unresolved between named flags

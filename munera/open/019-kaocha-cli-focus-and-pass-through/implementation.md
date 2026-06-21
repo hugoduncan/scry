@@ -65,6 +65,14 @@ entity ambiguities — left for design/plan resolution, not forced here.
   actionable because it is a boundary/placement question distinct from the
   already-resolved value-coercion *ambiguity* step (whether/how vs where).
 
+## Design review — ambiguity turn (2026-06-21, shared design-review session)
+
+- No new ambiguity review feedback. Design is precise modulo its 3 explicit
+  open questions; residual vagueness (`:focus` key mapping = OQ3; named-vs-
+  generic `-m` surface = OQ1) is already surfaced, and exclusion-set /
+  coercion ambiguities are covered by prior ambiguity steps + this session's
+  architecture coercion-placement step.
+
 ## For the slice addressing these design-steps
 
 Principles to maintain:

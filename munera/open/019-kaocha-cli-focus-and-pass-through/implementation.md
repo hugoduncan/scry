@@ -493,3 +493,18 @@ reaching core mode, so reuse it rather than adding a new message.
   across all three resolve-config paths; merge slot order-independent vs
   `apply-runtime-defaults` (disjoint config keys). Nothing blocks/misleads an
   implementer. Nothing new to file.
+
+## Plan review — inconsistency turn (2026-06-21, third shared plan-review session, second turn)
+
+- No new inconsistency review feedback. Used loaded plan.md/steps.md context from
+  this session's ambiguity turn. plan.md and steps.md are mutually consistent:
+  matching 6-slice order/content, consistent `:kaocha-extra` exclusion+merge
+  ("assoc only when non-empty") and core-mode reject point (`:201`), and OQ1/OQ2/OQ3
+  resolutions faithfully reflected in steps. The `-X` scalar vs `-m` vector `:focus`
+  shape asymmetry is reconciled by Slice 3 coercion (designed, not contradictory).
+  Considered-but-not-filed (duplicates of prior turns): design-steps `:199` stale
+  done-pointer vs `:201` (non-actionable), design Approach step 2 top-level `:focus`
+  vs plan OQ3 `:kaocha/cli-options` (self-qualified by step 4; implementer note
+  already recorded). This third shared plan-review session (ambiguity + inconsistency
+  turns) added zero new design-steps; plan/steps remain converged — proceed to
+  implementation at Slice 1.

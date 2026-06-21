@@ -428,3 +428,14 @@ reaching core mode, so reuse it rather than adding a new message.
   optional alias; (4) API-doc regen constraint noted. The 3 Open Questions
   (OQ1/OQ2/OQ3) are plan/implementation decisions, not architectural misfits.
   Nothing new to file. (Plan/steps not reviewed — design-only turn.)
+
+## Design review — ambiguity turn (2026-06-21, new shared design-review session, second turn)
+
+- No new ambiguity review feedback. Used already-loaded design.md (unchanged
+  since `9e5dec6`) + architecture-turn context from this session. Design is
+  precise modulo its 3 explicit Open Questions (OQ1 named-vs-generic `-m`
+  surface; OQ2 `:config` reject-vs-merge; OQ3 `:focus` key mapping), surfaced as
+  open choices not latent ambiguities. Prior ambiguity steps (exclusion-set
+  enumeration; `-m` value-coercion spec) and the architecture coercion-placement
+  step are executed/reflected. Nothing new to file. (Plan/steps not reviewed —
+  design-only turn.)

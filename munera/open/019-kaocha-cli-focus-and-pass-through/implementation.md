@@ -379,3 +379,21 @@ reaching core mode, so reuse it rather than adding a new message.
   silently ignored (matches unchanged baseline, "core mode unaffected"); and
   `--focus`/`--kaocha-opt focus` key collision (out-of-scope edge case). None
   block/mislead an implementer. Nothing new to file.
+
+## Plan review — inconsistency turn (2026-06-21, another shared plan-review session, second turn)
+
+- No new inconsistency review feedback. Used the loaded plan.md/steps.md context
+  plus a targeted re-read confirming the `normalize-core-options` reject set is
+  at `src/scry/cli.clj:201` (plan + steps both cite `:201` correctly; the
+  checked design-steps ambiguity item's `:199` is a stale done-pointer, not an
+  actionable cross-file inconsistency). plan.md and steps.md are mutually
+  consistent: matching 6-slice order/content, OQ1/OQ2/OQ3 resolutions faithfully
+  reflected in steps, consistent `:kaocha-extra` exclusion+merge and core-mode
+  reject enforcement points, and a designed (not contradictory) `-X` scalar vs
+  `-m` vector `:focus` shape asymmetry absorbed by Slice 3 coercion.
+  Considered-but-not-filed: design Approach step 2's top-level `:focus` wording
+  vs plan OQ3's `:kaocha/cli-options` routing — already considered-and-not-filed
+  in a prior plan-review inconsistency turn with an implementer note (follow plan
+  OQ3), so re-filing would duplicate. Nothing new to file. This new shared
+  plan-review session (ambiguity + inconsistency turns) added zero new
+  design-steps.

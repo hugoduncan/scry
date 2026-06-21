@@ -26,3 +26,15 @@ Concrete locations for later planning/implementation:
 The three Open Questions in `design.md` are genuine design choices (named vs
 generic flag; `:config` precedence vs merge; `:focus` config mapping), not
 entity ambiguities — left for design/plan resolution, not forced here.
+
+## Design review (2026-06-21)
+
+- Architecture review added 1 new design step. No META.md or
+  doc/architecture.md exist; AGENTS.md is the architecture authority. The
+  dependency boundary (core ↛ Kaocha at load time) is respected by the design
+  (`:kaocha-extra` collected in `scry.cli`, merged in `scry.kaocha/run`). The
+  filed step concerns the CLI's explicit-validation boundary and
+  `:scry.cli/outcome-kind` classification: blanket pass-through of arbitrary
+  unrecognized keys risks eroding the deliberate "reject unknown options"
+  architecture (`parse-main-args` argument-error path), distinct from the
+  named-vs-generic Open Question.

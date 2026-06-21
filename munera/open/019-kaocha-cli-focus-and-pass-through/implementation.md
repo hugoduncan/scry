@@ -310,3 +310,32 @@ OQ3 and belongs to plan/implementation.
   processed by `kaocha.api/run`); prior design-review turns already
   considered-and-did-not-file this as co-located with OQ3. Implementer: follow
   plan OQ3 (cli-options), do not place `:focus` at config top-level.
+
+## For the slice addressing the plan-review design-steps (2026-06-21)
+
+Both new plan-review design-steps share one root cause: `:kaocha-extra` is a
+scry-*produced* normalized key, but the key sets only account for user *input*
+keys. Address them together, in one place, so `-X` collection and core-mode
+disposition cannot diverge.
+
+Principles to maintain:
+- Resolve purely in core `src/scry/cli.clj` — these are key-set/routing
+  concerns, not value coercion. Keep the core↛Kaocha load boundary intact (no
+  src-kaocha change needed for these two steps).
+- Prefer reusing existing mechanisms over new branches: `reject-keys`
+  (`src/scry/cli.clj:177`) is the established argument-error path; core-mode
+  rejection of `:kaocha-extra` should extend the `normalize-core-options`
+  reject set (`:199`) rather than add a bespoke check, preserving the
+  `:scry.cli/argument-error` outcome-kind contract.
+- Treat `:kaocha-extra` as a closed scry-managed key: exclude it from the `-X`
+  collection set in `normalize-kaocha-options` so an already-collected (`-m`)
+  `:kaocha-extra` is not re-collected/nested; define the `-m`+`-X` merge rule
+  if both can coexist.
+
+Task info useful for the fix:
+- The `-m` flags (Slice 2) populate `:kaocha-extra` in raw opts *before*
+  `normalize-exec-opts` dispatches on `:runner`, which is exactly why core-mode
+  disposition must be decided explicitly (a Kaocha-only flag can reach the core
+  branch).
+- Both steps are exercisable in `test/scry/cli_test.clj` without the `:kaocha`
+  alias (core normalization + core-mode rejection are pure core paths).

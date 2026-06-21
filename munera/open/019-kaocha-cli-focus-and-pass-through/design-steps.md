@@ -2,7 +2,7 @@
 
 ## Architecture review
 
-- [ ] Specify how generic/arbitrary Kaocha option pass-through preserves the
+- [x] Specify how generic/arbitrary Kaocha option pass-through preserves the
   CLI's existing architectural invariants: explicit option validation at the
   CLI boundary and clean `:scry.cli/outcome-kind` classification. Today
   `parse-main-args` rejects unknown `-m` flags via `argument-error`
@@ -22,7 +22,7 @@
 
 ## Ambiguity review
 
-- [ ] Precisely enumerate the closed "known scry-managed set" excluded from
+- [x] Precisely enumerate the closed "known scry-managed set" excluded from
   pass-through. Approach step 1 describes it loosely as "core-only keys, known
   kaocha keys, and shared keys *like* `:result-format`"; the "like" leaves the
   exact set undefined. The design should list every recognized/excluded key —
@@ -30,7 +30,7 @@
   kaocha key (`:suite`, `:suites`, `:config`, `:dirs`, `:source-paths`,
   `:test-paths`, `:ns-patterns`) — so scry-internal and mode-selector keys are
   never accidentally forwarded into the Kaocha config as `:kaocha-extra`.
-- [ ] Specify how pass-through option *values* are typed/coerced on the `-m`
+- [x] Specify how pass-through option *values* are typed/coerced on the `-m`
   path, where every value arrives as a raw string (unlike typed `-X` EDN values
   such as `:focus "my.ns/test-foo"`). The acceptance requires
   `--focus my.ns/test-foo` to actually focus, which depends on the value
@@ -40,7 +40,7 @@
 
 ## Inconsistency review
 
-- [ ] Correct the Context's claim that unknown options are "silently dropped
+- [x] Correct the Context's claim that unknown options are "silently dropped
   during normalization" with "no effect". That holds only for the `-X` map path
   (`normalize-kaocha-options`'s `cond->`). The `-m` path (`parse-main-args`)
   rejects unknown flags with `argument-error` ("Unknown option: <flag>"), so the
@@ -48,7 +48,7 @@
   my.ns/test-foo` would currently *error*, not no-op. The design should reflect
   that `-m` pass-through requires explicit flag parsing to clear the
   "Unknown option" rejection, not just config forwarding.
-- [ ] Reconcile the internal tension between the Constraint that explicit
+- [x] Reconcile the internal tension between the Constraint that explicit
   `:config` "must still take full precedence" and the offered "merged" option
   for `:config` + pass-through (stated both in Constraints and Open Questions).
   "Full precedence" and "merge pass-through keys into the config" conflict;

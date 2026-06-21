@@ -63,6 +63,30 @@ Principles to maintain:
   `:kaocha-extra`), regenerate `doc/API.md` via `bb api-docs` and re-run
   `bb api-docs --check` + the api-docs regression test.
 
+## Design follow-up execution (2026-06-21)
+
+Executed all 5 design-review follow-ups (architecture x1, ambiguity x2,
+inconsistency x2) by updating `design.md`. Decisions made while resolving them
+(for next reviewer/implementer):
+
+- Pass-through is now **asymmetric and bounded** to preserve the
+  `:scry.cli/outcome-kind` contract: `-m` is opt-in (named flags or
+  `--kaocha-opt`; unknown flags still `argument-error`), while `-X` forwards
+  top-level keys outside the scry-managed set. The `-X` "mistyped key surfaces
+  as runner/load-error" trade-off is accepted and documented in Constraints.
+  This was required because Acceptance command 2 forwards top-level `:focus` on
+  `-X` (so requiring an explicit `:kaocha-extra` key on `-X` would break
+  acceptance); only `-m` can stay strictly opt-in.
+- Open Questions intentionally left open (not preempted): OQ1 named-vs-generic
+  `-m` surface; OQ2 reject-vs-merge for `:config` + pass-through; OQ3 `:focus`
+  key mapping. The `:config` Constraint now only fixes that `:config` is
+  authoritative on conflict, which is consistent with either OQ2 resolution.
+- Latent tension (not introduced here, worth a planner glance): Acceptance
+  command 1 writes `--focus my.ns/test-foo` literally, which presumes a *named*
+  `--focus` flag — i.e. it leans toward one OQ1 answer. If OQ1 picks the
+  generic `--kaocha-opt` mechanism only, that acceptance command would need
+  updating.
+
 Relevant non-task file locations (in addition to entity-resolution notes above):
 - `parse-main-args` — `src/scry/cli.clj:279`; default branch throws the
   "Unknown option" `argument-error` (basis for inconsistency finding 1).

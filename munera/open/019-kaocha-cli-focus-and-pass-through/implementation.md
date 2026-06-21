@@ -83,6 +83,25 @@ entity ambiguities — left for design/plan resolution, not forced here.
   kaocha.api/run" vs OQ3 — treated as already-surfaced by co-located OQ3,
   consistent with the ambiguity turn.
 
+## For the slice addressing the design-review (2026-06-21) steps
+
+The two new steps from this session are each coupled to an existing Open
+Question; address them together rather than in isolation:
+
+- Architecture coercion-placement step ⇄ OQ3. Resolving where `-m` value
+  coercion lives effectively answers OQ3. Preferred direction (keeps the
+  core↛Kaocha boundary): forward `:kaocha-extra` as raw data from core
+  `scry.cli` and let `scry.kaocha/run` interpret it in src-kaocha (e.g. via
+  `kaocha.config/apply-cli-args`). Note the boundary concern is specifically
+  about *value-type* knowledge: core already does Kaocha *key* routing
+  (`:dirs`→`:test-paths`), so that level of key awareness in core is acceptable;
+  embedding per-option value-type coercion in core is the part that misfits.
+- Inconsistency step (Acceptance cmd1 `--focus`) ⇄ OQ1. The `-X` path already
+  satisfies Acceptance command 2 via top-level-key auto-forward, so the fix is
+  narrowly about the `-m` flag surface: either OQ1 commits to a named `--focus`
+  flag (then cmd1 stands) or picks generic `--kaocha-opt`, in which case cmd1
+  must be restated. Do not resolve by widening/narrowing scope.
+
 ## For the slice addressing these design-steps
 
 Principles to maintain:

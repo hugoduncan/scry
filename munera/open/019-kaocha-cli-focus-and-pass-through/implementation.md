@@ -212,3 +212,19 @@ OQ3 and belongs to plan/implementation.
   by kaocha.api/run" vs OQ3's open interpretation-mechanism question: step 4
   self-qualifies step 2 as OQ3, design text unchanged, and the prior session
   already considered-but-did-not-file this as co-located with OQ3. Not re-filed.
+
+## Design-review session outcome — for the slice addressing the design-steps (2026-06-21)
+
+- This shared design-review session (architecture + ambiguity + inconsistency)
+  added **zero** new design-steps. The design has converged: all 8 prior
+  design-steps are checked/executed, and design.md is stable. No design edits
+  are pending — the next lifecycle step can proceed to plan/implementation.
+- All actionable principles and concrete file paths for implementation are
+  already captured above — see "For the slice addressing these design-steps"
+  (boundary, outcome-kind, API-docs principles) and the entity-resolution /
+  follow-up-execution notes (cli.clj + src-kaocha/kaocha.clj line refs, test
+  files). Do not re-derive; start there.
+- The 3 Open Questions (OQ1 extra `-m` flags / `--kaocha-opt`; OQ2 `:config`
+  reject-vs-merge; OQ3 `:focus` direct-key vs `apply-cli-args`) are the real
+  remaining decisions and belong to plan/implementation, not further design
+  review.

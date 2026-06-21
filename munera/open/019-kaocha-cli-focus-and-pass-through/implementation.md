@@ -280,3 +280,18 @@ OQ3 and belongs to plan/implementation.
     raw-`-m`-string vs typed-`-X`-EDN coercion implementer note).
   - "Design-review session outcome" note (the 3 Open Questions OQ1/OQ2/OQ3 are
     the real remaining decisions, belonging to plan/implementation).
+
+## Plan review — ambiguity turn (2026-06-21, shared plan-review session, first turn)
+
+- Ambiguity review added 2 new design steps, both about the normalized
+  `:kaocha-extra` key being unaccounted for in the existing key sets: (1) the
+  `-m`-built `:kaocha-extra` map collides with the `-X` collection step in the
+  shared `normalize-kaocha-options` (re-collection/nesting), and the closed
+  scry-managed key set omits `:kaocha-extra`; (2) Slice 2's "reject
+  `--focus`/`--kaocha-opt` in core mode" has no enforcement point —
+  `normalize-core-options`'s reject set (`src/scry/cli.clj:199`) excludes
+  `:kaocha-extra`, so core-mode pass-through would be silently ignored, not
+  `:scry.cli/argument-error`. Both are plan/steps-level emergent ambiguities,
+  not duplicates of the design-level exclusion-set step (which enumerated the
+  *input* keys, not the produced `:kaocha-extra` key). OQ1/OQ2/OQ3 resolutions
+  in plan.md were not re-litigated.

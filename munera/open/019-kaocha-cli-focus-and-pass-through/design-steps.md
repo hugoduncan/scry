@@ -82,3 +82,30 @@
   restate Acceptance command 1 to track whichever `-m` mechanism OQ1 selects.
   (Acceptance command 2's `-X :focus` is unaffected: top-level `:focus` is
   auto-forwarded as it falls outside the scry-managed key set.)
+
+## Plan review — ambiguity review
+
+- [ ] Resolve how the normalized `:kaocha-extra` key is handled by the
+  `-X`-style collection step in `normalize-kaocha-options`. The enumerated
+  closed scry-managed key set (plan "Scry-managed key set" + Slice 1) does
+  **not** list `:kaocha-extra` itself, yet on the `-m` path the flags pre-build
+  a `:kaocha-extra` map that is carried into `normalize-kaocha-options` as a
+  top-level opts key. Slice 1's "collect all `opts` keys not in
+  `scry-managed-keys` into `:kaocha-extra`" would therefore re-collect that
+  existing `:kaocha-extra` key into a nested `:kaocha-extra` (or clobber it).
+  Slice 2 hand-waves this as "pass it through unchanged", but the plan does not
+  state whether `:kaocha-extra` is added to the excluded set, nor how a
+  pre-existing (`-m`) `:kaocha-extra` map merges with `-X`-collected top-level
+  extras in the single shared `normalize-kaocha-options`. Specify the exclusion
+  and the merge rule.
+- [ ] Specify the mechanism by which `--focus` / `--kaocha-opt` (Kaocha-only
+  `-m` flags) are handled in `:clojure-test` (core) mode. Slice 2 asserts they
+  are "rejected", but the `-m` flags populate `:kaocha-extra` in raw opts
+  independent of runner, and the existing `normalize-core-options` reject set
+  (`kaocha-only-keys` ∪ `kaocha-fallback-keys`, `src/scry/cli.clj:199`) does
+  **not** include `:kaocha-extra`. As specified, core-mode pass-through opts
+  would be silently ignored, not rejected with `:scry.cli/argument-error`.
+  Decide whether core mode rejects (preferred, matching the outcome-kind
+  contract and "core mode unaffected" constraint) or intentionally ignores, and
+  name the concrete enforcement point (e.g. add `:kaocha-extra` to the
+  core-mode reject set).

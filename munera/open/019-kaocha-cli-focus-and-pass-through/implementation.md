@@ -414,3 +414,17 @@ reaching core mode, so reuse it rather than adding a new message.
   `:focus` into `:kaocha/cli-options` (plan OQ3), not config top-level; keep the
   `-X` scalar vs `-m` vector `:focus` asymmetry — Slice 3 coercion normalizes
   both ("scalar or collection" → vector of keywords).
+
+## Design review — architecture turn (2026-06-21, new shared design-review session, first turn)
+
+- No new architectural review feedback. design.md unchanged since `9e5dec6`;
+  reviewed against AGENTS.md (sole architecture authority — no META.md /
+  doc/architecture.md). Architecturally coherent: (1) core↛Kaocha load boundary
+  intact — `:kaocha-extra` raw data + key routing only in core `scry.cli`,
+  value-type coercion in `scry.kaocha/run` (src-kaocha); (2) `:scry.cli/outcome-kind`
+  contract preserved — asymmetric/bounded pass-through (`-m` opt-in, unknown
+  flags still `:scry.cli/argument-error`; `-X` documented trade-off; core mode
+  rejects `:kaocha-extra`); (3) Kaocha merge logic kept in src-kaocha under the
+  optional alias; (4) API-doc regen constraint noted. The 3 Open Questions
+  (OQ1/OQ2/OQ3) are plan/implementation decisions, not architectural misfits.
+  Nothing new to file. (Plan/steps not reviewed — design-only turn.)

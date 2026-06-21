@@ -295,3 +295,18 @@ OQ3 and belongs to plan/implementation.
   not duplicates of the design-level exclusion-set step (which enumerated the
   *input* keys, not the produced `:kaocha-extra` key). OQ1/OQ2/OQ3 resolutions
   in plan.md were not re-litigated.
+
+## Plan review — inconsistency turn (2026-06-21, shared plan-review session, second turn)
+
+- No inconsistency review feedback. plan.md and steps.md are mutually
+  consistent (matching 6-slice order, merge-point, flag surface, outcome-kind
+  preservation) and align with the converged design; OQ1/OQ2/OQ3 resolutions in
+  plan.md are legitimate refinements of design's deferred questions, not
+  contradictions. Considered but not filed: design Approach step 2's loose
+  "`:focus` ends up as `:focus` in the Kaocha config" reads top-level, while
+  plan OQ3 routes it into `:kaocha/cli-options {:focus ...}` (filter plugin
+  translates to `:kaocha.filter/focus`). Now that plan resolves OQ3, design
+  step 2 is stale-but-compatible (cli-options *is* "in the config", still
+  processed by `kaocha.api/run`); prior design-review turns already
+  considered-and-did-not-file this as co-located with OQ3. Implementer: follow
+  plan OQ3 (cli-options), do not place `:focus` at config top-level.

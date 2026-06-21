@@ -439,3 +439,16 @@ reaching core mode, so reuse it rather than adding a new message.
   enumeration; `-m` value-coercion spec) and the architecture coercion-placement
   step are executed/reflected. Nothing new to file. (Plan/steps not reviewed —
   design-only turn.)
+
+## Design review — inconsistency turn (2026-06-21, new shared design-review session, third turn)
+
+- No new inconsistency review feedback. Used already-loaded design.md (unchanged
+  since `9e5dec6`) + this session's architecture/ambiguity-turn context. The 3
+  prior inconsistency steps (Context `-X` "silently dropped" vs `-m`
+  "Unknown option"; `:config` authoritative-vs-merge wording; Acceptance cmd1
+  `--focus` vs OQ1) are executed/reflected. Approach step 2's declarative
+  `:focus`-config wording is self-qualified by step 4 as OQ3 — co-located, not a
+  latent contradiction; already considered-and-not-filed in prior turns, so not
+  re-filed. Nothing new to file. (Plan/steps not reviewed — design-only turn.)
+  This shared design-review session (all three turns) added zero new design-steps;
+  design remains converged and stable.

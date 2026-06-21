@@ -70,3 +70,15 @@
   "Full precedence" and "merge pass-through keys into the config" conflict;
   clarify whether `:config` wins only on conflicting keys (merge adds the rest)
   or is wholly authoritative (pass-through rejected when `:config` is supplied).
+- [ ] Reconcile Acceptance command 1
+  (`-m scry.cli --runner kaocha --focus my.ns/test-foo`) with Open Question 1.
+  The acceptance criterion hard-codes a named `--focus` flag on the `-m` path,
+  but OQ1 leaves the `-m` pass-through surface unresolved between named flags
+  and a generic `--kaocha-opt KEY VALUE` mechanism. If OQ1 resolves to
+  generic-only, `--focus` as a bare flag would not exist and command 1 would
+  have to be e.g. `--kaocha-opt focus my.ns/test-foo`, so the acceptance
+  criterion and the open `-m` surface choice currently contradict. The design
+  should either commit OQ1 to providing (at least) a named `--focus` flag, or
+  restate Acceptance command 1 to track whichever `-m` mechanism OQ1 selects.
+  (Acceptance command 2's `-X :focus` is unaffected: top-level `:focus` is
+  auto-forwarded as it falls outside the scry-managed key set.)

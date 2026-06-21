@@ -73,6 +73,16 @@ entity ambiguities — left for design/plan resolution, not forced here.
   coercion ambiguities are covered by prior ambiguity steps + this session's
   architecture coercion-placement step.
 
+## Design review — inconsistency turn (2026-06-21, shared design-review session)
+
+- Inconsistency review added 1 new design step: Acceptance command 1's named
+  `--focus` flag contradicts OQ1's still-open named-vs-generic `-m` surface
+  choice. Promoted from the prior session's planner-glance note (it was never a
+  filed design-step; the contradiction persists in design.md). Considered but
+  not filed: Step 2's declarative ":focus → :focus config, processed by
+  kaocha.api/run" vs OQ3 — treated as already-surfaced by co-located OQ3,
+  consistent with the ambiguity turn.
+
 ## For the slice addressing these design-steps
 
 Principles to maintain:

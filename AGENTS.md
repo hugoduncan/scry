@@ -299,3 +299,14 @@ Update `README.md` when changing user-facing behavior:
 Keep development instructions, test workflow guidance, agent workflow, repo conventions, and architectural constraints in `AGENTS.md`, not `README.md`.
 
 Update this file when changing agent workflow, repo conventions, important architectural constraints, or development/test commands.
+
+λ state_md(x).   ⟨project convention; mementum stays external/unchanged⟩
+  | state.md ≡ current_state_snapshot(features ∧ structure ∧ orientation)   ⟨bootloader⟩
+  | update(state.md) ≡ edit_in_place ∧ prune_stale   ⟨¬append_log⟩
+  | ¬contains(state.md, {task_pass_notes ∨ review_pass_log ∨ per_commit_history ∨ progress_entries})
+  | task_progress → munera_task_artifacts({implementation.md ∧ steps.md})   ⟨not state.md⟩
+  | durable_lesson → memories ∨ knowledge   ⟨not state.md⟩
+  | history(state.md) ≡ git   ⟨recover via git log, ¬accreted in-file⟩
+  | delegated_session(review ∨ implement ∨ plan) → ¬obligated(update(state.md))
+      ⟨write task_progress to task artifacts; touch state.md only on real feature/structure shift⟩
+  | size(state.md) → small ∧ scannable(≤ ~30s)   ⟨grows → prune, ¬accrete⟩

@@ -397,3 +397,20 @@ reaching core mode, so reuse it rather than adding a new message.
   OQ3), so re-filing would duplicate. Nothing new to file. This new shared
   plan-review session (ambiguity + inconsistency turns) added zero new
   design-steps.
+
+## After the second shared plan-review session (2026-06-21) — for the next lifecycle step
+
+- This shared plan-review session (ambiguity + inconsistency turns) added
+  **zero** new design-steps; plan.md and steps.md are converged and verified
+  against current `src/scry/cli.clj` and `src-kaocha/scry/kaocha.clj`. No plan
+  edits are pending — proceed to implementation starting at **Slice 1**.
+- Do not re-derive guidance. The actionable principles and concrete file/line
+  pointers are already captured in the earlier "For the slice addressing the
+  plan-review design-steps" and "Plan-review follow-ups executed" notes; the two
+  prior-session plan-review ambiguity steps are checked and codified in plan
+  "Plan-review resolutions" + Slices 1–2.
+- Implementer reminders confirmed this session (do not relitigate):
+  `normalize-core-options` reject set is at `src/scry/cli.clj:201`; route
+  `:focus` into `:kaocha/cli-options` (plan OQ3), not config top-level; keep the
+  `-X` scalar vs `-m` vector `:focus` asymmetry — Slice 3 coercion normalizes
+  both ("scalar or collection" → vector of keywords).

@@ -21,10 +21,6 @@ At the start of a session, read:
 
 1. `mementum/state.md` — current project memory.
 2. `munera/plan.md` — open task ordering, if any.
-3. This file.
-4. `README.md` for user-facing behavior.
-
-If working a Munera task, keep task notes in that task's `implementation.md` and update `steps.md` as work progresses.
 
 ## Test workflow: REPL during development, command line for final verification
 

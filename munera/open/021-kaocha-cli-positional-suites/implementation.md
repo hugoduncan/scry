@@ -285,6 +285,16 @@
   `git diff 617b3ee..HEAD -- steps.md` is empty: this batch added no `steps.md`
   checklist lines, so the plan-follow-up candidate work set (steps.md additions)
   is empty.
+- ambiguity review (plan-review session, post-baseline 617b3ee batch, HEAD
+  8e3962d): no ambiguity review feedback — plan.md/steps.md unchanged since the
+  prior no-feedback ambiguity review (4228856); fresh read against
+  `src/scry/cli.clj` re-confirms the discrimination rule, `:suite-values`
+  accumulator/count-based collapse (lines 286-296), core-mode
+  `kaocha-only-keys`/`reject-keys` rejection (line 39), flag value consumption,
+  the split `--config` test handling, and doc anchors are all concrete and
+  code-grounded. The open design.md step-6 `--config` item is an inconsistency
+  for the design profile, not a plan/steps ambiguity.
+
 - The single batch finding (`da5f24d`) was recorded in `design-steps.md` under
   "## Plan-review follow-up (inconsistency review)" and requires editing
   **design.md** Approach step 6 (lines 65-66): reword "keep `--config`

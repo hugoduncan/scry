@@ -538,6 +538,16 @@ Verification (all green):
   the fused test is split; leave Constraints (l.91)/Acceptance (l.104) and
   `--focus`/`--kaocha-opt` untouched; keep Interpretation A frozen.
 
+### Implementation review pass (independent) — no actionable feedback
+
+- added 0 steps. Independently verified code/tests/docs against design
+  (Interpretation A held): discrimination rule + `:suite-values` collapse +
+  core-mode reuse of `kaocha-only-keys`/`reject-keys` confirmed in source; parse
+  and e2e positional tests, core-mode rejection, and removed-flag regression all
+  present. Re-ran `scry.cli-test` (45/363, 0/0) and `scry.cli-kaocha-test`
+  (8/57, 0/0) green. README/AGENTS/api_docs.clj/doc/API.md/CHANGELOG consistent;
+  `-X` examples unchanged; out-of-scope `SKILL.md:159` correctly left flagged.
+
 ### Final design-step reconciliation — complete
 
 - Executed the last open design-step (design-steps.md, "Plan-review follow-up

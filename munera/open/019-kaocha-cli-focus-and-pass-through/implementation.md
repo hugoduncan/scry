@@ -699,3 +699,14 @@ Task complete: all six slices implemented and verified.
   The only residual candidate (`--kaocha-opt` core-mode reject) shares the exact
   `:kaocha-extra` `reject-keys` enforcement point already tested via `--focus`,
   so it is redundant rather than new signal.
+
+## Test review (2026-06-21, sixth pass)
+
+- Added 0 follow-up steps. Tests across cli/cli-kaocha/kaocha namespaces are
+  single-concern, behavior-focused (assert real focus filtering, not key
+  presence), use boundary injection + real Kaocha (no mocks), and cover the
+  distinct tests.edn / explicit-`:config` / synthetic-fallback paths plus
+  coercion shapes, config-authoritative merge, full closed-set boundary
+  no-leak, `-m`/`-X` + generic `--kaocha-opt` E2E, and the api-docs content
+  contract. The lone residual (mistyped `-X` key → runner/load-error) is a
+  documented Kaocha behavior trade-off, not a scry contract worth locking.

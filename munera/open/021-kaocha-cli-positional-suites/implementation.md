@@ -5,6 +5,10 @@
 - architectural review: no actionable feedback (design fits the parse → collapse
   → normalize → execute pipeline, the frozen `-m`-only scope, the `-X`/adapter
   boundary, and the `:scry.cli/outcome-kind` contract).
+- architectural re-review (post follow-up edits): still no actionable feedback;
+  the ambiguity/inconsistency design edits were text-only clarifications and did
+  not change the architecture or scope, so the sign-off holds for the revised
+  design.
 - ambiguity review: added 1 design step (resolve the Open Questions interleaving
   rule into a definitive decision + explicit positional-vs-token discrimination
   rule).

@@ -295,6 +295,15 @@
   code-grounded. The open design.md step-6 `--config` item is an inconsistency
   for the design profile, not a plan/steps ambiguity.
 
+- inconsistency review (plan-review session, HEAD post-8e3962d): no new
+  inconsistency review feedback — plan.md/steps.md unchanged since the prior
+  inconsistency review (da5f24d). plan↔steps remain internally consistent (slice
+  order, parser rule, `:suite-values` collapse, core-mode argument-error framing,
+  docs-slice api_docs.clj mechanism, reconciled `--config` test handling). The
+  only residual cross-file divergence (design.md step-6 `--config` "as-is" vs
+  plan/steps) is already recorded as an unchecked design-step for the design
+  profile; not re-added (rule 3 no-duplicate).
+
 - The single batch finding (`da5f24d`) was recorded in `design-steps.md` under
   "## Plan-review follow-up (inconsistency review)" and requires editing
   **design.md** Approach step 6 (lines 65-66): reword "keep `--config`

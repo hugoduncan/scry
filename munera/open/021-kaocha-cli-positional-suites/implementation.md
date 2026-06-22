@@ -601,3 +601,10 @@ Verification (all green):
   unchanged; CHANGELOG Unreleased documents the breaking flag removal; the prior
   stale `SKILL.md:159` example is now positional. No remaining stale
   `--suite`/`-s`/`--suites` references outside the CHANGELOG removal note.
+
+### Code-shaper review pass (independent, HEAD c80a274)
+
+- added 0 steps; no actionable feedback. Discrimination rule, `:suite-values`
+  reuse, count-based collapse, and core-mode `kaocha-only-keys` reuse read
+  simple/consistent/robust. Pre-existing redundant `opts` let-binding in
+  `main-opts->exec-opts` is unchanged by this task and out of scope.

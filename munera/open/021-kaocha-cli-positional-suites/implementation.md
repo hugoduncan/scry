@@ -276,3 +276,26 @@
   positionals now collapse to `:suite`/`:suites`). Consistent with the Acceptance
   line. No new ambiguity/inconsistency introduced.
 - All design-steps are now checked; design.md should be stable for plan creation.
+
+### Plan-review follow-up pass (batch baseline 617b3ee) — no in-scope work
+
+- Batch segment: `4228856` (plan ambiguity, no feedback) → `da5f24d` (plan
+  inconsistency, +1 item) → `77929c7` (note commit). Baseline = parent of oldest
+  segment commit `4228856` = `617b3ee` (the prior plan-follow-up completion).
+  `git diff 617b3ee..HEAD -- steps.md` is empty: this batch added no `steps.md`
+  checklist lines, so the plan-follow-up candidate work set (steps.md additions)
+  is empty.
+- The single batch finding (`da5f24d`) was recorded in `design-steps.md` under
+  "## Plan-review follow-up (inconsistency review)" and requires editing
+  **design.md** Approach step 6 (lines 65-66): reword "keep `--config`
+  pass-through test as-is" to state `--config` *coverage* is preserved while its
+  fused `--suites`/`--config` test is split/edited (mirroring plan step 5 / steps
+  Slice 2). That is a **design.md** edit, which is read-only for the
+  plan-follow-up profile (editable set: plan.md/steps.md/implementation.md/
+  code/tests/docs). The prior pass's analogous item was executable only because
+  it reconciled within plan.md; this one cannot be resolved by any plan.md/
+  steps.md edit (plan/steps are already correct — design.md lags them).
+- Action: left the `design-steps.md` item **unchecked** and did not edit
+  design.md (out of plan-profile scope). It is a design-review-follow-up
+  concern; a design-profile pass should execute it. No plan.md/steps.md change
+  was warranted this pass; no new ambiguity/inconsistency introduced.

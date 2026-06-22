@@ -49,7 +49,7 @@
 
 ## Test-review follow-up
 
-- [ ] Add a focused regression test in `test/scry/cli_test.clj`
+- [x] Add a focused regression test in `test/scry/cli_test.clj`
       (`parse-main-args-test`) asserting the clean-removal acceptance criterion:
       `--suite unit`, `-s unit`, and `--suites "[:unit]"` now each raise
       `:scry.cli/argument-error` ("Unknown option: ...") on `-m`. This behaviour

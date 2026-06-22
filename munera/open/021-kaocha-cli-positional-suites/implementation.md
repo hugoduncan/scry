@@ -392,3 +392,17 @@ Verification (all green):
 - added 1 step: no automated regression test covers the removed
   `--suite`/`-s`/`--suites` flags now erroring (design acceptance criterion);
   only manually verified.
+
+### Test-review follow-up pass — complete
+
+- addressed 1 test-review follow-up step. Added a `testing` block
+  ("removed -m Kaocha suite flags now raise an unknown-option error") inside
+  `parse-main-args-test` in `test/scry/cli_test.clj`, asserting each of
+  `--runner kaocha --suite unit`, `... -s unit`, and `... --suites "[:unit]"`
+  raises `:scry.cli/argument-error` (via the existing `argument-error?` helper)
+  with an "Unknown option:" message — guarding the clean-removal acceptance
+  criterion against re-introducing these flags or a discrimination-rule
+  regression.
+- Verification: `clojure -M:test` `scry.cli-test` → 45 tests, 363 assertions,
+  0 fail/0 err (was 357; +6 from the new block). `bb clj-fmt:check` clean;
+  `bb clj-kondo:lint` 0 errors/0 warnings.

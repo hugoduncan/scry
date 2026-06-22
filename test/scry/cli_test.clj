@@ -268,6 +268,21 @@
     (is (argument-error?
          #(#'cli/parse-main-args ["--runner" "clojure-test"
                                   "foo"]))))
+  (testing "removed -m Kaocha suite flags now raise an unknown-option error"
+    ;; Clean-removal acceptance criterion: the former --suite/-s/--suites flags
+    ;; carry no alias on the -m wrapper; each must now be rejected as an unknown
+    ;; option rather than silently re-accepted.
+    (doseq [args [["--runner" "kaocha" "--suite" "unit"]
+                  ["--runner" "kaocha" "-s" "unit"]
+                  ["--runner" "kaocha" "--suites" "[:unit]"]]]
+      (is (argument-error? #(#'cli/parse-main-args args))
+          (str "expected :scry.cli/argument-error for " (pr-str args)))
+      (let [ex (try
+                 (#'cli/parse-main-args args)
+                 nil
+                 (catch clojure.lang.ExceptionInfo e e))]
+        (is (str/includes? (ex-message ex) "Unknown option:")
+            (str "expected \"Unknown option:\" message for " (pr-str args))))))
   (testing "help does not normalize or run"
     (let [parsed (#'cli/parse-main-args ["--help"])]
       (is (= true (:help? parsed)))

@@ -11,6 +11,20 @@
   (`bb api-docs --check`, `scry.api-docs-test`) won't flag the stale `--suite`
   text. `bb/scry/api_docs.clj` must be edited. `SKILL.md:159` also has the stale
   form but is outside the design's README/AGENTS/API doc scope.
+### Notes for the plan-review follow-up (docs-slice design-step)
+
+- This follow-up is a plan.md/steps.md docs-slice text correction, not a code or
+  scope change — keep Interpretation A frozen and do not widen the design's
+  README/AGENTS/API doc scope (so leave `SKILL.md` for the maintainer).
+- Exact source anchor: `bb/scry/api_docs.clj`, the `intro` string (~line 71-72),
+  literal `clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit`. Edit
+  that string to the positional form, then run `bb api-docs` to regenerate
+  `doc/API.md`. There is no runtime docstring carrying this example.
+- README/AGENTS anchors already enumerated in steps Slice 3 are accurate
+  (README lines 79, 143-144, 146; AGENTS line 128); only the API.md source was
+  unaccounted for. `-X` example `:runner :kaocha :suite :unit` in the same
+  `intro` string stays unchanged (adapter `-X` path is out of scope).
+
 - ambiguity review (plan + steps): no ambiguity review feedback — accumulator
   (`:suite-values`), count-based collapse (single→`:suite`/multi→`:suites`),
   positional-vs-token discrimination rule, dropped-vs-retained mutual-exclusion

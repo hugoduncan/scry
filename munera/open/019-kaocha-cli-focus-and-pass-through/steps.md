@@ -181,6 +181,21 @@
   destination or excluded. (`core-only-keys` are rejected earlier in Kaocha mode
   and so are out of scope for this collection-leak assertion.)
 
+## Docs review follow-ups (2026-06-21)
+
+- [ ] Add an `## Unreleased` entry to `CHANGELOG.md` for this task's
+  user-visible Kaocha CLI pass-through feature. The change introduces new
+  user-facing flags/behaviours (`-m` `--focus SYM` repeatable, `-m`
+  `--kaocha-opt KEY VALUE`, `-X` top-level-key pass-through, merge into the
+  resolved Kaocha config's `:kaocha/cli-options` with `:config` authoritative on
+  conflict, `:focus` keyword coercion, and the `-X` mistyped-key →
+  runner/load-error trade-off). Slice 5 documented these in `README.md` and the
+  `scry.kaocha/run` docstring / `doc/API.md`, but `CHANGELOG.md`'s `## Unreleased`
+  section was not updated (it still only lists the quickdoc API-reference entry),
+  so a user-visible CLI change is missing from the changelog the project
+  otherwise keeps current per-change. Add a concise bullet under `## Unreleased`
+  matching the existing changelog style.
+
 ## Test review follow-ups (2026-06-21, fourth pass)
 
 - [x] Lock the new `:kaocha-extra` public surface in the api-docs content

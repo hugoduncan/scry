@@ -710,3 +710,10 @@ Task complete: all six slices implemented and verified.
   no-leak, `-m`/`-X` + generic `--kaocha-opt` E2E, and the api-docs content
   contract. The lone residual (mistyped `-X` key → runner/load-error) is a
   documented Kaocha behavior trade-off, not a scry contract worth locking.
+
+## Docs review (2026-06-21)
+
+- Added 1 follow-up step: user-visible Kaocha CLI pass-through feature is
+  documented in README + `scry.kaocha/run` docstring/`doc/API.md`, but
+  `CHANGELOG.md` `## Unreleased` was not updated. README/API.md/CLI usage text
+  otherwise accurate and consistent.

@@ -217,23 +217,29 @@
     (let [opts (#'cli/parse-main-args ["--namespace-regex" "scry\\.fixtures\\..*"])]
       (is (= :clojure-test (:runner opts)))
       (is (instance? java.util.regex.Pattern (:ns-pattern opts)))))
-  (testing "accepted repeated Kaocha suite flags"
+  (testing "single positional suite selector collapses to :suite"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
-                                       "--suite" "unit"
-                                       "--suite" "integration"])]
+                                       "unit"])]
       (is (= :kaocha (:runner opts)))
-      (is (= ["unit" "integration"] (:suites opts)))))
-  (testing "accepted Kaocha short suite flags"
-    (let [opts (#'cli/parse-main-args ["-r" "kaocha"
-                                       "-s" "unit"
-                                       "-s" "integration"])]
-      (is (= :kaocha (:runner opts)))
-      (is (= ["unit" "integration"] (:suites opts)))))
-  (testing "accepted Kaocha suites and config EDN flags"
+      (is (= "unit" (:suite opts)))
+      (is (not (contains? opts :suites)))))
+  (testing "multiple positional suite selectors collapse to :suites"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
-                                       "--suites" "[:unit]"
+                                       "unit" "integration"])]
+      (is (= :kaocha (:runner opts)))
+      (is (= ["unit" "integration"] (:suites opts)))
+      (is (not (contains? opts :suite)))))
+  (testing "positional suite selectors are accepted interleaved with flags"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "unit"
+                                       "--focus" "my.ns/test-foo"
+                                       "integration"])]
+      (is (= :kaocha (:runner opts)))
+      (is (= ["unit" "integration"] (:suites opts)))
+      (is (= {:focus ["my.ns/test-foo"]} (:kaocha-extra opts)))))
+  (testing "accepted Kaocha config EDN flag"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                        "--config" "{:kaocha/tests []}"])]
-      (is (= [:unit] (:suites opts)))
       (is (= {:kaocha/tests []} (:config opts)))))
   (testing "accepted Kaocha --focus pass-through flag"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
@@ -258,6 +264,10 @@
     (is (argument-error?
          #(#'cli/parse-main-args ["--runner" "clojure-test"
                                   "--focus" "my.ns/test-foo"]))))
+  (testing "positional suite selector rejected in core mode"
+    (is (argument-error?
+         #(#'cli/parse-main-args ["--runner" "clojure-test"
+                                  "foo"]))))
   (testing "help does not normalize or run"
     (let [parsed (#'cli/parse-main-args ["--help"])]
       (is (= true (:help? parsed)))
@@ -271,9 +281,7 @@
     (is (argument-error? #(#'cli/parse-main-args ["--ns-pattern" "a"
                                                   "--namespace-pattern" "b"])))
     (is (argument-error? #(#'cli/parse-main-args ["--namespace-pattern" "a"
-                                                  "--namespace-regex" "b"])))
-    (is (argument-error? #(#'cli/parse-main-args ["--suite" "unit"
-                                                  "--suites" "[:integration]"])))))
+                                                  "--namespace-regex" "b"])))))
 
 (defn- temp-dir
   []

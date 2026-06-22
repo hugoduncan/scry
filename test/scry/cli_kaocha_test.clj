@@ -169,6 +169,44 @@
              (is (str/includes? (:out result-data) "integration err"))
              (is (= "" (:err result-data))))))))))
 
+(deftest kaocha-cli-positional-suite-run-test
+  ;; Positional suite selectors on the -m wrapper flow through the full
+  ;; parse -> collapse -> normalize -> scry.kaocha/run chain: a single
+  ;; positional selects one suite (:suite), multiple positionals select many
+  ;; (:suites).
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [unit-ns (unique-ns "pos" "unit-test")
+           integration-ns (unique-ns "pos" "integration-test")
+           failing-var (symbol (str integration-ns) "failing-test")]
+       (write-suite-test-ns!
+        project
+        unit-ns
+        "(deftest passing-test\n  (is true))\n")
+       (write-suite-test-ns!
+        project
+        integration-ns
+        "(deftest failing-test\n  (is (= 1 2)))\n")
+       (write-tests-edn! project unit-ns integration-ns)
+       (with-user-dir-and-ns-cleanup project [unit-ns integration-ns]
+         (testing "single positional selector runs only the selected suite"
+           (let [opts (#'cli/parse-main-args ["--runner" "kaocha" "unit"])
+                 outcome (run-cli-in project opts)]
+             (is (= "unit" (:suite opts)))
+             (is (= 0 (:exit-code outcome)))
+             (is (str/starts-with? (:stdout outcome) ".Assertions: 1 passed"))
+             (is (= [] (result-files project)))))
+         (testing "multiple positional selectors run both suites"
+           (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                              "unit" "integration"])
+                 outcome (run-cli-in project opts)]
+             (is (= ["unit" "integration"] (:suites opts)))
+             (is (= 1 (:exit-code outcome)))
+             (is (str/includes? (:stdout outcome)
+                                "Assertions: 1 passed, 1 failed, 0 errored"))
+             (is (= [(result-file-name failing-var)]
+                    (result-files project))))))))))
+
 (deftest kaocha-cli-load-error-stderr-test
   ;; A test namespace that fails to load surfaces an inline stderr diagnostic
   ;; (the load-error message + root cause) and a pointer at the results dir,

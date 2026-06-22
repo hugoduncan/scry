@@ -18,12 +18,12 @@
        "  -v, --var VAR                   Fully-qualified test var; repeatable, core mode only\n"
        "      --ns-pattern REGEX          Namespace regex, core mode only\n"
        "      --result-format EDN         Result-format map\n"
-       "  -s, --suite SUITE               Kaocha suite; repeatable\n"
-       "      --suites EDN                Kaocha suites collection\n"
        "      --config EDN                Kaocha config map\n"
        "      --focus SYM                 Kaocha focus selector; repeatable, Kaocha mode only\n"
        "      --kaocha-opt KEY VALUE      Forward a raw Kaocha cli-option; Kaocha mode only\n"
-       "      --help                      Print this help"))
+       "      --help                      Print this help\n\n"
+       "Positional arguments:\n"
+       "  [SUITE]...                      Kaocha suite selectors; Kaocha mode only"))
 
 (def ^:private result-scopes [:suite :namespace :var])
 
@@ -340,20 +340,6 @@
             (recur (next more)
                    (assoc raw :result-format (read-edn-option value :result-format))))
 
-          ("--suite" "-s")
-          (let [value (require-value more flag)]
-            (when (:suites raw)
-              (argument-error "Specify either --suite or --suites, not both"
-                              {:options [:suite :suites]}))
-            (recur (next more) (add-repeat raw :suite-values value)))
-
-          "--suites"
-          (let [value (require-value more flag)]
-            (when (seq (:suite-values raw))
-              (argument-error "Specify either --suite or --suites, not both"
-                              {:options [:suite :suites]}))
-            (recur (next more) (assoc raw :suites (read-edn-option value :suites))))
-
           "--config"
           (let [value (require-value more flag)]
             (recur (next more) (assoc raw :config (read-edn-option value :config))))
@@ -370,7 +356,13 @@
             (recur (next after-key)
                    (assoc-in raw [:kaocha-extra (keyword k)] v)))
 
-          (argument-error (str "Unknown option: " flag) {:option flag}))))))
+          ;; Positional suite selectors (Kaocha mode). A token starting with `-`
+          ;; that is not a recognized flag is an unknown-option argument error;
+          ;; any other token is collected, in order, as a positional suite
+          ;; selector that `main-opts->exec-opts` collapses to `:suite`/`:suites`.
+          (if (str/starts-with? flag "-")
+            (argument-error (str "Unknown option: " flag) {:option flag})
+            (recur more (add-repeat raw :suite-values flag))))))))
 
 ;;; CLI execution
 

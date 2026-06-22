@@ -2,49 +2,49 @@
 
 ## Slice 1 — Parser, collapse, usage (`src/scry/cli.clj`)
 
-- [ ] Remove the `("--suite" "-s")` flag branch (and its `--suites`
+- [x] Remove the `("--suite" "-s")` flag branch (and its `--suites`
       mutual-exclusion check) from `parse-main-args`.
-- [ ] Remove the `"--suites"` flag branch (and its `:suite-values`
+- [x] Remove the `"--suites"` flag branch (and its `:suite-values`
       mutual-exclusion check) from `parse-main-args`.
-- [ ] Change the `parse-main-args` loop `default` case so a token starting with
+- [x] Change the `parse-main-args` loop `default` case so a token starting with
       `-` still raises `:scry.cli/argument-error` ("Unknown option: ...").
-- [ ] In the same `default` case, collect any token not starting with `-` as an
+- [x] In the same `default` case, collect any token not starting with `-` as an
       ordered positional suite selector into the accumulator that
       `main-opts->exec-opts` collapses.
-- [ ] Confirm `main-opts->exec-opts` still collapses a single accumulated
+- [x] Confirm `main-opts->exec-opts` still collapses a single accumulated
       selector to `:suite <token>` and multiple to `:suites [<tokens>...]`, and
       remove only the now-dead flag-specific mutual-exclusion machinery.
-- [ ] Update the `usage` def: drop the `-s, --suite SUITE` and `--suites EDN`
+- [x] Update the `usage` def: drop the `-s, --suite SUITE` and `--suites EDN`
       lines; add a line documenting positional suite selectors for Kaocha mode.
-- [ ] REPL-check parsing during development: `(#'cli/parse-main-args
+- [x] REPL-check parsing during development: `(#'cli/parse-main-args
       ["--runner" "kaocha" "unit"])` → `:suite "unit"`; `[... "unit"
       "integration"]` → `:suites ["unit" "integration"]`; verify a `-`-prefixed
       unknown token still errors.
 
 ## Slice 2 — Tests
 
-- [ ] In `test/scry/cli_test.clj`, remove the "accepted repeated Kaocha suite
+- [x] In `test/scry/cli_test.clj`, remove the "accepted repeated Kaocha suite
       flags", "accepted Kaocha short suite flags", and `--suite`/`--suites`
       mutual-exclusion parser-error tests.
-- [ ] Keep the `--suites`/`--config` EDN test only for `--config`; replace the
+- [x] Keep the `--suites`/`--config` EDN test only for `--config`; replace the
       `--suites` portion with positional coverage (single positional → `:suite`,
       multiple positionals → `:suites`).
-- [ ] Add a positional-selector test: `--runner kaocha unit` →
+- [x] Add a positional-selector test: `--runner kaocha unit` →
       `(:suite opts) = "unit"`.
-- [ ] Add a positional-selector test: `--runner kaocha unit integration` →
+- [x] Add a positional-selector test: `--runner kaocha unit integration` →
       `(:suites opts) = ["unit" "integration"]`.
-- [ ] Add a position-agnostic test: selectors interleaved with flags (e.g.
+- [x] Add a position-agnostic test: selectors interleaved with flags (e.g.
       `--runner kaocha unit --focus my.ns/test-foo integration`) collect both
       selectors and the focus pass-through.
-- [ ] Add a core-mode positional rejection test: `--runner clojure-test foo`
+- [x] Add a core-mode positional rejection test: `--runner clojure-test foo`
       yields `:scry.cli/argument-error` (assert outcome-kind / argument-error?,
       not the old "Unknown option" text).
-- [ ] Keep `--focus`, repeated `--focus`, `--kaocha-opt`, repeated
+- [x] Keep `--focus`, repeated `--focus`, `--kaocha-opt`, repeated
       `--kaocha-opt`, and `--focus rejected in core mode` tests unchanged.
-- [ ] In `test/scry/cli_kaocha_test.clj`, add/adjust an end-to-end test proving
+- [x] In `test/scry/cli_kaocha_test.clj`, add/adjust an end-to-end test proving
       `--runner kaocha <suite>` positional selection runs the selected suite
       (single → `:suite`) and, where covered, multiple positionals (→ `:suites`).
-- [ ] REPL-run updated focused tests during iteration via `scry.core/run` on
+- [x] REPL-run updated focused tests during iteration via `scry.core/run` on
       `scry.cli-test` (core) and `scry.cli-kaocha-test` (`:test:kaocha` REPL).
 
 ## Slice 3 — Docs sync

@@ -105,6 +105,20 @@
   scope change. Plan/steps otherwise consistent with design (scope, parser rule,
   collapse, core-mode argument-error, docs-slice api_docs.clj mechanism).
 
+### Notes for the inconsistency follow-up (design.md step 6 `--config`-test design-step)
+
+- Design-artifact text edit only: no code/test change in the follow-up pass.
+  Interpretation A stays frozen. The actual `--config` test split/edit is
+  steps.md Slice 2 implementation work, not this follow-up.
+- Do not re-derive the corrected wording: mirror plan.md step 5, which already
+  carries the canonical phrasing (`--config` *coverage* preserved; fused
+  `--suites`/`--config` test split/edited to drop the `--suites` portion). Edit
+  design.md Approach step 6 (lines 65-66) to match; leave `--focus`/`--kaocha-opt`
+  as genuinely-unchanged tests.
+- Leave design.md Constraints (l.91) and Acceptance (l.104) untouched — they
+  speak of `--config` *behavior* (unchanged), which is correct and not the
+  inconsistency.
+
 ### Plan-review follow-up pass (batch baseline 00fffd1) — complete
 
 - Batch segment: `9c26f06` (plan ambiguity, no feedback) → `84c2d66` (plan

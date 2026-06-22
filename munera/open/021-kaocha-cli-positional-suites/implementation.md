@@ -548,6 +548,15 @@ Verification (all green):
   (8/57, 0/0) green. README/AGENTS/api_docs.clj/doc/API.md/CHANGELOG consistent;
   `-X` examples unchanged; out-of-scope `SKILL.md:159` correctly left flagged.
 
+### Test-review pass (independent, HEAD 9753507)
+
+- added 0 steps; no new actionable feedback. Independently confirmed all three
+  test-review criteria: tests well-formed (narrow, state-based); every design
+  acceptance behaviour covered (positional→`:suite`/`:suites` parse + e2e,
+  interleaving, core-mode rejection via full collapse→normalize path, removed-flag
+  regression, `-X`/`--focus`/`--kaocha-opt`/`--config` unchanged); e2e tests use
+  real fs + real Kaocha via the injected `test-boundary` with no mocks/stubs/redefs.
+
 ### Final design-step reconciliation — complete
 
 - Executed the last open design-step (design-steps.md, "Plan-review follow-up

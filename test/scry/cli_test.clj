@@ -143,6 +143,36 @@
       (is (= {:focus "my.ns/test-foo"} (:kaocha-extra opts)))
       (is (= :unit (:suite opts)))
       (is (= ["test"] (:test-paths opts)))))
+  (testing "the full scry-managed closed set never leaks into :kaocha-extra"
+    ;; Exercise every scry-managed key reachable in Kaocha mode (excluding
+    ;; core-only selectors, which are rejected earlier, and :dirs, which
+    ;; conflicts with explicit :config) alongside a single unknown key. Each
+    ;; scry-managed key must route to its normalized destination or be
+    ;; excluded; only the unknown key may appear under :kaocha-extra. The most
+    ;; dangerous omission is :progress-callback (a function value) which would
+    ;; otherwise silently leak into :kaocha/cli-options if dropped from
+    ;; scry-managed-keys.
+    (let [config {:kaocha/tests []}
+          opts (#'cli/normalize-exec-opts {:runner :kaocha
+                                           :result-format {:suite {:top-level-keys [:summary]}}
+                                           :progress-callback (fn [_] nil)
+                                           :source-paths ["src"]
+                                           :ns-patterns ["foo.*"]
+                                           :config config
+                                           :suites ["unit"]
+                                           :focus "my.ns/test-foo"})]
+      ;; Only the unknown key is forwarded as pass-through.
+      (is (= {:focus "my.ns/test-foo"} (:kaocha-extra opts)))
+      ;; Each scry-managed key routes to its normalized destination ...
+      (is (= :kaocha (:runner opts)))
+      (is (contains? opts :result-format))
+      (is (= ["src"] (:source-paths opts)))
+      (is (= ["foo.*"] (:ns-patterns opts)))
+      (is (= config (:config opts)))
+      (is (= ["unit"] (:suites opts)))
+      ;; ... or is excluded entirely (:progress-callback is added later in the
+      ;; run pipeline, never by normalization).
+      (is (not (contains? opts :progress-callback)))))
   (testing "pre-existing :kaocha-extra map survives and scattered extras merge in"
     (let [opts (#'cli/normalize-exec-opts {:runner :kaocha
                                            :kaocha-extra {:focus ["my.ns/test-foo"]}

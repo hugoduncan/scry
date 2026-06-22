@@ -654,3 +654,18 @@ Task complete: all six slices implemented and verified.
 - Added 1 follow-up step: the boundary no-leak test only spot-checks 4 of the
   scry-managed keys; the closed set (notably the function-valued
   `:progress-callback`) is not fully asserted excluded from `:kaocha-extra`.
+
+## Test review third-pass follow-up execution (2026-06-21)
+
+- Addressed 1 review follow-up step (broaden boundary no-leak assertion to the
+  full `scry-managed-keys` closed set).
+- Extended `normalize-exec-opts-kaocha-pass-through-test` in
+  `test/scry/cli_test.clj` with a "full scry-managed closed set never leaks"
+  case passing `:result-format`, `:progress-callback` (fn), `:source-paths`,
+  `:ns-patterns`, `:config`, `:suites`, and one unknown key. Asserts only the
+  unknown key lands in `:kaocha-extra`, each managed key routes to its
+  normalized destination, and `:progress-callback` is excluded (added later in
+  the run pipeline, never by normalization). Excluded core-only selectors
+  (rejected earlier) and `:dirs` (conflicts with explicit `:config`).
+- Verified: `scry.cli-test` (44 tests, 332 assertions, 0 fail/err),
+  `bb clj-fmt:check` clean, `bb clj-kondo:lint` 0 errors/warnings.

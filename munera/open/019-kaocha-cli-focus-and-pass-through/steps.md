@@ -161,7 +161,7 @@
 
 ## Test review follow-ups (2026-06-21, third pass)
 
-- [ ] Broaden the boundary no-leak assertion so it covers the full
+- [x] Broaden the boundary no-leak assertion so it covers the full
   `scry-managed-keys` closed set, not just a spot-check. The plan's "Boundary
   regression" risk required asserting the *closed set* is excluded from
   `:kaocha-extra`, and Slice 1's "no scry-managed key ... ever appears under

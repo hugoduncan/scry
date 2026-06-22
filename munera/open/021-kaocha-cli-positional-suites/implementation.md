@@ -589,3 +589,7 @@ Verification (all green):
   user-facing skill doc `SKILL.md:159` (prior passes only flagged it; no explicit
   maintainer decision to ship a broken example is recorded). In-scope README /
   AGENTS / doc/API.md / CHANGELOG / `usage` text are all consistent and complete.
+
+- addressed 1 docs-review follow-up step: edited `SKILL.md:159` Kaocha `-m`
+  example from `--runner kaocha --suite unit` to positional `--runner kaocha unit`
+  (adjacent `-X` `:suite :unit` line left unchanged).

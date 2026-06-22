@@ -110,7 +110,7 @@
 
 ## Docs-review follow-up (independent docs review pass)
 
-- [ ] Fix the now-broken Kaocha CLI example in the git-tracked, user-facing
+- [x] Fix the now-broken Kaocha CLI example in the git-tracked, user-facing
       scry skill doc `SKILL.md:159`:
       `clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit` is a
       stale reference that, after the clean `--suite` removal, now produces

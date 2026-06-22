@@ -10,6 +10,11 @@
   actionable feedback — discrimination rule, collapse semantics, flag value
   consumption, and core-mode argument-error delta are all unambiguous; the
   4b197c2 reframing introduced no new ambiguity.
+- inconsistency review (final design, post-4b197c2): no actionable feedback —
+  Goal/Approach/Constraints/Acceptance agree on position-agnostic selectors,
+  collapse semantics, core-mode argument-error outcome (Approach states outcome,
+  Constraints states mechanism — no contradiction), and `-X`/adapter/docs-sync
+  claims. 4b197c2 was the self-consistent inconsistency-driven reframing.
 - architectural review: no actionable feedback (design fits the parse → collapse
   → normalize → execute pipeline, the frozen `-m`-only scope, the `-X`/adapter
   boundary, and the `:scry.cli/outcome-kind` contract).

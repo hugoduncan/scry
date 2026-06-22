@@ -47,6 +47,18 @@
 - [x] REPL-run updated focused tests during iteration via `scry.core/run` on
       `scry.cli-test` (core) and `scry.cli-kaocha-test` (`:test:kaocha` REPL).
 
+## Test-review follow-up
+
+- [ ] Add a focused regression test in `test/scry/cli_test.clj`
+      (`parse-main-args-test`) asserting the clean-removal acceptance criterion:
+      `--suite unit`, `-s unit`, and `--suites "[:unit]"` now each raise
+      `:scry.cli/argument-error` ("Unknown option: ...") on `-m`. This behaviour
+      is currently only manually verified (implementation.md) and has zero
+      automated coverage (`grep` finds no `--suite`/`-s`/`--suites` reference in
+      `test/`); the generic `--unknown` test exercises the discrimination rule
+      but does not guard against re-introducing these specific flags or a
+      discrimination-rule regression that would re-accept them.
+
 ## Slice 3 — Docs sync
 
 - [x] Update `README.md` Kaocha CLI snippets (around the "Run Kaocha support by

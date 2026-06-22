@@ -386,3 +386,9 @@ Verification (all green):
   `kaocha-only-keys`/`reject-keys` path (no parallel branch). Re-ran focused
   core CLI (45/357, 0/0), Kaocha CLI (8/57, 0/0), and `bb api-docs --check`
   (clean) — matching the recorded results. Added 0 follow-up steps.
+
+### Test-review pass
+
+- added 1 step: no automated regression test covers the removed
+  `--suite`/`-s`/`--suites` flags now erroring (design acceptance criterion);
+  only manually verified.

@@ -587,3 +587,16 @@ and `-X` acceptance end-to-end; then docs (Slice 5) + final verification (6).
     focused var (Tests: 1 passed) and exit 0.
 
 Task complete: all six slices implemented and verified.
+
+## Implementation review (2026-06-21)
+
+- Reviewed code against design/plan: matches OQ1/OQ2/OQ3 resolutions, respects
+  the core↛Kaocha load boundary (raw collection in `scry.cli`, coercion/merge in
+  `scry.kaocha/run`), preserves the `:scry.cli/outcome-kind` contract, reuses
+  existing patterns (`reject-keys`/`add-repeat`/`ensure-plugin`), no unnecessary
+  abstractions. Tests assert real filtering, config-authoritative merge,
+  core-mode reject, and `-m`/`-X` acceptance end-to-end.
+- Independently re-verified green: `scry.cli-test`/`scry.kaocha-test`/
+  `scry.cli-kaocha-test` (63 tests, 430 assertions), `bb clj-fmt:check`,
+  `bb clj-kondo:lint` (0/0), `bb api-docs --check`.
+- No actionable issues found; added 0 follow-up steps.

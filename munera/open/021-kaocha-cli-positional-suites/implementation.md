@@ -456,6 +456,17 @@ Verification (all green):
   green. Residual `SKILL.md:159` stale `-m --suite` form is out-of-scope and
   already flagged — not re-raised.
 
+### Ambiguity review (shared plan-review session, first turn)
+
+- no ambiguity review feedback. plan.md/steps.md re-read against current
+  `src/scry/cli.clj`: discrimination rule (`-`-prefix → unknown-option error
+  vs non-`-` → ordered `:suite-values` selector, l.363-365), count-based
+  collapse (1→`:suite`/many→`:suites`, l.288-296), core-mode rejection via
+  `kaocha-only-keys`/`reject-keys` (l.39), and the enumerated test/doc anchors
+  (fused `cli_test.clj:232` split, api_docs.clj curated `intro` edit-before-
+  regenerate) are all concrete and unambiguous. The open design.md step-6
+  `--config` item is a design-profile inconsistency, not a plan/steps ambiguity.
+
 ### Architectural review (shared design-review session, first turn)
 
 - no architectural review feedback. Sole architecture sources are AGENTS.md

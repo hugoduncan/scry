@@ -11,6 +11,26 @@
   (`bb api-docs --check`, `scry.api-docs-test`) won't flag the stale `--suite`
   text. `bb/scry/api_docs.clj` must be edited. `SKILL.md:159` also has the stale
   form but is outside the design's README/AGENTS/API doc scope.
+### Plan-review follow-up pass (batch baseline b8423b7) — complete
+
+- Batch segment: `4864a0c` (plan ambiguity, no feedback) → `cc0efe5` (plan
+  inconsistency, +1 item) → `f6bc12c` (note commit). Baseline = parent of oldest
+  segment commit = `b8423b7` (the plan.md/steps.md add). `git diff
+  b8423b7..HEAD -- steps.md` was empty; the one attributable unchecked item was
+  added to `design-steps.md` (where the plan-review profile records follow-ups),
+  under "## Plan-review follow-up (inconsistency review)".
+- Executed that single item: a planning-artifact correction (no code change yet,
+  Interpretation A frozen). Updated plan.md step 6, the Slice-order docs item,
+  and the Docs-drift risk to require editing the curated Kaocha `-m` example in
+  `bb/scry/api_docs.clj` (`intro` string) to the positional form *before*
+  regenerating `doc/API.md`, because regeneration re-emits the curated prose
+  unchanged and the doc gates (`bb api-docs --check`, `scry.api-docs-test`) do
+  not pin that example. Added a matching steps.md Slice 3 step ahead of the
+  regenerate step. `-X` example `:runner :kaocha :suite :unit` left unchanged;
+  `SKILL.md:159` flagged for maintainer, not in scope.
+- Confirmed against source: `bb/scry/api_docs.clj` line 72 carries the stale
+  `-m` form; line 68 the `-X` form. The implementer should edit only line 72.
+
 ### Notes for the plan-review follow-up (docs-slice design-step)
 
 - This follow-up is a plan.md/steps.md docs-slice text correction, not a code or

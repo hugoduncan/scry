@@ -35,7 +35,7 @@
 
 ## Plan-review follow-up (inconsistency review)
 
-- [ ] Docs-sync slice mechanism-vs-goal inconsistency: the `doc/API.md`
+- [x] Docs-sync slice mechanism-vs-goal inconsistency: the `doc/API.md`
       Main-style example `--runner kaocha --suite unit` is curated prose
       hardcoded in `bb/scry/api_docs.clj` (the `intro` string), not regenerated
       from a runtime docstring. Plan step 6 and steps Slice 3 say only

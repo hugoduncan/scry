@@ -57,8 +57,17 @@ Key decisions:
    `--config` tests unchanged.
 
 6. **Docs.** Update `README.md` and `AGENTS.md` Kaocha CLI snippets to the
-   positional form, and regenerate `doc/API.md` (`bb api-docs`) if the public
-   surface text there changes.
+   positional form. The `doc/API.md` Kaocha `-m` example is curated prose
+   hardcoded in `bb/scry/api_docs.clj` (the `intro` string, the
+   `clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit` literal),
+   not derived from a runtime docstring; `bb api-docs` re-emits it unchanged and
+   the doc gates (`bb api-docs --check`, `scry.api-docs-test`) do not flag the
+   stale text. So edit that curated example in `bb/scry/api_docs.clj` to the
+   positional form (`clojure -M:test:kaocha -m scry.cli --runner kaocha unit`)
+   first, then regenerate `doc/API.md` (`bb api-docs`). Leave the `-X` example
+   `:runner :kaocha :suite :unit` in the same `intro` string unchanged. (The
+   stale `--suite unit` form at `SKILL.md:159` lies outside the design's
+   README/AGENTS/API doc scope — flag it for the maintainer, do not edit it.)
 
 ## Risks
 
@@ -76,8 +85,11 @@ Key decisions:
   error rather than a parse error. This is the accepted, documented behavior per
   design; no mitigation needed beyond docs.
 - **Docs drift.** README/AGENTS/API examples must all move to the positional
-  form together; `bb api-docs --check` and the API-doc regression test guard
-  `doc/API.md`.
+  form together. The `doc/API.md` Kaocha `-m` example is curated prose in
+  `bb/scry/api_docs.clj`, so `bb api-docs --check` and the API-doc regression
+  test do not catch its stale `--suite` text by themselves; the curated source
+  must be edited before regenerating, otherwise regeneration re-emits the stale
+  example unchanged.
 
 ## Slice order
 
@@ -87,7 +99,8 @@ Key decisions:
 2. **Tests** — rewrite obsolete flag parse tests as positional tests, add
    core-mode positional rejection test, add/adjust end-to-end Kaocha CLI
    positional run test.
-3. **Docs sync** — README, AGENTS, regenerate `doc/API.md`.
+3. **Docs sync** — README, AGENTS, edit the curated Kaocha `-m` example in
+   `bb/scry/api_docs.clj`, then regenerate `doc/API.md`.
 4. **Final command-line verification** — focused core CLI tests
    (`scry.cli-test`), Kaocha CLI tests (`scry.cli-kaocha-test`, `:kaocha`
    alias), `bb api-docs --check` + API-doc regression, fmt/lint; record commands

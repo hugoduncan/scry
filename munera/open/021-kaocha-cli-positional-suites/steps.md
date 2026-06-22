@@ -56,6 +56,15 @@
       Leave `-X` `:suite`/`:suites` examples unchanged.
 - [ ] Update `AGENTS.md` Kaocha CLI command snippets to the positional `-m` form;
       leave `-X` and adapter REPL `:suite`/`:suites` text unchanged.
+- [ ] Edit the curated Kaocha `-m` example in `bb/scry/api_docs.clj` (the
+      `intro` string, ~line 72:
+      `clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit`) to the
+      positional form `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.
+      This example is curated prose, not derived from a docstring, so
+      regeneration alone re-emits the stale text and the doc gates won't flag it.
+      Leave the `-X` example `:runner :kaocha :suite :unit` in the same string
+      unchanged. (Flag, but do not edit, the out-of-scope stale `--suite unit`
+      form at `SKILL.md:159`.)
 - [ ] Regenerate `doc/API.md` with `bb api-docs` and verify the CLI
       `--runner kaocha ...` example text reflects the positional form.
 

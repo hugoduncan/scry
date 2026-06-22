@@ -169,6 +169,41 @@
              (is (str/includes? (:out result-data) "integration err"))
              (is (= "" (:err result-data))))))))))
 
+(deftest kaocha-cli-surfaces-randomize-seed-on-failure-test
+  ;; A failing Kaocha CLI run surfaces the randomize seed on stdout as its own
+  ;; line after the summary (replacing Kaocha's stray "Randomized with --seed N"
+  ;; print, which the adapter suppresses). A passing run omits the seed line,
+  ;; mirroring Kaocha's failure-only seed reporting.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [unit-ns (unique-ns "seed" "unit-test")
+           integration-ns (unique-ns "seed" "integration-test")]
+       (write-suite-test-ns!
+        project
+        unit-ns
+        "(deftest passing-test\n  (is true))\n")
+       (write-suite-test-ns!
+        project
+        integration-ns
+        "(deftest failing-test\n  (is (= 1 2)))\n")
+       (write-tests-edn! project unit-ns integration-ns)
+       (with-user-dir-and-ns-cleanup project [unit-ns integration-ns]
+         (testing "failing run prints the seed on its own trailing line"
+           (let [outcome (run-cli-in project (#'cli/normalize-exec-opts
+                                              {:runner :kaocha :suite :integration}))]
+             (is (= 1 (:exit-code outcome)))
+             (is (re-find #"(?m)^Randomized with --seed \d+\n?\z" (:stdout outcome))
+                 "seed line is the final stdout line")
+             (is (not (str/starts-with? (:stdout outcome) "Randomized"))
+                 "seed does not precede/abut the summary")
+             (is (str/includes? (:stdout outcome)
+                                "Assertions: 0 passed, 1 failed, 0 errored"))))
+         (testing "passing run omits the seed line"
+           (let [outcome (run-cli-in project (#'cli/normalize-exec-opts
+                                              {:runner :kaocha :suite :unit}))]
+             (is (= 0 (:exit-code outcome)))
+             (is (not (str/includes? (:stdout outcome) "Randomized"))))))))))
+
 (deftest kaocha-cli-positional-suite-run-test
   ;; Positional suite selectors on the -m wrapper flow through the full
   ;; parse -> collapse -> normalize -> scry.kaocha/run chain: a single

@@ -53,8 +53,39 @@ Why it is safe:
   (24/135), `scry.cli-test` (45/363) all green. `bb clj-fmt:check` /
   `bb clj-kondo:lint` clean.
 
+## Revision: surface the seed (maintainer override)
+
+The initial decision discarded the leaked seed line. The maintainer asked for the
+seed to be surfaced instead. Final behavior:
+
+- Adapter: still suppresses Kaocha's stray `*out*` print, and additionally reads
+  `:kaocha.plugin.randomize/seed` from the `api/run` result and adds it to the
+  scry result `:summary :seed`. The seed exists only when randomization is
+  active — confirmed empirically: the synthetic fallback config
+  (`build-fallback-config` / bare `:config`) omits Kaocha's default plugin chain
+  (no randomize plugin), so no seed and no stray print; the tests.edn /
+  full-plugin path has both. Adapter seed tests therefore use a tests.edn
+  project.
+- CLI: new `write-seed!` prints `Randomized with --seed N` on stdout *after* the
+  summary (preserving the tested `.Assertions:` progress-dot prefix contract),
+  gated on `failure-outcome-kinds`, mirroring Kaocha's failure-only seed
+  reporting. Structured `:summary :seed` is present on pass and fail; only the
+  CLI display is failure-gated.
+
+End-to-end (tests.edn project, `-m scry.cli --runner kaocha`):
+
+```
+.Assertions: 1 passed, 1 failed, 0 errored
+Tests: 1 passed, 1 failed, 0 errored
+Randomized with --seed 1777195828
+```
+
+A passing run omits the seed line.
+
 ## Scope notes
 
 - Independent pre-existing adapter bug, surfaced while exercising task 021.
-- No public API change: `scry.kaocha/run` signature/docstring unchanged, no
-  `doc/API.md` regeneration needed. No README/AGENTS changes.
+- Public surface changes: `scry.kaocha/run` result `:summary` now carries an
+  optional `:seed`; docstring updated and `doc/API.md` regenerated; README
+  result-shape section notes the seed. CLI gains a failure-only seed line.
+  `bb api-docs --check` and the focused api-docs content regression pass.

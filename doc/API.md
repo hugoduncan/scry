@@ -73,7 +73,7 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
 Main-style CLI usage is run through project aliases, for example `clojure -M:test -m scry.cli` and `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L704-L711">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L716-L723">Source</a></sub></p>
 
 -----
 # <a name="scry.core">scry.core</a>
@@ -289,5 +289,10 @@ Run kaocha tests in-process and return scry's inspectable result map.
    plugin merges stdout and stderr, so combined output is placed in :out and
    :err is empty.
 
+   When Kaocha randomizes test order (its default), the randomize seed is
+   surfaced as `:seed` in the result `:summary` so a failing order can be
+   reproduced; the framework's own stray "Randomized with --seed N" stdout
+   print is suppressed.
+
    Returns the same scoped result model as [`scry.core/run`](#scry.core/run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L330-L382">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L344-L409">Source</a></sub></p>

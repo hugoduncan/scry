@@ -178,7 +178,7 @@ Nested in-process test runs (including `scry.kaocha/run` and raw `clojure.test` 
 
 `scry/run` returns a map whose top level defaults to:
 
-- `:summary` — pass/fail/error and var counts plus duration.
+- `:summary` — pass/fail/error and var counts plus duration. Kaocha runs also include `:seed` (the randomize seed) so a failing order can be reproduced.
 - `:pass?` — overall boolean.
 - `:results` — the canonical formatted result entries.
 - `:failures` — a compatibility subset of the failing/erroring entries.

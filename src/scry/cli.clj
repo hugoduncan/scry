@@ -444,6 +444,15 @@
   (.write out (summary-text summary))
   (.flush out))
 
+(defn- write-seed!
+  "Surface a runner-provided random seed (e.g. Kaocha's randomize seed, exposed
+   as `:summary :seed`) on stdout after the summary so a failing order can be
+   reproduced. Called only for failing outcomes, mirroring Kaocha's own
+   failure-only seed reporting."
+  [{:keys [out]} seed]
+  (.write out (str "Randomized with --seed " seed "\n"))
+  (.flush out))
+
 (defn- root-cause-throwable
   [^Throwable t]
   (loop [t t]
@@ -646,6 +655,9 @@
           outcome-kind (classify-outcome entries summary)
           code (exit-code outcome-kind)]
       (write-summary! boundary summary)
+      (when-let [seed (and (contains? failure-outcome-kinds outcome-kind)
+                           (get-in result [:summary :seed]))]
+        (write-seed! boundary seed))
       (write-failure-diagnostic! boundary dir entries result-files outcome-kind)
       {:exit-code code
        :scry.cli/outcome-kind outcome-kind

@@ -377,6 +377,11 @@
    plugin merges stdout and stderr, so combined output is placed in :out and
    :err is empty.
 
+   When Kaocha randomizes test order (its default), the randomize seed is
+   surfaced as `:seed` in the result `:summary` so a failing order can be
+   reproduced; the framework's own stray \"Randomized with --seed N\" stdout
+   print is suppressed.
+
    Returns the same scoped result model as `scry.core/run`."
   ([] (run {}))
   ([opts]
@@ -392,7 +397,13 @@
                                   *out* (discarding-writer)
                                   *err* (discarding-writer)]
                           (api/run cfg)))
-         duration-ms (/ (- (System/nanoTime) start) 1e6)]
-     (result->scry kaocha-result {:duration-ms duration-ms
-                                  :scope :suite
-                                  :result-format (:result-format opts)}))))
+         duration-ms (/ (- (System/nanoTime) start) 1e6)
+         ;; Surface Kaocha's randomize seed (present only when randomization was
+         ;; active) as structured run metadata, replacing the framework's stray
+         ;; "Randomized with --seed N" stdout print that the *out* binding above
+         ;; suppresses.
+         seed (:kaocha.plugin.randomize/seed kaocha-result)]
+     (result->scry kaocha-result (cond-> {:duration-ms duration-ms
+                                          :scope :suite
+                                          :result-format (:result-format opts)}
+                                   (some? seed) (assoc :seed seed))))))

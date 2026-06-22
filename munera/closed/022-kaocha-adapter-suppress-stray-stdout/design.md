@@ -39,15 +39,30 @@ randomized Kaocha run.
 
 ## Approach
 
-In `scry.kaocha/run`, bind `*out*` and `*err*` to a discarding sink around the
-`api/run` call (inside the existing `capture/without-context` /
-`*report-counters*` binding), so Kaocha framework-level direct prints are
-discarded. scry's progress callback and CLI summary are unaffected because they
-write to the boundary stream objects, not the dynamic vars; Kaocha's per-test
-output capture is unaffected because it rebinds `*out*` per test.
+Two parts: suppress the malformed framework print, and surface the seed cleanly
+as structured data (maintainer override of the original deferral — the seed is
+wanted for reproducing failing orders).
 
-Use a null writer backed by `java.io.OutputStream/nullOutputStream` (no in-memory
-accumulation).
+1. In `scry.kaocha/run`, bind `*out*` and `*err*` to a discarding sink around
+   the `api/run` call (inside the existing `capture/without-context` /
+   `*report-counters*` binding), so Kaocha framework-level direct prints (the
+   randomize seed line, which is failure-only and has no trailing newline) are
+   discarded. scry's progress callback and CLI summary are unaffected because
+   they write to the boundary stream objects, not the dynamic vars; Kaocha's
+   per-test output capture is unaffected because it rebinds `*out*` per test.
+   Use a null writer backed by `java.io.OutputStream/nullOutputStream` (no
+   in-memory accumulation).
+
+2. Surface the seed as structured run metadata: read
+   `:kaocha.plugin.randomize/seed` from the Kaocha result (present only when
+   randomization was active — i.e. the tests.edn / full-plugin path, not the
+   synthetic fallback) and put it in the scry result `:summary :seed`.
+
+3. In the CLI, print a clean `Randomized with --seed N` line on stdout *after*
+   the summary block (so the established `.Assertions:` progress-dot contract is
+   untouched), gated to failing outcomes (`failure-outcome-kinds`), mirroring
+   Kaocha's own failure-only seed reporting. The structured `:summary :seed` is
+   present on pass and fail; only the CLI *display* is failure-gated.
 
 ## Constraints
 
@@ -64,17 +79,21 @@ accumulation).
 
 ## Acceptance
 
-- A failing randomized Kaocha run no longer leaks `Randomized with --seed N`
-  onto the stream carrying scry's summary; the summary stands alone.
-- scry's existing Kaocha result shape and CLI summary output are unchanged for
-  passing and failing runs.
+- A failing randomized Kaocha run no longer leaks Kaocha's stray
+  `Randomized with --seed N` print onto scry's summary stream.
+- The randomize seed is surfaced as `:summary :seed` in the structured result
+  on both passing and failing randomized runs.
+- The CLI prints a clean `Randomized with --seed N` line after the summary on
+  failing Kaocha runs, and omits it on passing runs; the `.Assertions:` prefix
+  contract is preserved.
 - Kaocha per-test captured output still appears in entry `:out`.
-- A focused test asserts that adapter-level `*out*` framework leakage during a
-  failing randomized run does not reach scry's output (e.g. the seed line is not
-  present on the captured summary stream).
+- Focused tests cover: no `*out*` leak + seed surfaced (failing tests.edn run),
+  seed surfaced on a passing run, and the CLI seed line present-on-fail /
+  absent-on-pass.
 
 ## Open Questions
 
-- Whether to also surface the Kaocha seed structurally for reproducibility.
-  Deferred; out of scope. Current decision: discard the leaked line, consistent
-  with the adapter already discarding Kaocha's terminal reporting.
+- Resolved: the Kaocha seed is surfaced structurally (and in the CLI on
+  failure), per maintainer request, rather than discarded. The seed only exists
+  when randomization is active (tests.edn / full-plugin config); the synthetic
+  fallback config has no randomize plugin and therefore no seed.

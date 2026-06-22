@@ -329,24 +329,56 @@
            (is (= 1 (get-in result [:summary :test])))
            (is (= 1 (get-in result [:summary :pass])))))))))
 
+(defn- write-single-suite-tests-edn
+  "Write a tests.edn with one :unit clojure.test suite over the given namespace.
+   Loading via tests.edn pulls in Kaocha's default plugin chain (including
+   randomize), unlike the synthetic fallback config."
+  [project ns-name]
+  (write-tests-edn
+   project
+   (str "#kaocha/v1\n"
+        "{:tests [{:id :unit\n"
+        "          :type :kaocha.type/clojure.test\n"
+        "          :test-paths [\"test\"]\n"
+        "          :ns-patterns [" (pr-str (exact-ns-pattern ns-name)) "]}]}")))
+
 (deftest does-not-leak-framework-stdout-on-failing-run-test
   ;; Kaocha's randomize plugin prints "\nRandomized with --seed N" to *out*
   ;; (bypassing the reporter) on a failing run. The adapter binds *out*/*err*
   ;; to a discarding sink around api/run, so that framework chatter must not
   ;; leak onto the caller's *out* while scry's own structured result is intact.
+  ;; The seed is instead surfaced as structured run metadata in :summary :seed.
+  ;; Use a tests.edn project so Kaocha's default randomize plugin is active.
   (when-kaocha-available
    (with-temp-project [project]
      (let [sample-ns (unique-ns "leak" "failing-test")]
        (write-suite-test-ns project sample-ns false)
+       (write-single-suite-tests-edn project sample-ns)
        (with-user-dir-and-ns-cleanup project [sample-ns]
          (let [sink (java.io.StringWriter.)
                result (binding [*out* sink]
-                        (kaocha-run {:test-paths ["test"]
-                                     :ns-patterns [(exact-ns-pattern sample-ns)]}))]
+                        (kaocha-run))]
            (is (= "" (str sink))
                "no Kaocha framework stdout (e.g. the randomize seed line) leaks to the caller's *out*")
            (is (false? (:pass? result)))
-           (is (= 1 (get-in result [:summary :fail])))))))))
+           (is (= 1 (get-in result [:summary :fail])))
+           (is (integer? (get-in result [:summary :seed]))
+               "the randomize seed is surfaced as structured run metadata")))))))
+
+(deftest surfaces-randomize-seed-on-passing-run-test
+  ;; The randomize seed is surfaced in :summary :seed whenever Kaocha
+  ;; randomizes (its default plugin, active on the tests.edn path), independent
+  ;; of pass/fail, so a run's order can be reproduced.
+  (when-kaocha-available
+   (with-temp-project [project]
+     (let [sample-ns (unique-ns "seed" "passing-test")]
+       (write-suite-test-ns project sample-ns true)
+       (write-single-suite-tests-edn project sample-ns)
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [result (binding [*out* (java.io.StringWriter.)]
+                        (kaocha-run))]
+           (is (true? (:pass? result)))
+           (is (integer? (get-in result [:summary :seed])))))))))
 
 (deftest no-tests-edn-fallback-focus-filters-execution-test
   ;; :kaocha-extra {:focus ...} actually filters executed vars on the synthetic

@@ -478,6 +478,20 @@ Verification (all green):
   no-duplicate); it is a design-profile concern (design.md read-only for the
   plan-review editable scope; plan/steps already correct).
 
+### Plan-review session close (shared session, both turns)
+
+- This plan-review session (ambiguity + inconsistency turns) added 0 new
+  design-steps. The only open work is the pre-existing design-step at
+  design-steps.md:64 (design.md Approach step-6 `--config` "as-is" wording).
+  Scope for whoever addresses it: a design.md:66 text edit only — plan.md and
+  steps.md were re-confirmed correct and consistent this session and need no
+  change; the code/test side is already done (fused `--suites`/`--config` test
+  split in `test/scry/cli_test.clj`). Full mechanics already recorded above
+  under "Notes for the inconsistency follow-up (design.md step 6 ...)" and
+  "Design-review session close — note for the remaining design-step": mirror
+  plan.md step 5 phrasing, leave design.md Constraints (l.91)/Acceptance
+  (l.104) untouched, keep Interpretation A frozen.
+
 ### Architectural review (shared design-review session, first turn)
 
 - no architectural review feedback. Sole architecture sources are AGENTS.md

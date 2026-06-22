@@ -467,6 +467,17 @@ Verification (all green):
   regenerate) are all concrete and unambiguous. The open design.md step-6
   `--config` item is a design-profile inconsistency, not a plan/steps ambiguity.
 
+### Inconsistency review (shared plan-review session, second turn)
+
+- no new inconsistency review feedback. plan↔steps remain internally consistent
+  (slice order, parser rule, `:suite-values` collapse, core-mode argument-error
+  framing, docs-slice api_docs.clj mechanism, reconciled `--config` test
+  handling). The sole cross-file divergence (design.md Approach step-6 `--config`
+  "as-is" at design.md:66 vs plan.md:57-61 / steps Slice 2) is already recorded
+  as the unchecked design-step at design-steps.md:64 — not re-added (rule 3
+  no-duplicate); it is a design-profile concern (design.md read-only for the
+  plan-review editable scope; plan/steps already correct).
+
 ### Architectural review (shared design-review session, first turn)
 
 - no architectural review feedback. Sole architecture sources are AGENTS.md

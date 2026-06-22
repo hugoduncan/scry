@@ -8,6 +8,10 @@
 - ambiguity review: added 1 design step (resolve the Open Questions interleaving
   rule into a definitive decision + explicit positional-vs-token discrimination
   rule).
+- inconsistency review: added 2 design steps (reconcile "trailing" wording in
+  Approach step 2 vs the position-agnostic Open Questions default; correct the
+  inaccurate "bare positionals previously unreachable in core mode" rationale —
+  they hit the parse-time `default` "Unknown option" branch).
 
 ### Architecture context for implementation
 

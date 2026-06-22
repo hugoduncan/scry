@@ -53,8 +53,14 @@ Key decisions:
    a core-mode positional rejection test that asserts the
    `:scry.cli/argument-error` outcome-kind (not the old "Unknown option" text).
    Add/adjust an end-to-end `cli_kaocha_test.clj` case proving positional
-   selectors run the selected suite(s). Keep `--focus`, `--kaocha-opt`,
-   `--config` tests unchanged.
+   selectors run the selected suite(s). Keep `--focus` and `--kaocha-opt` tests
+   genuinely unchanged. `--config` *coverage* is preserved, but the `--config`
+   test is not left unchanged: the only `--config` parse test is the fused
+   `cli_test.clj` "accepted Kaocha suites and config EDN flags" case, which also
+   exercises the now-removed `--suites` flag, so it is split/edited to drop the
+   `--suites` portion and keep `--config` (matching steps.md Slice 2). Leaving
+   the literal `--suites "[:unit]"` token in place after flag removal would hit
+   the `-`-prefixed "Unknown option" branch.
 
 6. **Docs.** Update `README.md` and `AGENTS.md` Kaocha CLI snippets to the
    positional form. The `doc/API.md` Kaocha `-m` example is curated prose

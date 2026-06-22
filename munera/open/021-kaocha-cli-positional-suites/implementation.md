@@ -83,6 +83,31 @@
   pathway are all accurate and unambiguous. Updated docs-slice text added no new
   ambiguity.
 
+### Plan-review follow-up pass (batch baseline 00fffd1) — complete
+
+- Batch segment: `9c26f06` (plan ambiguity, no feedback) → `84c2d66` (plan
+  inconsistency, +1 item) → `03fd13e` (note commit). Baseline = parent of oldest
+  segment commit `9c26f06` = `00fffd1` (the prior plan-follow-up completion).
+  `git diff 00fffd1..HEAD -- steps.md` was empty; the one attributable unchecked
+  item was added to `design-steps.md` (plan-review profile records follow-ups
+  there, as in the prior pass), under "## Plan-review follow-up (inconsistency
+  review)".
+- Executed that single item: a planning-artifact correction only (no code/test
+  change; Interpretation A frozen). Reworded plan.md step 5 to stop listing
+  `--config` among "tests unchanged" — `--config` *coverage* is preserved, but
+  its only parse test is the fused `cli_test.clj` "accepted Kaocha suites and
+  config EDN flags" case (also exercises the removed `--suites` flag), so it is
+  split/edited to drop the `--suites` portion (matching steps.md Slice 2). Kept
+  `--focus`/`--kaocha-opt` as genuinely-unchanged tests.
+- steps.md Slice 2 was already correct and consistent (read-only task context) —
+  no steps.md edit needed; plan.md was brought into agreement with it.
+- Confirmed anchor: `test/scry/cli_test.clj` ~line 232, `(testing "accepted
+  Kaocha suites and config EDN flags" ...)` fuses `--suites "[:unit]"` with
+  `--config "{:kaocha/tests []}"`. The implementer (Slice 2) must split/keep the
+  `--config` assertion while dropping the `--suites` assertion. No new
+  ambiguity/inconsistency introduced; all design-steps now checked, plan/steps
+  consistent — ready for implementation.
+
 - ambiguity review (plan + steps): no ambiguity review feedback — accumulator
   (`:suite-values`), count-based collapse (single→`:suite`/multi→`:suites`),
   positional-vs-token discrimination rule, dropped-vs-retained mutual-exclusion

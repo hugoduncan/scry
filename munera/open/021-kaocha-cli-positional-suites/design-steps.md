@@ -49,7 +49,7 @@
       `doc/API.md`. (Out-of-scope note for maintainer: `SKILL.md:159` also
       carries the stale `--suite unit` example but lies outside the design's
       README/AGENTS/API doc scope — flag, do not silently expand scope.)
-- [ ] Plan/steps `--config`-test inconsistency: plan.md step 5 lists `--config`
+- [x] Plan/steps `--config`-test inconsistency: plan.md step 5 lists `--config`
       among tests to "Keep ... unchanged", but the only `--config` parse test is
       the combined `cli_test.clj:232` "accepted Kaocha suites and config EDN
       flags" case that also exercises the now-removed `--suites` flag (and which

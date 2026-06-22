@@ -117,7 +117,7 @@
 
 ## Test review follow-ups (2026-06-21)
 
-- [ ] Add an automated test that `:kaocha-extra {:focus ...}` actually filters
+- [x] Add an automated test that `:kaocha-extra {:focus ...}` actually filters
   execution on the **synthetic-fallback** config path (no `tests.edn`,
   caller-provided `:test-paths`/`:ns-patterns`, no explicit `:config`). The
   plan listed filter-plugin presence across all three config paths (tests.edn,

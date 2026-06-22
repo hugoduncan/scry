@@ -96,18 +96,38 @@
   [ns-name]
   (java.util.regex.Pattern/quote (str ns-name)))
 
+(defn- ns->test-path
+  [ns-name]
+  (str "test/" (-> ns-name
+                   (str/replace "." "/")
+                   (str/replace "-" "_"))
+       ".clj"))
+
 (defn- write-suite-test-ns
   [project ns-name pass?]
   (write-temp-project-file
    project
-   (str "test/" (-> ns-name
-                    (str/replace "." "/")
-                    (str/replace "-" "_"))
-        ".clj")
+   (ns->test-path ns-name)
    (str "(ns " ns-name "\n"
         "  (:require [clojure.test :refer [deftest is]]))\n\n"
         "(deftest suite-test\n"
         "  (is " (if pass? "true" "false") "))\n")))
+
+(defn- write-mixed-test-ns
+  "Write a two-var namespace with two failing vars (`keep-test` and
+  `drop-test`) for focus-filtering assertions. Both vars fail so the
+  suite-scope `:results` collection reflects the executed var set
+  (suite scope omits passing entries)."
+  [project ns-name]
+  (write-temp-project-file
+   project
+   (ns->test-path ns-name)
+   (str "(ns " ns-name "\n"
+        "  (:require [clojure.test :refer [deftest is]]))\n\n"
+        "(deftest keep-test\n"
+        "  (is (= 1 2)))\n\n"
+        "(deftest drop-test\n"
+        "  (is (= 3 4)))\n")))
 
 (defn- write-tests-edn
   [project content]
@@ -308,6 +328,33 @@
            (is (true? (:pass? result)))
            (is (= 1 (get-in result [:summary :test])))
            (is (= 1 (get-in result [:summary :pass])))))))))
+
+(deftest no-tests-edn-fallback-focus-filters-execution-test
+  ;; :kaocha-extra {:focus ...} actually filters executed vars on the synthetic
+  ;; :unit fallback path (no tests.edn, no explicit :config, caller-provided
+  ;; :test-paths/:ns-patterns). This locks in the ensure-runtime-plugins
+  ;; behaviour that adds :kaocha.plugin/filter to the fallback config, which
+  ;; would otherwise omit Kaocha's default plugin chain.
+  (when-kaocha-available
+   (with-temp-project [project]
+     (let [sample-ns (unique-ns "fallback" "mixed-test")
+           keep-var (keyword (str sample-ns) "keep-test")
+           drop-var (keyword (str sample-ns) "drop-test")
+           result-format {:suite {:top-level-keys [:summary :pass? :results :failures]}}
+           executed (fn [result] (set (map :var (:results result))))
+           run-opts {:test-paths ["test"]
+                     :ns-patterns [(exact-ns-pattern sample-ns)]
+                     :result-format result-format}]
+       (write-mixed-test-ns project sample-ns)
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [all-result (kaocha-run run-opts)
+               focused-result (kaocha-run (assoc run-opts :kaocha-extra {:focus [keep-var]}))]
+           (is (= #{(symbol keep-var) (symbol drop-var)} (executed all-result))
+               "unfocused fallback run executes both fixture vars")
+           (is (= 2 (get-in all-result [:summary :var-count])))
+           (is (= #{(symbol keep-var)} (executed focused-result))
+               "focused fallback run executes only the focused var")
+           (is (= 1 (get-in focused-result [:summary :var-count])))))))))
 
 (deftest result-formatting-test
   ;; Kaocha adapter results continue to use scry's scoped result model and

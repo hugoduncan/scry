@@ -605,3 +605,17 @@ Task complete: all six slices implemented and verified.
 
 - Added 1 follow-up step: synthetic-fallback path focus filtering is verified
   only by a manual acceptance command, not an automated test.
+
+## Test review follow-up execution (2026-06-21)
+
+- Addressed 1 test-review follow-up step: added
+  `no-tests-edn-fallback-focus-filters-execution-test` in
+  `test/scry/kaocha_test.clj`, locking in synthetic-fallback focus filtering
+  (no tests.edn, no explicit `:config`, caller `:test-paths`/`:ns-patterns`,
+  `:kaocha-extra {:focus [...]}`). Added `write-mixed-test-ns` (two failing
+  vars so suite-scope `:results` reflects the executed var set) + `ns->test-path`
+  helper. Asserts executed `:var` set and `:summary :var-count` reduce from 2→1
+  under focus, exercising the `ensure-runtime-plugins` filter-plugin-ensure on
+  the fallback path.
+- Verified: focused `scry.kaocha-test` green (15 tests / 75 assertions);
+  `bb clj-fmt:check` clean; `bb clj-kondo:lint` 0/0.

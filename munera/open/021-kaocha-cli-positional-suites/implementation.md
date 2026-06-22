@@ -593,3 +593,11 @@ Verification (all green):
 - addressed 1 docs-review follow-up step: edited `SKILL.md:159` Kaocha `-m`
   example from `--runner kaocha --suite unit` to positional `--runner kaocha unit`
   (adjacent `-X` `:suite :unit` line left unchanged).
+
+### Docs-review pass (independent, post-SKILL.md fix)
+
+- added 0 steps; no new actionable feedback. README/AGENTS/doc/API.md/`usage`
+  text all carry the positional `-m` form; `-X` `:suite`/`:suites` examples
+  unchanged; CHANGELOG Unreleased documents the breaking flag removal; the prior
+  stale `SKILL.md:159` example is now positional. No remaining stale
+  `--suite`/`-s`/`--suites` references outside the CHANGELOG removal note.

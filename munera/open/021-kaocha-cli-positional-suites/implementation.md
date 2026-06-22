@@ -15,6 +15,22 @@
   collapse semantics, core-mode argument-error outcome (Approach states outcome,
   Constraints states mechanism — no contradiction), and `-X`/adapter/docs-sync
   claims. 4b197c2 was the self-consistent inconsistency-driven reframing.
+
+### Design-review session complete — ready for planning
+
+- Fresh design-review session (architectural + ambiguity + inconsistency) added
+  0 new design-steps; all 4 existing design-steps remain checked. No pending
+  design edits — planning can proceed directly against the current design.md.
+- For the plan/implementation slice that addresses the (already-resolved)
+  design-steps: keep Interpretation A frozen (only the `-m` wrapper; `-X` path
+  and `scry.kaocha/run` adapter unchanged). Reuse the existing
+  `normalize-core-options` `reject-keys`/`kaocha-only-keys` path for core-mode
+  positional rejection rather than adding a parallel branch; assert outcome-kind
+  `:scry.cli/argument-error` (not the old "Unknown option" text) in any
+  core-mode positional test. Relevant files: `src/scry/cli.clj`
+  (`parse-main-args`, `main-opts->exec-opts`, `usage`, `normalize-core-options`,
+  `kaocha-only-keys`), `test/scry/cli_test.clj`, `test/scry/cli_kaocha_test.clj`
+  (`:kaocha` alias), plus `README.md`/`AGENTS.md`/`doc/API.md` for docs sync.
 - architectural review: no actionable feedback (design fits the parse → collapse
   → normalize → execute pipeline, the frozen `-m`-only scope, the `-X`/adapter
   boundary, and the `:scry.cli/outcome-kind` contract).

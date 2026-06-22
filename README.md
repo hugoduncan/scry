@@ -133,6 +133,8 @@ While tests run, the CLI prints one progress item per result: `.` to stdout for 
 
 At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Passing runs may leave `.scry-results/` as an empty directory.
 
+On a failing run the CLI also writes a short stderr diagnostic pointing at the results directory. For a load/suite error (a namespace that fails to compile or require), it additionally prints the failing entry's message and its root-cause class/message, so the failure is visible inline without opening the EDN file. This is supplementary human output; `:scry.cli/outcome-kind` and `.scry-results/*.edn` remain the authoritative signals.
+
 The CLI exits `0` only when at least one concrete test var runs and all vars pass; every other case exits non-zero. Structured outcomes carry a machine-readable `:scry.cli/outcome-kind` that is authoritative for exit status. The `-X` entry point returns the outcome map on success and throws `ex-info` with structured data on non-zero outcomes. Inspect `:scry.cli/outcome-kind` and `.scry-results/*.edn` rather than parsing human stderr. See the [`scry.cli/run` API reference](doc/API.md#scry.cli/run) for the full set of outcome kinds and the thrown `ex-info` data.
 
 Kaocha CLI mode is available when the optional adapter is on the classpath:

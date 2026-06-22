@@ -160,13 +160,42 @@
                  result-data (edn/read-string (slurp result-file))]
              (is (= 1 (:exit-code outcome)))
              (is (str/includes? (:stdout outcome) "Assertions: 0 passed, 1 failed, 0 errored"))
-             (is (= "failing-test\n" (:stderr outcome)))
+             (is (str/starts-with? (:stderr outcome) "failing-test\n"))
+             (is (str/includes? (:stderr outcome) "for failure details"))
              (is (= [expected-file] files))
              (is (= failing-var (:var result-data)))
              (is (= :fail (:status result-data)))
              (is (str/includes? (:out result-data) "integration out"))
              (is (str/includes? (:out result-data) "integration err"))
              (is (= "" (:err result-data))))))))))
+
+(deftest kaocha-cli-load-error-stderr-test
+  ;; A test namespace that fails to load surfaces an inline stderr diagnostic
+  ;; (the load-error message + root cause) and a pointer at the results dir,
+  ;; while still exiting non-zero and writing the synthetic suite-error file.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [broken-ns (unique-ns "loaderr" "broken-test")]
+       (write-suite-test-ns!
+        project
+        broken-ns
+        "(deftest boom\n  (is true))\n\n(this-symbol-does-not-resolve-at-load)\n")
+       (with-user-dir-and-ns-cleanup project [broken-ns]
+         (let [outcome (run-cli-in project (#'cli/normalize-exec-opts
+                                            {:runner :kaocha
+                                             :dirs "test"
+                                             :ns-patterns [(exact-ns-pattern broken-ns)]}))
+               stderr (:stderr outcome)]
+           (is (= 1 (:exit-code outcome)))
+           (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
+           (is (str/includes? (:stdout outcome) "1 errored"))
+           ;; The suite-level error fires a live progress label during the run.
+           (is (str/includes? stderr "suite-error-1"))
+           ;; The inline diagnostic names the load failure and its root cause.
+           (is (str/includes? stderr "Load error:"))
+           (is (str/includes? stderr "this-symbol-does-not-resolve-at-load"))
+           (is (str/includes? stderr "for failure details"))
+           (is (= ["suite-error-1.edn"] (result-files project)))))))))
 
 (deftest kaocha-cli-fallback-dirs-test
   ;; In Kaocha mode CLI :dirs maps to fallback :test-paths when there is no
@@ -241,7 +270,8 @@
                (is (= 1 (:exit-code outcome)))
                (is (str/includes? (:stdout outcome)
                                   "Assertions: 0 passed, 1 failed, 0 errored"))
-               (is (= "config-failing-test\n" (:stderr outcome)))
+               (is (str/starts-with? (:stderr outcome) "config-failing-test\n"))
+               (is (str/includes? (:stderr outcome) "for failure details"))
                (is (= [expected-file] files))
                (is (= failing-var (:var result-data)))
                (is (= :fail (:status result-data)))

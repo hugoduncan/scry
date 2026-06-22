@@ -587,13 +587,60 @@
       (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 1 failed, 1 errored, 1 unknown\n"
              (:stdout outcome)))
-      (is (= "loader.demo/suite-error-1\nsuite-fail-1\nloader.demo/suite-unknown-1\n"
-             (:stderr outcome)))
+      ;; Live progress labels stream first, then the failure diagnostic. The
+      ;; outcome is a load error, so the diagnostic includes the assertion
+      ;; message and a pointer at the results directory.
+      (is (str/starts-with?
+           (:stderr outcome)
+           "loader.demo/suite-error-1\nsuite-fail-1\nloader.demo/suite-unknown-1\n"))
+      (is (str/includes? (:stderr outcome) "Load error: could not load tests"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["loader.demo__suite-error-1.edn" "suite-fail-1.edn"] files))
       (is (= nil (:var error-data)))
       (is (= 'loader.demo (:ns error-data)))
       (is (= :error (:status error-data)))
       (is (= :fail (:status fail-data))))))
+
+(deftest run-cli-load-error-stderr-diagnostic-test
+  ;; A load/suite error surfaces an inline stderr diagnostic: the failing
+  ;; assertion message plus its root-cause class/message, and a pointer at the
+  ;; results directory. stdout still receives only the terse summary, the exit
+  ;; code/outcome-kind are unchanged, and the synthetic result file is written.
+  (with-temp-dir [dir]
+    (let [root-cause (RuntimeException.
+                      "Unable to resolve symbol: this-does-not-exist in this context")
+          load-failure (ex-info "compile failed" {} root-cause)
+          synthetic-error {:var nil
+                           :ns nil
+                           :status :error
+                           :assertion-summary {:pass 0 :fail 0 :error 1}
+                           :assertions [{:type :error
+                                         :message "Failed loading tests:"
+                                         :expected nil
+                                         :actual load-failure}]
+                           :out ""
+                           :err ""}
+          outcome (run-cli-in dir
+                              (#'cli/normalize-exec-opts {})
+                              {:run-clojure-test
+                               (fn [opts]
+                                 ((:progress-callback opts) synthetic-error)
+                                 (runner-result [synthetic-error]))})
+          stdout (:stdout outcome)
+          stderr (:stderr outcome)]
+      (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
+      ;; stdout is the terse summary only (no diagnostic leakage).
+      (is (= "Assertions: 0 passed, 0 failed, 1 errored\nTests: 0 passed, 0 failed, 1 errored\n"
+             stdout))
+      ;; stderr carries the inline cause and a pointer at the results dir.
+      (is (str/includes? stderr "Load error: Failed loading tests:"))
+      (is (str/includes? stderr "java.lang.RuntimeException"))
+      (is (str/includes? stderr
+                         "Unable to resolve symbol: this-does-not-exist in this context"))
+      (is (str/includes? stderr (.getPath (io/file (.getPath dir) ".scry-results"))))
+      (is (str/includes? stderr "for failure details"))
+      (is (= ["suite-error-1.edn"] (result-files dir))))))
 
 (deftest run-cli-failing-run-test
   ;; A failing CLI run prints unqualified failing names to stderr, writes
@@ -610,7 +657,8 @@
       (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
       (is (= ".Assertions: 1 passed, 1 failed, 0 errored\nTests: 1 passed, 1 failed, 0 errored\n"
              (:stdout outcome)))
-      (is (= "equality-fails\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "equality-fails\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.failing__equality-fails.edn"] files))
       (is (= ['scry.fixtures.failing/equality-fails]
              (map :var (filter #(= :fail (:status %)) (:canonical-results (:result outcome))))))
@@ -633,7 +681,8 @@
           error-data (edn/read-string (slurp error-file))
           assertion (first (:assertions error-data))]
       (is (= 1 (:exit-code outcome)))
-      (is (= "throws-exception\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "throws-exception\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.erroring__throws-exception.edn"] (result-files dir)))
       (is (= 'scry.fixtures.erroring/throws-exception (:var error-data)))
       (is (= :error (:status error-data)))
@@ -657,7 +706,8 @@
       (is (= 1 (:exit-code outcome)))
       (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 0 failed, 1 errored\n"
              (:stdout outcome)))
-      (is (= "fail-then-error\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "fail-then-error\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.mixed__fail-then-error.edn"] (result-files dir)))
       (is (= {:assertions {:pass 0 :fail 1 :error 1}
               :tests {:pass 0 :fail 0 :error 1 :unknown 0}
@@ -681,7 +731,8 @@
           failure-data (edn/read-string (slurp failure-file))
           assertion (first (:assertions failure-data))]
       (is (= 1 (:exit-code outcome)))
-      (is (= "arbitrary-object-fails\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "arbitrary-object-fails\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.arbitrary__arbitrary-object-fails.edn"] (result-files dir)))
       (is (= 'scry.fixtures.arbitrary/arbitrary-object-fails (:var failure-data)))
       (is (= :fail (:status failure-data)))
@@ -706,7 +757,8 @@
           failure-file (io/file dir ".scry-results" "scry.fixtures.output__noisy-and-fails.edn")
           failure-data (edn/read-string (slurp failure-file))]
       (is (= 1 (:exit-code outcome)))
-      (is (= "noisy-and-fails\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "noisy-and-fails\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= #{:summary :pass? :canonical-results}
              (set (keys (:result outcome)))))
       (is (not (contains? (:result outcome) :results)))
@@ -727,7 +779,8 @@
                                    {:vars ['scry.fixtures.colliding-a/same-name
                                            'scry.fixtures.colliding-b/same-name]}))]
       (is (= 1 (:exit-code outcome)))
-      (is (= "same-name\nsame-name\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "same-name\nsame-name\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.colliding-a__same-name.edn"
               "scry.fixtures.colliding-b__same-name.edn"]
              (result-files dir))))))
@@ -765,7 +818,8 @@
       (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
              (:stdout outcome)))
-      (is (= "no-assertions\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "no-assertions\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= [] (result-files dir)))
       (is (= {:assertions {:pass 0 :fail 0 :error 0}
               :tests {:pass 0 :fail 0 :error 0 :unknown 1}
@@ -860,8 +914,8 @@
         (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
         (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
                (:stdout outcome)))
-        (is (= "loader.demo/suite-unknown-1\n"
-               (:stderr outcome)))
+        (is (str/starts-with? (:stderr outcome) "loader.demo/suite-unknown-1\n"))
+        (is (str/includes? (:stderr outcome) "for failure details"))
         (is (= [] (result-files dir)))
         (is (= {:pass 0 :fail 0 :error 0 :unknown 1}
                (get-in outcome [:summary :tests])))
@@ -925,7 +979,10 @@
         (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
         (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 0 failed, 0 errored\n"
                (:stdout outcome)))
-        (is (= "" (:stderr outcome)))
+        ;; No concrete entries, so only the failure-diagnostic pointer reaches
+        ;; stderr for this aggregate test-failure.
+        (is (str/starts-with? (:stderr outcome) "See "))
+        (is (str/includes? (:stderr outcome) "for failure details"))
         (is (= {:assertions {:pass 0 :fail 1 :error 1}
                 :tests {:pass 0 :fail 0 :error 0 :unknown 0}
                 :var-count 0}
@@ -1014,7 +1071,10 @@
           (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
           (is (= ".Assertions: 3 passed, 2 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
                  (:stdout outcome)))
-          (is (= "" (:stderr outcome)))
+          ;; Run-level fixture failures have no per-var entry, so only the
+          ;; failure-diagnostic pointer reaches stderr.
+          (is (str/starts-with? (:stderr outcome) "See "))
+          (is (str/includes? (:stderr outcome) "for failure details"))
           (is (= [] (result-files dir)))
           (is (false? (get-in outcome [:result :pass?])))
           (is (= {:assertions {:pass 3 :fail 2 :error 0}

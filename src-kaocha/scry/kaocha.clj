@@ -231,8 +231,17 @@
           (swap! counts update-in [var-symbol :fail] (fnil inc 0)))
 
         :error
-        (when-let [var-symbol @current-var]
-          (swap! counts update-in [var-symbol :error] (fnil inc 0)))
+        (if-let [var-symbol @current-var]
+          (swap! counts update-in [var-symbol :error] (fnil inc 0))
+          ;; A suite-level error with no enclosing test var (e.g. a namespace
+          ;; load/compile failure) emits :error between :kaocha/begin-suite and
+          ;; :kaocha/end-suite with no test-var events. Fire the callback
+          ;; immediately so the synthetic suite-level progress label is printed
+          ;; during the run instead of being silently collapsed to a count.
+          (callback {:var nil
+                     :ns nil
+                     :status :error
+                     :assertion-summary {:pass 0 :fail 0 :error 1}}))
 
         :end-test-var
         (let [var-symbol (event-var-symbol event)

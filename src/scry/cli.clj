@@ -452,6 +452,52 @@
   (.write out (summary-text summary))
   (.flush out))
 
+(defn- root-cause-throwable
+  [^Throwable t]
+  (loop [t t]
+    (if-let [cause (.getCause t)]
+      (recur cause)
+      t)))
+
+(defn- throwable-cause-text
+  [^Throwable t]
+  (let [root (root-cause-throwable t)]
+    (str (.getName (class root))
+         (when-let [message (.getMessage root)]
+           (str ": " message)))))
+
+(defn- assertion-cause-text
+  "Human root-cause text for a load-error assertion's `:actual`.
+
+   `:actual` is a live Throwable when produced directly by the Kaocha adapter,
+   or an edn-ified `Throwable->map` shape (with `:via`/`:cause`) when rehydrated.
+   Returns nil when no usable cause is present."
+  [{:keys [actual]}]
+  (cond
+    (instance? Throwable actual)
+    (throwable-cause-text actual)
+
+    (map? actual)
+    (let [root (last (:via actual))
+          klass (:type root)
+          message (or (:message root) (:cause actual))]
+      (when (or klass message)
+        (str (when klass (str klass))
+             (when (and klass message) ": ")
+             (when message (str message)))))
+
+    :else nil))
+
+(defn- load-error-detail
+  "One-line load-error detail: the failing assertion message plus its root-cause
+   class/message, derived from the synthetic entry's first assertion."
+  [entry]
+  (let [assertion (first (:assertions entry))
+        parts (remove str/blank? [(:message assertion)
+                                  (assertion-cause-text assertion)])]
+    (when (seq parts)
+      (str/join " — " parts))))
+
 (defn- positive-count?
   [m k]
   (pos? (long (or (get m k) 0))))
@@ -495,6 +541,34 @@
   (if (= :scry.cli/pass outcome-kind)
     0
     1))
+
+(def ^:private failure-outcome-kinds
+  #{:scry.cli/load-error :scry.cli/test-failure :scry.cli/unknown-result})
+
+(defn- results-dir-pointer
+  [dir result-files]
+  (let [n (count result-files)]
+    (str "See " (.getPath ^java.io.File dir) " for failure details"
+         (when (pos? n)
+           (str " (" n " file" (when (> n 1) "s") ")"))
+         ".\n")))
+
+(defn- write-failure-diagnostic!
+  "Surface a failing outcome on stderr without changing the stdout summary.
+
+   Writes a short pointer at the results directory for any failure outcome kind.
+   For a load error it first writes the failing entry's message and root-cause
+   class/message inline so the failure is visible without opening the EDN file.
+   Authoritative machine signals (outcome-kind, exit code, result files) are
+   unchanged."
+  [{:keys [err] :as _boundary} dir entries result-files outcome-kind]
+  (when (contains? failure-outcome-kinds outcome-kind)
+    (when (= :scry.cli/load-error outcome-kind)
+      (when-let [detail (some-> (first (filter load-error-entry? entries))
+                                load-error-detail)]
+        (.write err (str "Load error: " detail "\n"))))
+    (.write err (results-dir-pointer dir result-files))
+    (.flush err)))
 
 (defn- error-outcome-kind
   [^Throwable e]
@@ -580,6 +654,7 @@
           outcome-kind (classify-outcome entries summary)
           code (exit-code outcome-kind)]
       (write-summary! boundary summary)
+      (write-failure-diagnostic! boundary dir entries result-files outcome-kind)
       {:exit-code code
        :scry.cli/outcome-kind outcome-kind
        :result result

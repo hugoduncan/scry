@@ -9,6 +9,7 @@
    kaocha results the combined output is placed in :out and :err is empty."
   (:require
    [clojure.java.io :as io]
+   [clojure.string :as str]
    [clojure.test]
    [kaocha.api :as api]
    [kaocha.config :as config]
@@ -140,19 +141,69 @@
     (:kaocha.plugin/id plugin)
     plugin))
 
-(defn- ensure-capture-output-plugin
-  [plugins]
+(defn- ensure-plugin
+  [plugins plugin-keyword]
   (let [plugins (vec plugins)]
     (cond-> plugins
-      (not (some #{:kaocha.plugin/capture-output} (map plugin-id plugins)))
-      (conj :kaocha.plugin/capture-output))))
+      (not (some #{plugin-keyword} (map plugin-id plugins)))
+      (conj plugin-keyword))))
+
+(defn- ensure-runtime-plugins
+  "Ensure the plugins scry relies on are present. The capture-output plugin
+   provides per-test output; the filter plugin translates forwarded
+   `:kaocha/cli-options` (e.g. `:focus`) into `:kaocha.filter/*` directives.
+   Synthetic fallback and bare explicit `:config` maps may omit Kaocha's default
+   plugin chain, so ensure both here."
+  [plugins]
+  (-> plugins
+      (ensure-plugin :kaocha.plugin/capture-output)
+      (ensure-plugin :kaocha.plugin/filter)))
 
 (defn- apply-runtime-defaults
   [cfg]
   (-> cfg
-      (update :kaocha/plugins ensure-capture-output-plugin)
+      (update :kaocha/plugins ensure-runtime-plugins)
       (assoc :kaocha/reporter []
              :kaocha/color? false)))
+
+(defn- ->focus-keyword
+  "Coerce a single raw `:focus` value to a keyword, mirroring the Kaocha filter
+   plugin's `--focus` parse semantics (a leading `:` on a string is stripped)."
+  [v]
+  (cond
+    (keyword? v) v
+    (symbol? v) (keyword v)
+    (string? v) (keyword (if (str/starts-with? v ":") (subs v 1) v))
+    :else (keyword (str v))))
+
+(defn- coerce-focus
+  "Coerce a raw `:focus` value (scalar or collection of string/symbol/keyword)
+   into a vector of keywords, the shape the filter plugin's cli-option parse
+   produces."
+  [focus]
+  (mapv ->focus-keyword
+        (if (and (sequential? focus) (not (string? focus)))
+          focus
+          [focus])))
+
+(defn- coerce-kaocha-extra
+  "Coerce known raw `:kaocha-extra` values to the types the Kaocha cli-options
+   layer expects. Unknown keys are forwarded as-is (the documented `-X`
+   mistyped-key trade-off)."
+  [extra]
+  (cond-> extra
+    (contains? extra :focus) (update :focus coerce-focus)))
+
+(defn- apply-kaocha-extra
+  "Merge raw forwarded `:kaocha-extra` into the resolved config's
+   `:kaocha/cli-options`, coercing known values first. Existing config
+   cli-options are authoritative on conflict (OQ2 merge-with-config-wins)."
+  [cfg extra]
+  (if (seq extra)
+    (update cfg :kaocha/cli-options
+            (fn [cli-options]
+              (merge (coerce-kaocha-extra extra) cli-options)))
+    cfg))
 
 (defn- event-var-symbol
   [event]
@@ -279,6 +330,14 @@
      :ns-patterns        fallback namespace-name regex strings
      :result-format      suite-scope formatting overrides
      :progress-callback  optional function called after each completed test var
+     :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
+                         CLI's bounded pass-through (e.g. `:focus`). It is merged
+                         into the resolved config's :kaocha/cli-options with the
+                         resolved :config authoritative on conflict. Known values
+                         are coerced (`:focus` raw string/symbol/keyword scalar or
+                         collection becomes a vector of keywords); unknown keys are
+                         forwarded as-is, so a mistyped key surfaces as a runner or
+                         load error rather than an argument error.
 
    When :config is omitted, the current project's tests.edn is loaded if it
    exists; otherwise a synthetic :unit suite is built from :source-paths,
@@ -302,6 +361,7 @@
                  resolve-config
                  (select-suites (suite-selectors opts))
                  apply-runtime-defaults
+                 (apply-kaocha-extra (:kaocha-extra opts))
                  (apply-progress-reporter (:progress-callback opts)))
          start (System/nanoTime)
          kaocha-result (capture/without-context

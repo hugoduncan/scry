@@ -226,19 +226,21 @@
   ;; Scry adapter runtime defaults keep loaded/supplied config quiet while
   ;; preserving unrelated Kaocha settings.
   (when-kaocha-available
-   (testing "capture-output is appended only once and quiet settings are forced"
-     (let [cfg {:kaocha/plugins [:existing/plugin :kaocha.plugin/capture-output]
+   (testing "runtime plugins are appended only once and quiet settings are forced"
+     (let [cfg {:kaocha/plugins [:existing/plugin
+                                 :kaocha.plugin/capture-output
+                                 :kaocha.plugin/filter]
                 :kaocha/reporter [:existing/reporter]
                 :kaocha/color? true
                 :custom/key :preserved}
            result ((kaocha-var 'apply-runtime-defaults) cfg)]
-       (is (= [:existing/plugin :kaocha.plugin/capture-output]
+       (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter]
               (:kaocha/plugins result)))
        (is (= [] (:kaocha/reporter result)))
        (is (false? (:kaocha/color? result)))
        (is (= :preserved (:custom/key result)))))
-   (testing "capture-output is appended when absent"
-     (is (= [:existing/plugin :kaocha.plugin/capture-output]
+   (testing "capture-output and filter plugins are appended when absent"
+     (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter]
             (:kaocha/plugins ((kaocha-var 'apply-runtime-defaults)
                               {:kaocha/plugins [:existing/plugin]})))))))
 
@@ -251,7 +253,7 @@
                    ((kaocha-var 'select-suites) cfg [:integration]))]
      (is (= {:unit true :integration nil} (suite-skip-map resolved)))
      (is (= :preserved (:custom/key resolved)))
-     (is (= [:kaocha.plugin/capture-output]
+     (is (= [:kaocha.plugin/capture-output :kaocha.plugin/filter]
             (:kaocha/plugins resolved)))
      (is (= [] (:kaocha/reporter resolved)))
      (is (false? (:kaocha/color? resolved))))))
@@ -324,6 +326,56 @@
               (:var (first (:results result)))))
        (is (= [:fail]
               (mapv :type (:assertions (first (:results result))))))))))
+
+(deftest kaocha-extra-focus-coercion-test
+  ;; :focus raw values are coerced to a vector of keywords matching the Kaocha
+  ;; filter plugin's --focus parse semantics, regardless of -m string / -X EDN
+  ;; origin shape.
+  (when-kaocha-available
+   (let [coerce-focus (kaocha-var 'coerce-focus)]
+     (is (= [:my.ns/test-foo] (coerce-focus "my.ns/test-foo")))
+     (is (= [:my.ns/test-foo] (coerce-focus ":my.ns/test-foo")))
+     (is (= [:my.ns/test-foo] (coerce-focus :my.ns/test-foo)))
+     (is (= [:my.ns/test-foo] (coerce-focus 'my.ns/test-foo)))
+     (is (= [:a :b :c] (coerce-focus ["a" :b 'c]))))))
+
+(deftest kaocha-extra-merge-config-authoritative-test
+  ;; :kaocha-extra merges into the resolved config's :kaocha/cli-options with the
+  ;; resolved config authoritative on conflict; non-conflicting keys still apply.
+  (when-kaocha-available
+   (let [apply-kaocha-extra (kaocha-var 'apply-kaocha-extra)
+         result (apply-kaocha-extra {:kaocha/cli-options {:focus [:keep/this]}}
+                                    {:focus "override/ignored" :threads 4})]
+     (is (= [:keep/this] (get-in result [:kaocha/cli-options :focus]))
+         "explicit config :focus wins over pass-through")
+     (is (= 4 (get-in result [:kaocha/cli-options :threads]))
+         "non-conflicting pass-through key applies"))
+   (testing "no :kaocha-extra leaves config unchanged"
+     (let [apply-kaocha-extra (kaocha-var 'apply-kaocha-extra)
+           cfg {:kaocha/cli-options {:focus [:a]}}]
+       (is (= cfg (apply-kaocha-extra cfg nil)))
+       (is (= cfg (apply-kaocha-extra cfg {})))))))
+
+(deftest kaocha-extra-focus-filters-execution-test
+  ;; :kaocha-extra {:focus ...} actually filters executed vars to the focused
+  ;; var(s), not merely setting a config key. The filter plugin is ensured even
+  ;; for configs that omit Kaocha's default plugin chain.
+  (when-kaocha-available
+   (let [cfg (suite-config [:unit] "scry\\.fixtures\\.mixed")
+         result-format {:suite {:top-level-keys [:summary :pass? :results :failures]}}
+         executed (fn [result] (set (map :var (:results result))))
+         all-result (kaocha-run {:config cfg :result-format result-format})
+         focused-result (kaocha-run {:config cfg
+                                     :kaocha-extra {:focus [:scry.fixtures.mixed/pass-then-fail]}
+                                     :result-format result-format})]
+     (is (= #{'scry.fixtures.mixed/pass-then-fail
+              'scry.fixtures.mixed/fail-then-error}
+            (executed all-result))
+         "unfocused run executes both fixture vars")
+     (is (= 2 (get-in all-result [:summary :var-count])))
+     (is (= #{'scry.fixtures.mixed/pass-then-fail} (executed focused-result))
+         "focused run executes only the focused var")
+     (is (= 1 (get-in focused-result [:summary :var-count]))))))
 
 (deftest nested-kaocha-run-is-isolated-from-outer-scry-capture-test
   ;; The optional adapter disables any enclosing scry capture while Kaocha runs,

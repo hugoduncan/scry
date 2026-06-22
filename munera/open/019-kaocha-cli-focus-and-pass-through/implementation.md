@@ -508,3 +508,52 @@ reaching core mode, so reuse it rather than adding a new message.
   already recorded). This third shared plan-review session (ambiguity + inconsistency
   turns) added zero new design-steps; plan/steps remain converged — proceed to
   implementation at Slice 1.
+
+## Implementation — Slices 1–3 (2026-06-21)
+
+Implemented core pass-through collection, `-m` flags, and adapter merge/coercion.
+
+- **`scry.cli` (`src/scry/cli.clj`).**
+  - Added derived `scry-managed-keys` set: `#{:runner :result-format
+    :progress-callback :kaocha-extra :dirs}` ∪ `core-only-keys` ∪
+    `kaocha-only-keys` ∪ `kaocha-fallback-keys`.
+  - `normalize-kaocha-options` now wraps the existing `cond->` in a `let`,
+    collects non-scry-managed top-level keys via
+    `(remove #(contains? scry-managed-keys (key %)) opts)`, merges them over any
+    pre-existing `:kaocha-extra` (collected wins), and assocs `:kaocha-extra`
+    only when non-empty.
+  - `normalize-core-options` reject set now includes `:kaocha-extra` (via
+    `conj`), so Kaocha-only flags in core mode raise `:scry.cli/argument-error`.
+  - `parse-main-args`: added `--focus` (accumulates a vector under
+    `:kaocha-extra :focus`, repeatable) and `--kaocha-opt KEY VALUE` (assoc-in
+    `(keyword KEY) -> raw VALUE`). Unknown flags still hit the argument-error
+    default. `:kaocha-extra` survives `main-opts->exec-opts` (not in its dissoc).
+  - usage text documents `--focus SYM` and `--kaocha-opt KEY VALUE`.
+
+- **`scry.kaocha` (`src-kaocha/scry/kaocha.clj`).**
+  - Added `clojure.string` require.
+  - Added `->focus-keyword` / `coerce-focus` (raw string/symbol/keyword, scalar
+    or collection → vector of keywords; strips a leading `:` on strings to
+    mirror the filter plugin's `--focus` `:parse-fn`).
+  - Added `coerce-kaocha-extra` (coerces `:focus`; forwards other keys raw) and
+    `apply-kaocha-extra` (merges coerced extra into `:kaocha/cli-options` with
+    existing config-authoritative: `(merge coerced existing)`).
+  - Wired `apply-kaocha-extra` into the `run` pipeline after
+    `apply-runtime-defaults`, before `apply-progress-reporter`.
+  - **Discovery / deviation:** the synthetic fallback config and bare explicit
+    `:config` maps do NOT carry Kaocha's default plugin chain (no
+    `:kaocha.plugin/filter`), so `:focus` had no effect. Generalized the
+    capture-output ensure helper into `ensure-plugin` + `ensure-runtime-plugins`
+    (ensures BOTH `:kaocha.plugin/capture-output` and `:kaocha.plugin/filter`).
+    This addresses the plan's "Filter plugin presence" risk. Existing
+    `runtime-defaults-test` / `full-config-selection-and-preservation-test`
+    plugin-list assertions updated to include the filter plugin.
+  - `run` docstring documents `:kaocha-extra`.
+
+- **Verification:** focused `scry.cli-test` (44 tests, 323 assertions, green);
+  focused `scry.kaocha-test` (14 tests, 71 assertions, green). Confirmed real
+  filtering: focusing `:scry.fixtures.mixed/pass-then-fail` reduces executed
+  vars from 2 to 1.
+
+Next slice (4): CLI integration tests in `scry.cli-kaocha-test` exercising `-m`
+and `-X` acceptance end-to-end; then docs (Slice 5) + final verification (6).

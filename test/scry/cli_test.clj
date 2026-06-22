@@ -127,6 +127,35 @@
     (is (argument-error?
          #(#'cli/normalize-exec-opts {:runner :kaocha :suites :unit})))))
 
+(deftest normalize-exec-opts-kaocha-pass-through-test
+  ;; -X map normalization forwards unrecognized top-level keys as raw
+  ;; `:kaocha-extra` pass-through instead of dropping them.
+  (testing "unknown top-level key collected into :kaocha-extra"
+    (let [opts (#'cli/normalize-exec-opts {:runner :kaocha
+                                           :focus "my.ns/test-foo"})]
+      (is (= {:focus "my.ns/test-foo"} (:kaocha-extra opts)))))
+  (testing "scry-managed keys never leak into :kaocha-extra"
+    (let [opts (#'cli/normalize-exec-opts {:runner :kaocha
+                                           :result-format {:suite {:top-level-keys [:summary]}}
+                                           :suite :unit
+                                           :dirs ["test"]
+                                           :focus "my.ns/test-foo"})]
+      (is (= {:focus "my.ns/test-foo"} (:kaocha-extra opts)))
+      (is (= :unit (:suite opts)))
+      (is (= ["test"] (:test-paths opts)))))
+  (testing "pre-existing :kaocha-extra map survives and scattered extras merge in"
+    (let [opts (#'cli/normalize-exec-opts {:runner :kaocha
+                                           :kaocha-extra {:focus ["my.ns/test-foo"]}
+                                           :threads 4})]
+      (is (= {:focus ["my.ns/test-foo"] :threads 4} (:kaocha-extra opts)))))
+  (testing "no :kaocha-extra when no extra keys supplied"
+    (let [opts (#'cli/normalize-exec-opts {:runner :kaocha :suite :unit})]
+      (is (not (contains? opts :kaocha-extra)))))
+  (testing "Kaocha pass-through rejected in core mode"
+    (is (argument-error?
+         #(#'cli/normalize-exec-opts {:runner :clojure-test
+                                      :kaocha-extra {:focus ["x"]}})))))
+
 (deftest parse-main-args-test
   ;; -m string flags normalize to the same option map shape as -X options.
   (testing "accepted core flags"
@@ -176,12 +205,32 @@
                                        "--config" "{:kaocha/tests []}"])]
       (is (= [:unit] (:suites opts)))
       (is (= {:kaocha/tests []} (:config opts)))))
+  (testing "accepted Kaocha --focus pass-through flag"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "--focus" "my.ns/test-foo"])]
+      (is (= :kaocha (:runner opts)))
+      (is (= {:focus ["my.ns/test-foo"]} (:kaocha-extra opts)))))
+  (testing "repeated --focus accumulates"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "--focus" "my.ns/test-foo"
+                                       "--focus" "my.ns/test-bar"])]
+      (is (= {:focus ["my.ns/test-foo" "my.ns/test-bar"]} (:kaocha-extra opts)))))
+  (testing "accepted generic --kaocha-opt KEY VALUE pass-through"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "--kaocha-opt" "foo" "bar"])]
+      (is (= {:foo "bar"} (:kaocha-extra opts)))))
+  (testing "--focus rejected in core mode"
+    (is (argument-error?
+         #(#'cli/parse-main-args ["--runner" "clojure-test"
+                                  "--focus" "my.ns/test-foo"]))))
   (testing "help does not normalize or run"
     (let [parsed (#'cli/parse-main-args ["--help"])]
       (is (= true (:help? parsed)))
       (is (str/includes? (:usage parsed) "Usage:"))))
   (testing "parser errors"
     (is (argument-error? #(#'cli/parse-main-args ["--unknown"])))
+    (is (argument-error? #(#'cli/parse-main-args ["--focus"])))
+    (is (argument-error? #(#'cli/parse-main-args ["--kaocha-opt" "foo"])))
     (is (argument-error? #(#'cli/parse-main-args ["--dir"])))
     (is (argument-error? #(#'cli/parse-main-args ["--result-format" "["])))
     (is (argument-error? #(#'cli/parse-main-args ["--ns-pattern" "a"

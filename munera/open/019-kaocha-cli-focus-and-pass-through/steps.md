@@ -2,85 +2,85 @@
 
 ## Slice 1 — Core `-X` pass-through collection (`scry.cli`)
 
-- [ ] Add a derived `scry-managed-keys` set in `src/scry/cli.clj` combining
+- [x] Add a derived `scry-managed-keys` set in `src/scry/cli.clj` combining
   `:runner`, `core-only-keys`, `:result-format`, `:progress-callback`,
   `:kaocha-extra`, and the explicit Kaocha keys (`:suite :suites :config :dirs
   :source-paths :test-paths :ns-patterns`); define it from existing key-set vars
   so it stays in sync. Include `:kaocha-extra` so the `-X` collection step never
   re-collects an already-present `:kaocha-extra` map (e.g. one carried in from
   the `-m` path) into a nested `:kaocha-extra`.
-- [ ] In `normalize-kaocha-options`, after the existing `cond->`, collect all
+- [x] In `normalize-kaocha-options`, after the existing `cond->`, collect all
   `opts` keys not in `scry-managed-keys` into a map, `merge` it into any
   pre-existing top-level `:kaocha-extra` map (collected top-level extras win on
   conflict), and `assoc` the combined `:kaocha-extra` onto `normalized` only when
   non-empty.
-- [ ] Confirm `reject-keys` for `core-only-keys` still runs first (core
+- [x] Confirm `reject-keys` for `core-only-keys` still runs first (core
   selectors remain rejected, not forwarded).
-- [ ] In `test/scry/cli_test.clj`, add a test: `-X` opts `{:runner :kaocha
+- [x] In `test/scry/cli_test.clj`, add a test: `-X` opts `{:runner :kaocha
   :focus "my.ns/test-foo"}` normalize to include `:kaocha-extra {:focus
   "my.ns/test-foo"}`.
-- [ ] Add a test asserting no scry-managed key (`:runner`, `:result-format`,
+- [x] Add a test asserting no scry-managed key (`:runner`, `:result-format`,
   `:suite`, `:dirs`, etc.) ever appears under `:kaocha-extra`.
-- [ ] Add a test that a pre-existing top-level `:kaocha-extra` map (the `-m`
+- [x] Add a test that a pre-existing top-level `:kaocha-extra` map (the `-m`
   shape) survives `normalize-kaocha-options` unchanged — not nested under a
   second `:kaocha-extra` — and that scattered top-level extras merge into it.
-- [ ] Add a test that `:kaocha-extra` is absent when no extra keys are supplied.
-- [ ] Run focused `scry.cli-test` in the REPL/`:test` slice; confirm green.
+- [x] Add a test that `:kaocha-extra` is absent when no extra keys are supplied.
+- [x] Run focused `scry.cli-test` in the REPL/`:test` slice; confirm green.
 
 ## Slice 2 — Core `-m` opt-in flags (`scry.cli`)
 
-- [ ] In `parse-main-args`, add a `--focus` flag clause that reads a required
+- [x] In `parse-main-args`, add a `--focus` flag clause that reads a required
   value and accumulates it into raw `:kaocha-extra` under `:focus` (support
   repetition, mirroring `add-repeat`).
-- [ ] Add a generic `--kaocha-opt` flag clause reading KEY then VALUE (two
+- [x] Add a generic `--kaocha-opt` flag clause reading KEY then VALUE (two
   `require-value` reads), associng `(keyword KEY) -> VALUE` (raw string) into
   raw `:kaocha-extra`.
-- [ ] Ensure the unknown-flag default branch still throws `argument-error`
+- [x] Ensure the unknown-flag default branch still throws `argument-error`
   (`:scry.cli/argument-error`) for any flag outside the opt-in surface.
-- [ ] Carry `:kaocha-extra` through `main-opts->exec-opts` (do not strip it) so
+- [x] Carry `:kaocha-extra` through `main-opts->exec-opts` (do not strip it) so
   it reaches `normalize-exec-opts`/`normalize-kaocha-options` intact.
-- [ ] Carry the `-m` `:kaocha-extra` map through `normalize-kaocha-options`
+- [x] Carry the `-m` `:kaocha-extra` map through `normalize-kaocha-options`
   unchanged via the Slice 1 exclusion: because `:kaocha-extra` is in
   `scry-managed-keys`, the collection step does not re-collect it, and the merge
   step preserves it (there are no scattered `-m` extras to merge). See plan
   "Plan-review resolutions".
-- [ ] Update CLI `usage` text to document `--focus SYM` and
+- [x] Update CLI `usage` text to document `--focus SYM` and
   `--kaocha-opt KEY VALUE` (Kaocha mode only).
-- [ ] In `test/scry/cli_test.clj`, add tests: `--runner kaocha --focus
+- [x] In `test/scry/cli_test.clj`, add tests: `--runner kaocha --focus
   my.ns/test-foo` parses to opts with `:kaocha-extra {:focus ["my.ns/test-foo"]}`
   (or chosen scalar/coll shape); `--kaocha-opt foo bar` → `:kaocha-extra {:foo
   "bar"}`; an unrecognized flag still raises `:scry.cli/argument-error`.
-- [ ] Reject `--focus`/`--kaocha-opt` in `:clojure-test` (core) mode by adding
+- [x] Reject `--focus`/`--kaocha-opt` in `:clojure-test` (core) mode by adding
   `:kaocha-extra` to the `normalize-core-options` reject set
   (`kaocha-only-keys ∪ kaocha-fallback-keys`, `src/scry/cli.clj:201`); confirm
   `--runner clojure-test --focus …` raises `:scry.cli/argument-error` — add a
   test.
-- [ ] Run focused `scry.cli-test`; confirm green.
+- [x] Run focused `scry.cli-test`; confirm green.
 
 ## Slice 3 — Adapter merge + `:focus` coercion (`scry.kaocha/run`, src-kaocha)
 
-- [ ] Add a private coercion helper in `src-kaocha/scry/kaocha.clj` that
+- [x] Add a private coercion helper in `src-kaocha/scry/kaocha.clj` that
   coerces `:focus` raw values (string/symbol/keyword, scalar or collection)
   into a vector of keywords matching the filter plugin's parse semantics.
-- [ ] Add a private merge helper that injects coerced `:kaocha-extra` into the
+- [x] Add a private merge helper that injects coerced `:kaocha-extra` into the
   resolved config under `:kaocha/cli-options`, with existing `:config`/config
   values authoritative on conflict (OQ2 merge-with-config-wins).
-- [ ] Wire the merge into the `run` pipeline after `resolve-config` (and
+- [x] Wire the merge into the `run` pipeline after `resolve-config` (and
   relative to `apply-runtime-defaults`) without disturbing `select-suites`,
   reporter, or capture-output behaviour.
-- [ ] Verify the `:kaocha.plugin/filter` default plugin is present in the
+- [x] Verify the `:kaocha.plugin/filter` default plugin is present in the
   plugin chain for all three config paths (explicit `:config`, tests.edn,
   synthetic fallback); if missing on any path, ensure it like
   `apply-runtime-defaults` ensures `capture-output`.
-- [ ] Update the `scry.kaocha/run` docstring to document the `:kaocha-extra`
+- [x] Update the `scry.kaocha/run` docstring to document the `:kaocha-extra`
   option (raw forwarded Kaocha cli-options; `:config` authoritative; `:focus`
   coercion) and the `-X` mistyped-key trade-off.
-- [ ] In `test/scry/kaocha_test.clj`, add a test that `:kaocha-extra {:focus
+- [x] In `test/scry/kaocha_test.clj`, add a test that `:kaocha-extra {:focus
   ...}` actually filters execution to the focused var(s) (assert reduced
   executed set, not just key presence).
-- [ ] Add a test that explicit `:config` keys win over conflicting
+- [x] Add a test that explicit `:config` keys win over conflicting
   `:kaocha-extra` keys, and non-conflicting pass-through keys still apply.
-- [ ] Run focused `scry.kaocha-test` with the `:kaocha` alias; confirm green.
+- [x] Run focused `scry.kaocha-test` with the `:kaocha` alias; confirm green.
 
 ## Slice 4 — CLI Kaocha integration + acceptance
 

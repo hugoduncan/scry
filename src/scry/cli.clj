@@ -21,6 +21,8 @@
        "  -s, --suite SUITE               Kaocha suite; repeatable\n"
        "      --suites EDN                Kaocha suites collection\n"
        "      --config EDN                Kaocha config map\n"
+       "      --focus SYM                 Kaocha focus selector; repeatable, Kaocha mode only\n"
+       "      --kaocha-opt KEY VALUE      Forward a raw Kaocha cli-option; Kaocha mode only\n"
        "      --help                      Print this help"))
 
 (def ^:private result-scopes [:suite :namespace :var])
@@ -36,6 +38,15 @@
 (def ^:private core-only-keys (into #{:namespaces :vars} ns-pattern-keys))
 (def ^:private kaocha-only-keys #{:suite :suites :config})
 (def ^:private kaocha-fallback-keys #{:source-paths :test-paths :ns-patterns})
+
+;; Keys owned by scry that must never be forwarded to Kaocha as pass-through
+;; (`:kaocha-extra`). Derived from the existing key sets so it stays in sync.
+;; `:kaocha-extra` itself is included: it is the forwarded payload container,
+;; not a key to collect, so the `-X` collection step must not re-collect an
+;; already-present `:kaocha-extra` map into a nested one.
+(def ^:private scry-managed-keys
+  (into #{:runner :result-format :progress-callback :kaocha-extra :dirs}
+        (concat core-only-keys kaocha-only-keys kaocha-fallback-keys)))
 
 (defn- argument-error
   [message data]
@@ -198,7 +209,7 @@
 
 (defn- normalize-core-options
   [opts normalized]
-  (reject-keys opts (into kaocha-only-keys kaocha-fallback-keys)
+  (reject-keys opts (conj (into kaocha-only-keys kaocha-fallback-keys) :kaocha-extra)
                "Kaocha options require :runner :kaocha")
   (cond-> normalized
     (present? opts :dirs) (assoc :dirs (normalize-dirs (:dirs opts)))
@@ -219,14 +230,23 @@
   (when (and (present? opts :dirs) (present? opts :config))
     (argument-error ":dirs cannot be combined with explicit Kaocha :config"
                     {:options [:dirs :config]}))
-  (cond-> normalized
-    (present? opts :suite) (assoc :suite (:suite opts))
-    (present? opts :suites) (assoc :suites (normalize-suites (:suites opts)))
-    (present? opts :config) (assoc :config (:config opts))
-    (present? opts :dirs) (assoc :test-paths (normalize-dirs (:dirs opts)))
-    (present? opts :source-paths) (assoc :source-paths (:source-paths opts))
-    (present? opts :test-paths) (assoc :test-paths (:test-paths opts))
-    (present? opts :ns-patterns) (assoc :ns-patterns (:ns-patterns opts))))
+  (let [normalized (cond-> normalized
+                     (present? opts :suite) (assoc :suite (:suite opts))
+                     (present? opts :suites) (assoc :suites (normalize-suites (:suites opts)))
+                     (present? opts :config) (assoc :config (:config opts))
+                     (present? opts :dirs) (assoc :test-paths (normalize-dirs (:dirs opts)))
+                     (present? opts :source-paths) (assoc :source-paths (:source-paths opts))
+                     (present? opts :test-paths) (assoc :test-paths (:test-paths opts))
+                     (present? opts :ns-patterns) (assoc :ns-patterns (:ns-patterns opts)))
+        ;; Collect every top-level key outside the scry-managed set as raw
+        ;; pass-through. On `-X` these are scattered top-level keys (e.g.
+        ;; `:focus`); on `-m` the parser pre-builds a `:kaocha-extra` map (which
+        ;; is in `scry-managed-keys`, so it is not re-collected). Collected
+        ;; top-level extras win on conflict with a pre-existing `:kaocha-extra`.
+        collected (into {} (remove (fn [[k _]] (contains? scry-managed-keys k)) opts))
+        kaocha-extra (merge (:kaocha-extra opts) collected)]
+    (cond-> normalized
+      (seq kaocha-extra) (assoc :kaocha-extra kaocha-extra))))
 
 (defn- normalize-exec-opts
   [opts]
@@ -337,6 +357,18 @@
           "--config"
           (let [value (require-value more flag)]
             (recur (next more) (assoc raw :config (read-edn-option value :config))))
+
+          "--focus"
+          (let [value (require-value more flag)]
+            (recur (next more)
+                   (update-in raw [:kaocha-extra :focus] (fnil conj []) value)))
+
+          "--kaocha-opt"
+          (let [k (require-value more flag)
+                after-key (next more)
+                v (require-value after-key flag)]
+            (recur (next after-key)
+                   (assoc-in raw [:kaocha-extra (keyword k)] v)))
 
           (argument-error (str "Unknown option: " flag) {:option flag}))))))
 

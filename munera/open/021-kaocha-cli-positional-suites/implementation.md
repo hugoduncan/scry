@@ -457,3 +457,12 @@ Verification (all green):
   core-mode rejection path (no parallel branch), and keeps the
   `:scry.cli/outcome-kind` contract. `-m`-positional vs `-X`-keyword surface
   divergence is the frozen Interpretation-A scope decision, not a misfit.
+
+### Ambiguity review (shared design-review session, second turn)
+
+- no ambiguity review feedback. design.md unchanged since the final design-phase
+  ambiguity sign-off; discrimination rule (`-`-prefix → unknown-option vs non-`-`
+  → ordered selector), single→`:suite`/multi→`:suites` collapse, position-agnostic
+  acceptance, and the core-mode contract-level delta (outcome stays
+  `:scry.cli/argument-error`; only rejection mechanism moves) are all concrete
+  and unambiguous. Acceptance criteria map directly to Approach/Constraints.

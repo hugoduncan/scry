@@ -466,3 +466,13 @@ Verification (all green):
   acceptance, and the core-mode contract-level delta (outcome stays
   `:scry.cli/argument-error`; only rejection mechanism moves) are all concrete
   and unambiguous. Acceptance criteria map directly to Approach/Constraints.
+
+### Inconsistency review (shared design-review session, third turn)
+
+- no new inconsistency review feedback. design.md internally consistent
+  (Goal/Context/Approach/Constraints/Acceptance agree on position-agnostic
+  selectors, collapse semantics, core-mode argument-error outcome vs mechanism,
+  `-X`/adapter-unchanged, docs sync). The residual design.md Approach step-6
+  `--config` "as-is" divergence is already recorded as an unchecked
+  design-step ("Plan-review follow-up (inconsistency review)", 3rd item) — not
+  re-added (rule 3 no-duplicate).

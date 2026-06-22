@@ -45,6 +45,13 @@
   unaccounted for. `-X` example `:runner :kaocha :suite :unit` in the same
   `intro` string stays unchanged (adapter `-X` path is out of scope).
 
+- ambiguity review (plan-review session, post-docs-slice-follow-up 00fffd1): no
+  ambiguity review feedback — re-ran after the docs-slice edits; verified anchors
+  (api_docs.clj:72 `-m`/:68 `-X`, README 79/143/144/146, AGENTS 128, root
+  SKILL.md:159 out-of-scope) and the discrimination rule/collapse/core-mode
+  pathway are all accurate and unambiguous. Updated docs-slice text added no new
+  ambiguity.
+
 - ambiguity review (plan + steps): no ambiguity review feedback — accumulator
   (`:suite-values`), count-based collapse (single→`:suite`/multi→`:suites`),
   positional-vs-token discrimination rule, dropped-vs-retained mutual-exclusion

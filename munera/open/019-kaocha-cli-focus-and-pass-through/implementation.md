@@ -627,3 +627,10 @@ Task complete: all six slices implemented and verified.
   0/0. Code matches design/plan (OQ1/OQ2/OQ3), respects the core↛Kaocha load
   boundary, preserves the `:scry.cli/outcome-kind` contract, reuses existing
   patterns, no unnecessary abstractions. Added 0 follow-up steps.
+
+## Test review (2026-06-21, second pass)
+
+- Added 2 follow-up steps: the committed OQ1 generic `--kaocha-opt` mechanism is
+  only tested at the parse level for a single invocation (no multi-flag
+  accumulation test; no end-to-end coverage reaching the Kaocha runner, unlike
+  `--focus`).

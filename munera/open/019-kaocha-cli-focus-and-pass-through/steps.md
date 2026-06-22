@@ -134,3 +134,27 @@
   regression. (Pattern: `kaocha-run {:test-paths [...] :ns-patterns [...]
   :kaocha-extra {:focus [...]}}` with a mixed pass/fail fixture, asserting the
   executed `:var` set and `:summary :var-count`.)
+
+## Test review follow-ups (2026-06-21, second pass)
+
+- [ ] Add a test that multiple `--kaocha-opt KEY VALUE` flags accumulate
+  distinct keys into raw `:kaocha-extra` (e.g.
+  `["--runner" "kaocha" "--kaocha-opt" "a" "1" "--kaocha-opt" "b" "2"]` →
+  `:kaocha-extra {:a "1" :b "2"}`). The committed OQ1 generic mechanism is only
+  covered for a single invocation in `parse-main-args-test`
+  (`test/scry/cli_test.clj:218`); the `assoc-in` accumulation path is a distinct
+  code path from the `add-repeat` mechanism that the existing repeated-`--focus`
+  test exercises, and is currently unverified.
+- [ ] Add an end-to-end test exercising the generic `--kaocha-opt` mechanism
+  reaching the Kaocha runner (not just parsing). `--focus` has full end-to-end
+  coverage (`kaocha-cli-focus-pass-through-test`,
+  `test/scry/cli_kaocha_test.clj:250`), but the generic `--kaocha-opt` path —
+  which OQ1 committed to as a real, bounded pass-through surface — is verified
+  only piecewise (parse → `:kaocha-extra` in `cli_test`; `:kaocha-extra` →
+  `:kaocha/cli-options` in `apply-kaocha-extra` unit test with a typed
+  `:threads` value). Add a CLI-level test such as
+  `["--runner" "kaocha" "--kaocha-opt" "focus" "<var>"]` asserting it filters
+  execution to the focused var like `--focus` does, locking in the full
+  `-m` flag → normalize → `:kaocha-extra` → `scry.kaocha/run` chain for the
+  generic mechanism (including raw-string `:focus` coercion arriving via
+  `--kaocha-opt` rather than the named `--focus` flag).

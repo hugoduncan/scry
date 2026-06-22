@@ -66,3 +66,20 @@
 - Constraints rationale corrected: bare positionals were reachable and rejected
   at parse time (`parse-main-args` `default` "Unknown option" branch), not
   unreachable; conclusion (must remain an error) preserved.
+
+### Notes for addressing the new inconsistency design-step (re-review baseline b1be97e)
+
+- The remaining open design-step is a design.md text edit only: no code change,
+  no scope change (Interpretation A frozen). Do not let the wording fix reopen
+  whether core-mode positionals should error — they must remain an error.
+- Principle to preserve when rewording: state the delta at the contract level.
+  Core-mode positionals are `:scry.cli/argument-error` before and after; only the
+  rejection message/path moves (parse-time "Unknown option" → normalize-time
+  "Kaocha options require :runner :kaocha" via `normalize-core-options`'s
+  `reject-keys` against `kaocha-only-keys`, because positionals collapse to
+  `:suite`/`:suites` in `main-opts->exec-opts`). Keep the Acceptance line
+  ("produces `:scry.cli/argument-error`") consistent with that framing.
+- When implementation lands, the new core-mode error message for a stray
+  positional will be the `kaocha-only-keys` message, not "Unknown option:";
+  any core-mode positional-rejection test should assert outcome-kind
+  `:scry.cli/argument-error` rather than pinning the old "Unknown option" text.

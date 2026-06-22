@@ -9,6 +9,10 @@
   the ambiguity/inconsistency design edits were text-only clarifications and did
   not change the architecture or scope, so the sign-off holds for the revised
   design.
+- ambiguity re-review (post follow-up edits): no actionable feedback; the
+  interleaving/positioning ambiguity was resolved by the prior follow-up (Open
+  Questions removed, position-agnostic discrimination rule now explicit in
+  Approach step 2 and Constraints).
 - ambiguity review: added 1 design step (resolve the Open Questions interleaving
   rule into a definitive decision + explicit positional-vs-token discrimination
   rule).

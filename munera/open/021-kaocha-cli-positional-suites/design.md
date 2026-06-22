@@ -4,7 +4,7 @@
 
 Simplify the scry `-m` CLI wrapper for Kaocha mode by removing the bespoke
 `--suite`/`-s`/`--suites` flag parsing and instead accepting suite selectors as
-trailing positional arguments, mirroring Kaocha's own CLI convention
+positional arguments, mirroring Kaocha's own CLI convention
 (`bin/kaocha [OPTIONS]... [TEST-SUITE]...`). The selectors flow into the
 existing `scry.kaocha/run` adapter via its current `:suite`/`:suites` options.
 
@@ -39,11 +39,15 @@ Decision (Interpretation A, confirmed with maintainer): keep the adapter and the
    branches and the `:suite-values`/mutual-exclusion machinery in
    `main-opts->exec-opts`.
 
-2. Collect trailing non-flag tokens (positional arguments) during `-m` parsing
-   as ordered suite selectors. To match the existing collapse semantics, a
-   single positional token becomes `:suite <token>` and multiple tokens become
-   `:suites [<tokens>...]`, so the values reaching `scry.kaocha/run` are
-   identical to what the old flags produced.
+2. Collect non-flag tokens (positional arguments) during `-m` parsing as ordered
+   suite selectors, regardless of their position relative to flags. The parser's
+   positional-vs-token discrimination rule is: a token that starts with `-` and
+   is not a recognized flag remains an "Unknown option" argument error, while any
+   token that does not start with `-` is collected as an ordered positional suite
+   selector. To match the existing collapse semantics, a single positional token
+   becomes `:suite <token>` and multiple tokens become `:suites [<tokens>...]`,
+   so the values reaching `scry.kaocha/run` are identical to what the old flags
+   produced.
 
 3. Positional suite selectors are only meaningful in Kaocha mode. In
    `:clojure-test` mode, positional arguments must be rejected with
@@ -67,9 +71,15 @@ Decision (Interpretation A, confirmed with maintainer): keep the adapter and the
 ## Constraints
 
 - Core mode (`:clojure-test`) behavior must not change except that stray
-  positional arguments are now an argument error (they were already rejected as
-  unknown options when prefixed with `-`; bare positionals were previously
-  unreachable in core mode and must remain an error).
+  positional arguments are now an argument error. Previously, `parse-main-args`'s
+  `default` branch rejected any unrecognized token (including bare, non-`-`
+  tokens) as an "Unknown option" argument error at parse time, before runner mode
+  was resolved in `normalize-exec-opts`; such positionals were reachable and
+  rejected, not unreachable. They must remain an error in core mode.
+- Positional suite selectors are accepted position-agnostically: any non-`-`
+  token is collected as a selector regardless of where it appears relative to
+  flags (flags always consume their own values explicitly in the hand-rolled
+  parse loop).
 - `-X` map path and `scry.kaocha/run` adapter API/semantics unchanged; task 002
   suite-selection tests must still pass.
 - Preserve the CLI's `:scry.cli/outcome-kind` error-classification contract.
@@ -89,11 +99,3 @@ Decision (Interpretation A, confirmed with maintainer): keep the adapter and the
 - `--focus`, `--kaocha-opt`, `--config` continue to work unchanged.
 - Focused CLI tests cover positional suite parsing; obsolete flag tests removed.
 - README/AGENTS/API docs reflect the positional form.
-
-## Open Questions
-
-- Ordering/interleaving: do we require positional suite tokens to appear only
-  after flags, or accept them interleaved? Kaocha's tools.cli accepts them
-  interleaved. Proposed default: accept any non-flag token as a positional
-  regardless of position, since `parse-main-args` is a hand-rolled loop and
-  flags always consume their own values explicitly.

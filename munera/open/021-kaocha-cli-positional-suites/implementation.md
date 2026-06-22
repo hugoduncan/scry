@@ -37,3 +37,19 @@
   The split should be: tokens starting with `-` stay unknown-option errors;
   other tokens become positional suite selectors. This keeps the change local to
   the hand-rolled loop and consistent with the existing architecture.
+
+### Design follow-up pass (batch baseline f4bdfd1)
+
+- Executed all 3 added design-steps; all were design.md text edits, no scope
+  change. Interpretation A scope unchanged.
+- Decision recorded in design.md: positional suite selectors are accepted
+  **position-agnostically** (any non-`-` token, regardless of position relative
+  to flags). Discrimination rule now lives in Approach step 2; an explicit
+  Constraints bullet restates position-agnostic acceptance. "Open Questions"
+  section removed (its sole item resolved).
+- Also reconciled a second "trailing" occurrence in the **Goal** (not just
+  Approach step 2) to "positional arguments" to avoid leaving an inconsistency
+  with the position-agnostic decision.
+- Constraints rationale corrected: bare positionals were reachable and rejected
+  at parse time (`parse-main-args` `default` "Unknown option" branch), not
+  unreachable; conclusion (must remain an error) preserved.

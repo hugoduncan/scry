@@ -476,3 +476,19 @@ Verification (all green):
   `--config` "as-is" divergence is already recorded as an unchecked
   design-step ("Plan-review follow-up (inconsistency review)", 3rd item) — not
   re-added (rule 3 no-duplicate).
+
+### Design-review session close — note for the remaining design-step
+
+- This shared design-review session (architecture + ambiguity + inconsistency)
+  added **0 new design-steps**. The sole open design-step is the design.md
+  Approach step-6 `--config` "as-is" item.
+- Key fact for whoever addresses it: the **code side is already done** — the
+  implementation pass split the fused `--suites`/`--config` test in
+  `test/scry/cli_test.clj` (kept the `--config` assertion, dropped the removed
+  `--suites` portion). So this design-step is now a **stale design.md text-only
+  reconciliation with zero code/test impact**; do not re-open or redo test work.
+- Mechanics already enumerated above under "Notes for the inconsistency
+  follow-up (design.md step 6 `--config`-test design-step)": edit design.md
+  Approach step 6 (lines 65-66) to state `--config` *coverage* preserved while
+  the fused test is split; leave Constraints (l.91)/Acceptance (l.104) and
+  `--focus`/`--kaocha-opt` untouched; keep Interpretation A frozen.

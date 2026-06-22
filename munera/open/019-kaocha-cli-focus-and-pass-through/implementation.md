@@ -675,3 +675,15 @@ Task complete: all six slices implemented and verified.
 - Added 1 follow-up step: the api-docs content contract (`scry.api-docs-test`)
   does not lock the new `:kaocha-extra` `scry.kaocha/run` documentation, unlike
   the detailed `scry.cli/run` section assertions.
+
+## Test review fourth-pass follow-up execution (2026-06-21)
+
+- Addressed 1 review follow-up step: locked the `:kaocha-extra` public surface
+  in the api-docs content contract. Added `kaocha-run-section`
+  (`var-section markdown "scry.kaocha" "run"`, mirroring `cli-run-section`) and
+  `assert-includes` fragments in the optional `scry.kaocha` surface testing
+  block (`:kaocha-extra`, "raw Kaocha cli-options forwarded", `:kaocha/cli-options`,
+  "resolved :config authoritative on conflict", ":focus coercion → vector of
+  keywords", and the mistyped-key runner/load-error trade-off).
+- Verified: `scry.api-docs-test` green (1 test / 65 assertions, was 58);
+  `bb clj-fmt:check` clean; `bb clj-kondo:lint` 0/0.

@@ -183,7 +183,7 @@
 
 ## Test review follow-ups (2026-06-21, fourth pass)
 
-- [ ] Lock the new `:kaocha-extra` public surface in the api-docs content
+- [x] Lock the new `:kaocha-extra` public surface in the api-docs content
   contract (`scry.api-docs-test`, `test-quickdoc/scry/api_docs_test.clj`).
   Slice 5 added `:kaocha-extra` to the `scry.kaocha/run` docstring (now in
   committed `doc/API.md:268`), and the design lists "Generated API docs must be

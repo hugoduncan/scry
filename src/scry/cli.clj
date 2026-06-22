@@ -7,23 +7,66 @@
    [scry.cli.results :as results]
    [scry.clojure-test :as clojure-test]))
 
-(def ^:private usage
-  (str "Usage:\n"
-       "  clojure -M:test -m scry.cli [options]\n"
-       "  clojure -X:test scry.cli/run :runner :clojure-test\n\n"
-       "Options:\n"
-       "  -r, --runner RUNNER             clojure-test (default) or kaocha\n"
-       "  -d, --dir DIR                   Test directory; repeatable\n"
-       "  -n, --namespace, --ns NS        Test namespace; repeatable, core mode only\n"
-       "  -v, --var VAR                   Fully-qualified test var; repeatable, core mode only\n"
-       "      --ns-pattern REGEX          Namespace regex, core mode only\n"
-       "      --result-format EDN         Result-format map\n"
-       "      --config EDN                Kaocha config map\n"
-       "      --focus SYM                 Kaocha focus selector; repeatable, Kaocha mode only\n"
-       "      --kaocha-opt KEY VALUE      Forward a raw Kaocha cli-option; Kaocha mode only\n"
-       "      --help                      Print this help\n\n"
-       "Positional arguments:\n"
-       "  [SUITE]...                      Kaocha suite selectors; Kaocha mode only"))
+(defn- usage-for
+  "Build CLI usage text for a help request.
+
+   With no runner (`nil`) the general help lists every option annotated by the
+   mode it applies to. With a specific runner keyword the help lists only that
+   runner's relevant options, without mode annotations, so `--help` is sensitive
+   to an explicitly supplied `--runner`."
+  [runner]
+  (str/join
+   "\n"
+   (case runner
+     :clojure-test
+     ["Usage:"
+      "  clojure -M:test -m scry.cli --runner clojure-test [options]"
+      "  clojure -X:test scry.cli/run :runner :clojure-test"
+      ""
+      "Options:"
+      "  -r, --runner RUNNER             clojure-test (default) or kaocha"
+      "  -d, --dir DIR                   Test directory; repeatable"
+      "  -n, --namespace, --ns NS        Test namespace; repeatable"
+      "  -v, --var VAR                   Fully-qualified test var; repeatable"
+      "      --ns-pattern REGEX          Namespace regex"
+      "      --result-format EDN         Result-format map"
+      "      --help                      Print this help"]
+
+     :kaocha
+     ["Usage:"
+      "  clojure -M:test:kaocha -m scry.cli --runner kaocha [options] [SUITE]..."
+      "  clojure -X:test:kaocha scry.cli/run :runner :kaocha"
+      ""
+      "Options:"
+      "  -r, --runner RUNNER             clojure-test (default) or kaocha"
+      "  -d, --dir DIR                   Test directory; repeatable"
+      "      --result-format EDN         Result-format map"
+      "      --config EDN                Kaocha config map"
+      "      --focus SYM                 Kaocha focus selector; repeatable"
+      "      --kaocha-opt KEY VALUE      Forward a raw Kaocha cli-option"
+      "      --help                      Print this help"
+      ""
+      "Positional arguments:"
+      "  [SUITE]...                      Kaocha suite selectors"]
+
+     ["Usage:"
+      "  clojure -M:test -m scry.cli [options]"
+      "  clojure -X:test scry.cli/run :runner :clojure-test"
+      ""
+      "Options:"
+      "  -r, --runner RUNNER             clojure-test (default) or kaocha"
+      "  -d, --dir DIR                   Test directory; repeatable"
+      "  -n, --namespace, --ns NS        Test namespace; repeatable, core mode only"
+      "  -v, --var VAR                   Fully-qualified test var; repeatable, core mode only"
+      "      --ns-pattern REGEX          Namespace regex, core mode only"
+      "      --result-format EDN         Result-format map"
+      "      --config EDN                Kaocha config map"
+      "      --focus SYM                 Kaocha focus selector; repeatable, Kaocha mode only"
+      "      --kaocha-opt KEY VALUE      Forward a raw Kaocha cli-option; Kaocha mode only"
+      "      --help                      Print this help"
+      ""
+      "Positional arguments:"
+      "  [SUITE]...                      Kaocha suite selectors; Kaocha mode only"])))
 
 (def ^:private result-scopes [:suite :namespace :var])
 
@@ -66,6 +109,15 @@
     (nil? x) []
     (sequential-but-not-string? x) (vec x)
     :else [x]))
+
+(defn- help-runner
+  "Lenient runner resolution for `--help` output.
+
+   Returns the canonical runner keyword for a recognized `--runner` value, or
+   `nil` for an absent or unrecognized runner so general help is shown rather
+   than failing a help request with an argument error."
+  [runner]
+  (some-> runner str/lower-case runner-aliases))
 
 (defn- normalize-runner
   [runner]
@@ -302,7 +354,7 @@
          raw {}]
     (if-not remaining
       (if (:help? raw)
-        {:help? true :usage usage}
+        {:help? true :usage (usage-for (help-runner (:runner raw)))}
         (normalize-exec-opts (main-opts->exec-opts raw)))
       (let [flag (first remaining)
             more (next remaining)]

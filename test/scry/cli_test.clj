@@ -287,6 +287,39 @@
     (let [parsed (#'cli/parse-main-args ["--help"])]
       (is (= true (:help? parsed)))
       (is (str/includes? (:usage parsed) "Usage:"))))
+  (testing "help with no runner lists both modes' options"
+    (let [usage (:usage (#'cli/parse-main-args ["--help"]))]
+      (is (str/includes? usage "core mode only"))
+      (is (str/includes? usage "Kaocha mode only"))
+      (is (str/includes? usage "--var"))
+      (is (str/includes? usage "--focus"))))
+  (testing "help is sensitive to an explicit core --runner"
+    (doseq [args [["--runner" "clojure-test" "--help"]
+                  ["--help" "--runner" "clojure-test"]
+                  ["--runner" "core" "--help"]]]
+      (let [usage (:usage (#'cli/parse-main-args args))]
+        (is (str/includes? usage "--var")
+            (str "expected core options for " (pr-str args)))
+        (is (not (str/includes? usage "--focus"))
+            (str "expected no Kaocha options for " (pr-str args)))
+        (is (not (str/includes? usage "mode only"))
+            (str "expected no mode annotations for " (pr-str args))))))
+  (testing "help is sensitive to an explicit Kaocha --runner"
+    (doseq [args [["--runner" "kaocha" "--help"]
+                  ["--help" "--runner" "kaocha"]]]
+      (let [usage (:usage (#'cli/parse-main-args args))]
+        (is (str/includes? usage "--focus")
+            (str "expected Kaocha options for " (pr-str args)))
+        (is (str/includes? usage "[SUITE]...")
+            (str "expected suite positional docs for " (pr-str args)))
+        (is (not (str/includes? usage "--var"))
+            (str "expected no core selector options for " (pr-str args)))
+        (is (not (str/includes? usage "mode only"))
+            (str "expected no mode annotations for " (pr-str args))))))
+  (testing "help with an unrecognized runner falls back to general help"
+    (let [usage (:usage (#'cli/parse-main-args ["--runner" "bogus" "--help"]))]
+      (is (str/includes? usage "core mode only"))
+      (is (str/includes? usage "Kaocha mode only"))))
   (testing "parser errors"
     (is (argument-error? #(#'cli/parse-main-args ["--unknown"])))
     (is (argument-error? #(#'cli/parse-main-args ["--focus"])))

@@ -156,7 +156,7 @@ Kaocha-specific options can be passed through to the underlying Kaocha runner:
 
 Forwarded options are merged into the resolved Kaocha config's `:kaocha/cli-options`, with an explicit `:config` authoritative on conflict. `:focus` values are coerced to the keyword shape Kaocha's filter plugin expects, so `--focus my.ns/test-foo` (`-m`) and `:focus "my.ns/test-foo"` (`-X`) both run only the focused test.
 
-Use `clojure -M:test -m scry.cli --help` for supported main-style flags.
+Use `clojure -M:test -m scry.cli --help` for supported main-style flags. `--help` is sensitive to an explicit `--runner`: `--runner clojure-test --help` shows only core selector options, `--runner kaocha --help` shows only Kaocha options and suite positionals, and `--help` with no (or an unrecognized) `--runner` shows the combined, mode-annotated help.
 
 ## `clojure.test` runner
 

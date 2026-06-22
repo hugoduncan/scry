@@ -648,3 +648,9 @@ Task complete: all six slices implemented and verified.
 - Verified: `scry.cli-test` (44 tests, 324 assertions, 0 fail/err),
   `scry.cli-kaocha-test` (6 tests, 39 assertions, 0 fail/err) with `:kaocha`,
   `bb clj-fmt:check` clean, `bb clj-kondo:lint` 0 errors/warnings.
+
+## Test review (2026-06-21, third pass)
+
+- Added 1 follow-up step: the boundary no-leak test only spot-checks 4 of the
+  scry-managed keys; the closed set (notably the function-valued
+  `:progress-callback`) is not fully asserted excluded from `:kaocha-extra`.

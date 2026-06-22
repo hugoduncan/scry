@@ -158,3 +158,25 @@
   `-m` flag → normalize → `:kaocha-extra` → `scry.kaocha/run` chain for the
   generic mechanism (including raw-string `:focus` coercion arriving via
   `--kaocha-opt` rather than the named `--focus` flag).
+
+## Test review follow-ups (2026-06-21, third pass)
+
+- [ ] Broaden the boundary no-leak assertion so it covers the full
+  `scry-managed-keys` closed set, not just a spot-check. The plan's "Boundary
+  regression" risk required asserting the *closed set* is excluded from
+  `:kaocha-extra`, and Slice 1's "no scry-managed key ... ever appears under
+  `:kaocha-extra`" step is implemented in
+  `normalize-exec-opts-kaocha-pass-through-test` ("scry-managed keys never
+  leak", `test/scry/cli_test.clj:137`) but only exercises `:runner`,
+  `:result-format`, `:suite`, and `:dirs`. The derived set
+  (`src/scry/cli.clj:47`) also includes `:progress-callback`, `:source-paths`,
+  `:ns-patterns`, `:config`, and `:suites` — none currently asserted absent from
+  `:kaocha-extra`. The most dangerous omission is `:progress-callback`: it is a
+  *function* value, and if a future edit dropped it from `scry-managed-keys` it
+  would silently leak into `:kaocha-extra` → `:kaocha/cli-options` with no test
+  catching the regression. Extend the test to pass a single unknown key
+  alongside `:progress-callback`, `:source-paths`, `:ns-patterns`, `:config`,
+  and `:suites` (valid Kaocha-mode values), asserting `:kaocha-extra` contains
+  only the unknown key while each scry-managed key is routed to its normalized
+  destination or excluded. (`core-only-keys` are rejected earlier in Kaocha mode
+  and so are out of scope for this collection-leak assertion.)

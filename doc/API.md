@@ -72,8 +72,8 @@ clojure -X:test scry.cli/run :vars '[my.project-test/specific-test]'
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
-Main-style CLI usage is run through project aliases, for example `clojure -M:test -m scry.cli` and `clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L637-L644">Source</a></sub></p>
+Main-style CLI usage is run through project aliases, for example `clojure -M:test -m scry.cli` and `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L704-L711">Source</a></sub></p>
 
 -----
 # <a name="scry.core">scry.core</a>
@@ -290,4 +290,4 @@ Run kaocha tests in-process and return scry's inspectable result map.
    :err is empty.
 
    Returns the same scoped result model as [`scry.core/run`](#scry.core/run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L321-L373">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L330-L382">Source</a></sub></p>

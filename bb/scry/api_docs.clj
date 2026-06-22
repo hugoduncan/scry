@@ -69,7 +69,7 @@
                                 "```\n\n"
                                 "Main-style CLI usage is run through project aliases, for example "
                                 "`clojure -M:test -m scry.cli` and "
-                                "`clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit`.")}}}})
+                                "`clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.")}}}})
 
 (defn generated-markdown
   "Return the deterministic generated API reference markdown."

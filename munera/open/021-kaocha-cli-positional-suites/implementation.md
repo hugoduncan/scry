@@ -330,3 +330,50 @@
   design.md (out of plan-profile scope). It is a design-review-follow-up
   concern; a design-profile pass should execute it. No plan.md/steps.md change
   was warranted this pass; no new ambiguity/inconsistency introduced.
+
+### Implementation pass (all slices) — complete
+
+Slices 1-4 implemented in one pass; Interpretation A scope held (only the `-m`
+wrapper changed; `-X` map path and `scry.kaocha/run` adapter untouched).
+
+- **Parser (`src/scry/cli.clj`).** Removed the `("--suite" "-s")` and `"--suites"`
+  flag branches plus their mutual-exclusion checks. The `parse-main-args` loop
+  `default` case now: tokens starting with `-` → `:scry.cli/argument-error`
+  ("Unknown option: ..."); any other token → `(add-repeat raw :suite-values flag)`
+  (ordered positional selector). Collapse in `main-opts->exec-opts` is unchanged
+  (still keys on `:suite-values`: 1→`:suite`, many→`:suites`), so values reaching
+  the adapter are identical to the old flags. Core-mode rejection reuses the
+  existing `normalize-core-options` `reject-keys`/`kaocha-only-keys` path
+  (positionals collapse to `:suite`/`:suites` → "Kaocha options require :runner
+  :kaocha", still `:scry.cli/argument-error`) — no parallel branch added.
+- **Usage text.** Dropped `-s, --suite` / `--suites` lines; added a "Positional
+  arguments: [SUITE]... Kaocha suite selectors; Kaocha mode only" section.
+- **Tests.** `cli_test.clj`: replaced the repeated/short `--suite`/`-s` and the
+  fused `--suites`/`--config` parse tests with positional tests (single→`:suite`,
+  multi→`:suites`, interleaved-with-flags), a `--config`-only test, a core-mode
+  positional-rejection test (asserts `argument-error?`, not "Unknown option"
+  text), and removed the `--suite`/`--suites` mutual-exclusion parser-error
+  assertion. `--focus`/`--kaocha-opt` tests unchanged. `cli_kaocha_test.clj`:
+  added `kaocha-cli-positional-suite-run-test` driving the full
+  parse→collapse→normalize→`scry.kaocha/run` chain (single positional runs one
+  suite; two positionals run both, with the failing suite writing its result
+  file).
+- **Docs.** README lines 79/143/144, AGENTS line 128, and the curated `-m`
+  example in `bb/scry/api_docs.clj` moved to the positional form; `doc/API.md`
+  regenerated. `-X` `:suite`/`:suites` examples and adapter REPL `:suite`/`:suites`
+  prose left unchanged.
+- **Out of scope (flagged for maintainer).** Root `SKILL.md:159` still carries
+  the stale `--runner kaocha --suite unit` form. It lies outside the design's
+  README/AGENTS/API doc scope and was intentionally not edited.
+
+Verification (all green):
+- `clojure -M:test` `scry.cli-test`: 45 tests, 357 assertions, 0 fail/0 err.
+- `clojure -M:test:kaocha` `scry.cli-kaocha-test`: 8 tests, 57 assertions, 0/0.
+- `clojure -M:test:kaocha` `scry.kaocha-test` (task 002 selection): 15 tests,
+  75 assertions, 0/0.
+- `bb api-docs --check`: clean. `scry.api-docs-test`: 1 test, 65 assertions, 0/0.
+- `bb clj-fmt:check`: all formatted. `bb clj-kondo:lint`: 0 errors/0 warnings.
+- Real `-m` invocation in a temp Kaocha project (unit + integration suites):
+  `--runner kaocha unit` → 1 passed, exit 0; `--runner kaocha unit integration`
+  → 2 passed, exit 0; `--runner kaocha --suite unit` → "Unknown option: --suite",
+  exit 1 (confirming clean flag removal).

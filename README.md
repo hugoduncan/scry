@@ -76,7 +76,7 @@ Use the same version token/value for `org.hugoduncan/scry` and `org.hugoduncan/s
 Run Kaocha support by composing the aliases:
 
 ```sh
-clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
+clojure -M:test:kaocha -m scry.cli --runner kaocha unit
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
@@ -140,8 +140,8 @@ The CLI exits `0` only when at least one concrete test var runs and all vars pas
 Kaocha CLI mode is available when the optional adapter is on the classpath:
 
 ```sh
-clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
-clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit --suite integration
+clojure -M:test:kaocha -m scry.cli --runner kaocha unit
+clojure -M:test:kaocha -m scry.cli --runner kaocha unit integration
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 clojure -M:test:kaocha -m scry.cli --runner kaocha --focus my.ns/test-foo
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :focus '"my.ns/test-foo"'

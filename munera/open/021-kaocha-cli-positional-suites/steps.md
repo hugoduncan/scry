@@ -49,14 +49,14 @@
 
 ## Slice 3 — Docs sync
 
-- [ ] Update `README.md` Kaocha CLI snippets (around the "Run Kaocha support by
+- [x] Update `README.md` Kaocha CLI snippets (around the "Run Kaocha support by
       composing the aliases" and command-line usage sections) from
       `--runner kaocha --suite unit` / `--suite unit --suite integration` to the
       positional form `--runner kaocha unit` / `--runner kaocha unit integration`.
       Leave `-X` `:suite`/`:suites` examples unchanged.
-- [ ] Update `AGENTS.md` Kaocha CLI command snippets to the positional `-m` form;
+- [x] Update `AGENTS.md` Kaocha CLI command snippets to the positional `-m` form;
       leave `-X` and adapter REPL `:suite`/`:suites` text unchanged.
-- [ ] Edit the curated Kaocha `-m` example in `bb/scry/api_docs.clj` (the
+- [x] Edit the curated Kaocha `-m` example in `bb/scry/api_docs.clj` (the
       `intro` string, ~line 72:
       `clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit`) to the
       positional form `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.
@@ -65,20 +65,20 @@
       Leave the `-X` example `:runner :kaocha :suite :unit` in the same string
       unchanged. (Flag, but do not edit, the out-of-scope stale `--suite unit`
       form at `SKILL.md:159`.)
-- [ ] Regenerate `doc/API.md` with `bb api-docs` and verify the CLI
+- [x] Regenerate `doc/API.md` with `bb api-docs` and verify the CLI
       `--runner kaocha ...` example text reflects the positional form.
 
 ## Slice 4 — Final command-line verification (record in implementation.md)
 
-- [ ] Run focused core CLI tests:
+- [x] Run focused core CLI tests:
       `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"`.
-- [ ] Run focused Kaocha CLI tests:
+- [x] Run focused Kaocha CLI tests:
       `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"`.
-- [ ] Run at least one real positional `-m` invocation, e.g.
+- [x] Run at least one real positional `-m` invocation, e.g.
       `clojure -M:test:kaocha -m scry.cli --runner kaocha unit` (and
       `... unit integration`) against an available Kaocha suite, confirming the
       selected suite(s) run.
-- [ ] Verify docs: `bb api-docs --check` and the API-doc content regression
+- [x] Verify docs: `bb api-docs --check` and the API-doc content regression
       `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"`.
-- [ ] Run `bb clj-fmt:check` and `bb clj-kondo:lint`.
-- [ ] Record all verification commands and results in `implementation.md`.
+- [x] Run `bb clj-fmt:check` and `bb clj-kondo:lint`.
+- [x] Record all verification commands and results in `implementation.md`.

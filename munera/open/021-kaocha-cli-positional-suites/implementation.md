@@ -2,6 +2,17 @@
 
 ## Review
 
+### Plan review (plan-review session)
+
+- ambiguity review (plan + steps): no ambiguity review feedback — accumulator
+  (`:suite-values`), count-based collapse (single→`:suite`/multi→`:suites`),
+  positional-vs-token discrimination rule, dropped-vs-retained mutual-exclusion
+  (parse-time checks removed; `normalize-kaocha-options` `:suite`/`:suites`
+  check correctly retained for `-X` and unreachable from `-m` collapse), and
+  core-mode outcome-kind assertion are all unambiguous and code-grounded.
+
+### Design review (design phase)
+
 - architectural review (final design, post-inconsistency edits 4b197c2): no
   actionable feedback — `-m`-only scope, `-X`/adapter and dynamic-load
   boundaries, shared `normalize-exec-opts` funnel, and `:scry.cli/outcome-kind`

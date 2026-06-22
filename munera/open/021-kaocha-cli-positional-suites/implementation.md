@@ -415,3 +415,14 @@ Verification (all green):
   removed-flag regression now present, unchanged `-X`/`--focus`/`--kaocha-opt`/
   `--config`); new tests are well-formed and use real fs/Kaocha via the
   injectable boundary with no mocks/stubs.
+
+### Test-shaper review pass (HEAD 075cb68)
+
+- Added 0 steps; no actionable feedback. Re-confirmed green (`scry.cli-test`
+  45/363, `scry.cli-kaocha-test` 8/57). Test-shaper lens: positional behaviour
+  partition is complete and economical, the interleaving test doubles as the
+  guard that a `--focus` value is not mis-collected as a selector, `:suites`
+  order is locked, and the `-m` e2e chain is distinct from the `-X`-style
+  `kaocha-cli-suite-run-test`. Untested positional-before-first-flag sub-case is
+  not behaviourally distinct from the covered selector-before-a-flag case, so it
+  is incidental case-explosion, not new signal.

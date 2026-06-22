@@ -107,3 +107,19 @@
       `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"`.
 - [x] Run `bb clj-fmt:check` and `bb clj-kondo:lint`.
 - [x] Record all verification commands and results in `implementation.md`.
+
+## Docs-review follow-up (independent docs review pass)
+
+- [ ] Fix the now-broken Kaocha CLI example in the git-tracked, user-facing
+      scry skill doc `SKILL.md:159`:
+      `clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit` is a
+      stale reference that, after the clean `--suite` removal, now produces
+      `Unknown option: --suite` (exit 1). Update it to the positional form
+      `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`, leaving the
+      adjacent `-X` `:runner :kaocha :suite :unit` line unchanged. The task
+      design scoped `SKILL.md` out (README/AGENTS/API only) and the prior passes
+      only *flagged* it for the maintainer, but no explicit maintainer decision
+      to ship a broken example is recorded; review-task-docs requires removed
+      behaviours / inaccurate examples to be cleaned from user-facing docs. If
+      keeping it out of scope is the deliberate decision, record that explicit
+      maintainer confirmation instead of editing.

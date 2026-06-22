@@ -582,3 +582,10 @@ Verification (all green):
   code, tests, docs (README/AGENTS/doc/API.md/CHANGELOG), and all verification
   (recorded above) are complete. Out-of-scope residual: root `SKILL.md:159`
   stale `-m --suite` form, flagged for the maintainer.
+
+### Docs-review pass (independent)
+
+- added 1 step: stale, now-broken `--runner kaocha --suite unit` example in the
+  user-facing skill doc `SKILL.md:159` (prior passes only flagged it; no explicit
+  maintainer decision to ship a broken example is recorded). In-scope README /
+  AGENTS / doc/API.md / CHANGELOG / `usage` text are all consistent and complete.

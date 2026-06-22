@@ -687,3 +687,15 @@ Task complete: all six slices implemented and verified.
   keywords", and the mistyped-key runner/load-error trade-off).
 - Verified: `scry.api-docs-test` green (1 test / 65 assertions, was 58);
   `bb clj-fmt:check` clean; `bb clj-kondo:lint` 0/0.
+
+## Test review (2026-06-21, fifth pass)
+
+- Added 0 follow-up steps. All design behaviours have automated coverage
+  (`-m`/`-X` focus + generic `--kaocha-opt` E2E, multi-flag accumulation,
+  coercion shapes, config-authoritative merge, focus filtering across tests.edn
+  / explicit `:config` / synthetic-fallback paths, core-mode reject, full
+  closed-set boundary no-leak, existing `--suite`/`--config`/`--dirs`, api-docs
+  content contract); tests use boundary injection + real Kaocha, no mocks/stubs.
+  The only residual candidate (`--kaocha-opt` core-mode reject) shares the exact
+  `:kaocha-extra` `reject-keys` enforcement point already tested via `--focus`,
+  so it is redundant rather than new signal.

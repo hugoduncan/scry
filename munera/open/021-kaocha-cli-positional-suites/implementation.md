@@ -406,3 +406,12 @@ Verification (all green):
 - Verification: `clojure -M:test` `scry.cli-test` → 45 tests, 363 assertions,
   0 fail/0 err (was 357; +6 from the new block). `bb clj-fmt:check` clean;
   `bb clj-kondo:lint` 0 errors/0 warnings.
+
+### Test-review pass (post-follow-up, baselines baec880)
+
+- No new actionable feedback; added 0 steps. Re-ran `scry.cli-test` (45/363,
+  0/0) and `scry.cli-kaocha-test` (8/57, 0/0) green. Behaviour coverage complete
+  (positional→`:suite`/`:suites` parse + e2e, interleaving, core-mode rejection,
+  removed-flag regression now present, unchanged `-X`/`--focus`/`--kaocha-opt`/
+  `--config`); new tests are well-formed and use real fs/Kaocha via the
+  injectable boundary with no mocks/stubs.

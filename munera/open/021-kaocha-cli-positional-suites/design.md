@@ -70,12 +70,17 @@ Decision (Interpretation A, confirmed with maintainer): keep the adapter and the
 
 ## Constraints
 
-- Core mode (`:clojure-test`) behavior must not change except that stray
-  positional arguments are now an argument error. Previously, `parse-main-args`'s
-  `default` branch rejected any unrecognized token (including bare, non-`-`
-  tokens) as an "Unknown option" argument error at parse time, before runner mode
-  was resolved in `normalize-exec-opts`; such positionals were reachable and
-  rejected, not unreachable. They must remain an error in core mode.
+- Core mode (`:clojure-test`) behavior must not change. In particular, a stray
+  positional argument in core mode remains a `:scry.cli/argument-error`, exactly
+  as today: `parse-main-args`'s `default` branch already rejects any unrecognized
+  token (including bare, non-`-` tokens) as an "Unknown option" argument error at
+  parse time, before runner mode is resolved in `normalize-exec-opts`. The only
+  delta is the rejection mechanism/message, not the error-ness or the
+  `:scry.cli/outcome-kind` contract: after this change a non-`-` token is no
+  longer rejected at parse time, but collapses to `:suite`/`:suites` in
+  `main-opts->exec-opts` and is then rejected at normalize time by the existing
+  `kaocha-only-keys`/`reject-keys` path ("Kaocha options require :runner
+  :kaocha"). The outcome remains `:scry.cli/argument-error` in core mode.
 - Positional suite selectors are accepted position-agnostically: any non-`-`
   token is collected as a selector regardless of where it appears relative to
   flags (flags always consume their own values explicitly in the hand-rolled

@@ -83,3 +83,16 @@
   positional will be the `kaocha-only-keys` message, not "Unknown option:";
   any core-mode positional-rejection test should assert outcome-kind
   `:scry.cli/argument-error` rather than pinning the old "Unknown option" text.
+
+### Design follow-up pass (re-review batch baseline 9d97241)
+
+- Executed the single inconsistency-re-review design-step (added in batch
+  8ea2529→64204da→b1be97e; `d38cba1` was a note commit). design.md text edit
+  only, no code/scope change (Interpretation A frozen).
+- Rewrote the first Constraints bullet to state the delta at the contract level:
+  core-mode positionals are `:scry.cli/argument-error` before and after; only the
+  rejection mechanism/message moves (parse-time "Unknown option" → normalize-time
+  `kaocha-only-keys`/`reject-keys` "Kaocha options require :runner :kaocha", since
+  positionals now collapse to `:suite`/`:suites`). Consistent with the Acceptance
+  line. No new ambiguity/inconsistency introduced.
+- All design-steps are now checked; design.md should be stable for plan creation.

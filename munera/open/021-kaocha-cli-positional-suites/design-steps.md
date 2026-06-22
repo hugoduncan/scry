@@ -20,7 +20,7 @@
       `normalize-exec-opts`; bare positionals were reachable and rejected, not
       unreachable. The conclusion ("must remain an error") is correct; only the
       stated rationale needs fixing.
-- [ ] Reconcile the first Constraints bullet's leading clause ("Core mode
+- [x] Reconcile the first Constraints bullet's leading clause ("Core mode
       behavior must not change except that stray positional arguments are now an
       argument error") with its own corrected rationale and the Acceptance line.
       As written it frames positionals-as-argument-error as a new delta, but the

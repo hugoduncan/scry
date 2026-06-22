@@ -329,6 +329,25 @@
            (is (= 1 (get-in result [:summary :test])))
            (is (= 1 (get-in result [:summary :pass])))))))))
 
+(deftest does-not-leak-framework-stdout-on-failing-run-test
+  ;; Kaocha's randomize plugin prints "\nRandomized with --seed N" to *out*
+  ;; (bypassing the reporter) on a failing run. The adapter binds *out*/*err*
+  ;; to a discarding sink around api/run, so that framework chatter must not
+  ;; leak onto the caller's *out* while scry's own structured result is intact.
+  (when-kaocha-available
+   (with-temp-project [project]
+     (let [sample-ns (unique-ns "leak" "failing-test")]
+       (write-suite-test-ns project sample-ns false)
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [sink (java.io.StringWriter.)
+               result (binding [*out* sink]
+                        (kaocha-run {:test-paths ["test"]
+                                     :ns-patterns [(exact-ns-pattern sample-ns)]}))]
+           (is (= "" (str sink))
+               "no Kaocha framework stdout (e.g. the randomize seed line) leaks to the caller's *out*")
+           (is (false? (:pass? result)))
+           (is (= 1 (get-in result [:summary :fail])))))))))
+
 (deftest no-tests-edn-fallback-focus-filters-execution-test
   ;; :kaocha-extra {:focus ...} actually filters executed vars on the synthetic
   ;; :unit fallback path (no tests.edn, no explicit :config, caller-provided

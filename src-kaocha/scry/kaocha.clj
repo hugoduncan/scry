@@ -261,6 +261,20 @@
     progress-callback
     (update :kaocha/reporter conj (progress-reporter progress-callback))))
 
+(defn- discarding-writer
+  "A writer that discards everything written to it, backed by a null output
+   stream so nothing accumulates in memory.
+
+   Used to bind `*out*`/`*err*` around `api/run` so Kaocha framework-level direct
+   prints (e.g. the randomize plugin's `post-run` \"Randomized with --seed N\"
+   line, which bypasses the reporter) do not leak onto scry's clean output
+   stream. scry's progress callback and CLI summary write to the boundary stream
+   objects, not these dynamic vars, and Kaocha's capture-output plugin rebinds
+   `*out*` per test, so neither is affected."
+  ^java.io.Writer []
+  (java.io.PrintWriter.
+   (java.io.OutputStreamWriter. (java.io.OutputStream/nullOutputStream))))
+
 (defn- valid-suites-collection?
   [suites]
   (and (coll? suites)
@@ -374,7 +388,9 @@
                  (apply-progress-reporter (:progress-callback opts)))
          start (System/nanoTime)
          kaocha-result (capture/without-context
-                        (binding [clojure.test/*report-counters* (ref type/initial-counters)]
+                        (binding [clojure.test/*report-counters* (ref type/initial-counters)
+                                  *out* (discarding-writer)
+                                  *err* (discarding-writer)]
                           (api/run cfg)))
          duration-ms (/ (- (System/nanoTime) start) 1e6)]
      (result->scry kaocha-result {:duration-ms duration-ms

@@ -377,3 +377,12 @@ Verification (all green):
   `--runner kaocha unit` → 1 passed, exit 0; `--runner kaocha unit integration`
   → 2 passed, exit 0; `--runner kaocha --suite unit` → "Unknown option: --suite",
   exit 1 (confirming clean flag removal).
+
+### Implementation review pass — no actionable feedback
+
+- Reviewed code/tests/docs against design (Interpretation A). Confirmed
+  `-m`-only scope: `src-kaocha/` zero diff, `-X` path and `:suite-values`
+  collapse unchanged, core-mode rejection reuses the existing
+  `kaocha-only-keys`/`reject-keys` path (no parallel branch). Re-ran focused
+  core CLI (45/357, 0/0), Kaocha CLI (8/57, 0/0), and `bb api-docs --check`
+  (clean) — matching the recorded results. Added 0 follow-up steps.

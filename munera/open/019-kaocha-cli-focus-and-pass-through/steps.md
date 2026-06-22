@@ -180,3 +180,24 @@
   only the unknown key while each scry-managed key is routed to its normalized
   destination or excluded. (`core-only-keys` are rejected earlier in Kaocha mode
   and so are out of scope for this collection-leak assertion.)
+
+## Test review follow-ups (2026-06-21, fourth pass)
+
+- [ ] Lock the new `:kaocha-extra` public surface in the api-docs content
+  contract (`scry.api-docs-test`, `test-quickdoc/scry/api_docs_test.clj`).
+  Slice 5 added `:kaocha-extra` to the `scry.kaocha/run` docstring (now in
+  committed `doc/API.md:268`), and the design lists "Generated API docs must be
+  updated if the public `scry.kaocha/run` API surface changes" as a constraint.
+  The content-regression test asserts the `scry.cli/run` section's required
+  content in detail (`:scry.cli/argument-error`, `:scry.cli/runner-error`, etc.)
+  but the `scry.kaocha` section is asserted only at the namespace/var-anchor
+  level — `grep -c kaocha-extra test-quickdoc/scry/api_docs_test.clj` is 0. So
+  this task's headline public option has no content lock: a future docstring edit
+  could silently drop the `:kaocha-extra` documentation and the focused content
+  test would still pass (`bb api-docs --check` only compares committed-vs-
+  generated and would not catch a coordinated removal). Add a `kaocha-run-section`
+  (mirroring the existing `cli-run-section` via `var-section markdown
+  "scry.kaocha" "run"`) and `assert-includes` the required `:kaocha-extra`
+  content fragments (e.g. `":kaocha-extra"`, the `:config`-authoritative-on-
+  conflict phrasing, and the `:focus` coercion / mistyped-key trade-off text)
+  so the generated content contract guards the documented option.

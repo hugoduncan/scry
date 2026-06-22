@@ -669,3 +669,9 @@ Task complete: all six slices implemented and verified.
   (rejected earlier) and `:dirs` (conflicts with explicit `:config`).
 - Verified: `scry.cli-test` (44 tests, 332 assertions, 0 fail/err),
   `bb clj-fmt:check` clean, `bb clj-kondo:lint` 0 errors/warnings.
+
+## Test review (2026-06-21, fourth pass)
+
+- Added 1 follow-up step: the api-docs content contract (`scry.api-docs-test`)
+  does not lock the new `:kaocha-extra` `scry.kaocha/run` documentation, unlike
+  the detailed `scry.cli/run` section assertions.

@@ -447,6 +447,15 @@ Verification (all green):
   CHANGELOG Unreleased entry are all consistent and complete. Only residual stale
   reference is out-of-scope root `SKILL.md:159`, already flagged for the maintainer.
 
+### Code-shaper review pass
+
+- added 0 steps; no new actionable feedback. Code reads simple/consistent/robust
+  (discrimination rule single-responsibility, `:suite-values`/`add-repeat`
+  reuse, count-based collapse unchanged, core-mode rejection via existing
+  `kaocha-only-keys`/`reject-keys` funnel). Re-ran `scry.cli-test` (45/363, 0/0)
+  green. Residual `SKILL.md:159` stale `-m --suite` form is out-of-scope and
+  already flagged — not re-raised.
+
 ### Architectural review (shared design-review session, first turn)
 
 - no architectural review feedback. Sole architecture sources are AGENTS.md

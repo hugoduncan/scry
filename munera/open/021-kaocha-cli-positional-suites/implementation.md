@@ -304,6 +304,18 @@
   plan/steps) is already recorded as an unchecked design-step for the design
   profile; not re-added (rule 3 no-duplicate).
 
+### Plan-review session close (HEAD post-8e3962d)
+
+- This plan-review session (ambiguity + inconsistency turns) added **no new
+  design-steps**. The sole outstanding item is the pre-existing unchecked
+  design.md step-6 `--config` design-step, which is a **design-profile** concern
+  (it needs a design.md Approach step-6 edit; out of plan-profile editable scope).
+  Its full follow-up guidance already lives above under "Notes for the
+  inconsistency follow-up (design.md step 6 `--config`-test design-step)" — mirror
+  plan.md step 5's canonical phrasing; do not touch design.md Constraints
+  (l.91)/Acceptance (l.104); keep Interpretation A frozen. No other principle or
+  path needs recording for this slice.
+
 - The single batch finding (`da5f24d`) was recorded in `design-steps.md` under
   "## Plan-review follow-up (inconsistency review)" and requires editing
   **design.md** Approach step 6 (lines 65-66): reword "keep `--config`

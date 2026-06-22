@@ -82,7 +82,7 @@
 
 ## Docs-review follow-up
 
-- [ ] Record this user-visible CLI change in `CHANGELOG.md` under `##
+- [x] Record this user-visible CLI change in `CHANGELOG.md` under `##
       Unreleased`: the `-m` Kaocha mode now takes suite selectors as trailing
       positional arguments (`--runner kaocha unit [integration ...]`), and the
       `--suite`/`-s`/`--suites` flags are removed (clean removal, no alias). The

@@ -432,3 +432,10 @@ Verification (all green):
 - added 1 step: `CHANGELOG.md` Unreleased not updated for the user-visible `-m`
   flag removal / positional-selector change (README/AGENTS/doc/API.md are all
   consistent and complete). Slice 3 omitted CHANGELOG.
+
+### Docs-review follow-up execution
+
+- addressed 1 review step: added `CHANGELOG.md` Unreleased entry for the
+  breaking `-m` Kaocha positional-selector change and `--suite`/`-s`/`--suites`
+  removal; noted `-X` keys and `scry.kaocha/run` adapter unchanged. Pure docs
+  change; no code/test impact.

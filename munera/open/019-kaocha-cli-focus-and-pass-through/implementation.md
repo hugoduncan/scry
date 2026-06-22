@@ -725,3 +725,10 @@ Task complete: all six slices implemented and verified.
   `-X` top-level pass-through, `:kaocha/cli-options` merge with `:config`
   authoritative, `:focus` keyword coercion, `-X` mistyped-key trade-off),
   matching existing changelog style.
+
+## Docs review (2026-06-21, second pass)
+
+- Added 0 follow-up steps. README, `scry.kaocha/run` docstring / `doc/API.md`,
+  CLI usage text, and the `## Unreleased` CHANGELOG entry are accurate and
+  mutually consistent for the new pass-through surface; `bb api-docs --check`
+  exits 0 (committed `doc/API.md` current).

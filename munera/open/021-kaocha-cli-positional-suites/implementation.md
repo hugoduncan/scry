@@ -440,6 +440,13 @@ Verification (all green):
   removal; noted `-X` keys and `scry.kaocha/run` adapter unchanged. Pure docs
   change; no code/test impact.
 
+### Docs-review pass (post-CHANGELOG)
+
+- added 0 steps; no new actionable feedback. README/AGENTS/doc/API.md positional
+  `-m` form, unchanged `-X :suite`/`:suites` examples, `usage` text, and the
+  CHANGELOG Unreleased entry are all consistent and complete. Only residual stale
+  reference is out-of-scope root `SKILL.md:159`, already flagged for the maintainer.
+
 ### Architectural review (shared design-review session, first turn)
 
 - no architectural review feedback. Sole architecture sources are AGENTS.md

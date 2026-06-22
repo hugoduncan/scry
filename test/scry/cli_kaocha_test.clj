@@ -288,6 +288,38 @@
              (is (= [keep-var]
                     (mapv :var (:canonical-results (:result outcome))))))))))))
 
+(deftest kaocha-cli-kaocha-opt-generic-pass-through-test
+  ;; The generic --kaocha-opt KEY VALUE mechanism reaches the Kaocha runner and
+  ;; actually filters execution, end-to-end through the CLI. This locks in the
+  ;; full -m flag -> normalize -> :kaocha-extra -> scry.kaocha/run chain for the
+  ;; generic mechanism, including raw-string :focus coercion arriving via
+  ;; --kaocha-opt rather than the named --focus flag.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [unit-ns (unique-ns "kaocha-opt" "unit-test")
+           keep-var (symbol (str unit-ns) "keep-test")]
+       (write-suite-test-ns!
+        project
+        unit-ns
+        "(deftest keep-test\n  (is true))\n\n(deftest drop-test\n  (is (= 1 2)))\n")
+       (write-project-file!
+        project
+        "tests.edn"
+        (str "#kaocha/v1\n"
+             "{:tests [{:id :unit\n"
+             "          :type :kaocha.type/clojure.test\n"
+             "          :test-paths [\"test\"]\n"
+             "          :ns-patterns [" (pr-str (exact-ns-pattern unit-ns)) "]}]}"))
+       (with-user-dir-and-ns-cleanup project [unit-ns]
+         (testing "-m --runner kaocha --kaocha-opt focus filters to the focused var"
+           (let [opts (#'cli/parse-main-args
+                       ["--runner" "kaocha" "--kaocha-opt" "focus" (str keep-var)])
+                 outcome (run-cli-in project opts)]
+             (is (= 0 (:exit-code outcome)))
+             (is (str/starts-with? (:stdout outcome) ".Assertions: 1 passed"))
+             (is (= [keep-var]
+                    (mapv :var (:canonical-results (:result outcome))))))))))))
+
 (deftest kaocha-adapter-progress-callback-test
   ;; The optional adapter exposes a live end-of-var progress callback before the
   ;; final scry result is transformed.

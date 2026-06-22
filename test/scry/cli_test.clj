@@ -219,6 +219,11 @@
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                        "--kaocha-opt" "foo" "bar"])]
       (is (= {:foo "bar"} (:kaocha-extra opts)))))
+  (testing "repeated --kaocha-opt accumulates distinct keys"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "--kaocha-opt" "a" "1"
+                                       "--kaocha-opt" "b" "2"])]
+      (is (= {:a "1" :b "2"} (:kaocha-extra opts)))))
   (testing "--focus rejected in core mode"
     (is (argument-error?
          #(#'cli/parse-main-args ["--runner" "clojure-test"

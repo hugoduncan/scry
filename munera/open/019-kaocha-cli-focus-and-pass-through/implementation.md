@@ -634,3 +634,17 @@ Task complete: all six slices implemented and verified.
   only tested at the parse level for a single invocation (no multi-flag
   accumulation test; no end-to-end coverage reaching the Kaocha runner, unlike
   `--focus`).
+
+## Test review second-pass follow-up execution (2026-06-21)
+
+- Addressed 2 review follow-up steps (generic `--kaocha-opt` coverage gaps).
+- Added `repeated --kaocha-opt accumulates distinct keys` parse test in
+  `test/scry/cli_test.clj` (asserts `--kaocha-opt a 1 --kaocha-opt b 2` →
+  `:kaocha-extra {:a "1" :b "2"}`), locking in the `assoc-in` accumulation path.
+- Added `kaocha-cli-kaocha-opt-generic-pass-through-test` in
+  `test/scry/cli_kaocha_test.clj`: `-m --runner kaocha --kaocha-opt focus <var>`
+  filters execution to the focused var end-to-end, covering raw-string `:focus`
+  coercion arriving via the generic flag.
+- Verified: `scry.cli-test` (44 tests, 324 assertions, 0 fail/err),
+  `scry.cli-kaocha-test` (6 tests, 39 assertions, 0 fail/err) with `:kaocha`,
+  `bb clj-fmt:check` clean, `bb clj-kondo:lint` 0 errors/warnings.

@@ -137,7 +137,7 @@
 
 ## Test review follow-ups (2026-06-21, second pass)
 
-- [ ] Add a test that multiple `--kaocha-opt KEY VALUE` flags accumulate
+- [x] Add a test that multiple `--kaocha-opt KEY VALUE` flags accumulate
   distinct keys into raw `:kaocha-extra` (e.g.
   `["--runner" "kaocha" "--kaocha-opt" "a" "1" "--kaocha-opt" "b" "2"]` →
   `:kaocha-extra {:a "1" :b "2"}`). The committed OQ1 generic mechanism is only
@@ -145,7 +145,7 @@
   (`test/scry/cli_test.clj:218`); the `assoc-in` accumulation path is a distinct
   code path from the `add-repeat` mechanism that the existing repeated-`--focus`
   test exercises, and is currently unverified.
-- [ ] Add an end-to-end test exercising the generic `--kaocha-opt` mechanism
+- [x] Add an end-to-end test exercising the generic `--kaocha-opt` mechanism
   reaching the Kaocha runner (not just parsing). `--focus` has full end-to-end
   coverage (`kaocha-cli-focus-pass-through-test`,
   `test/scry/cli_kaocha_test.clj:250`), but the generic `--kaocha-opt` path —

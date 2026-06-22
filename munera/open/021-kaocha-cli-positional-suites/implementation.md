@@ -45,6 +45,18 @@
   unaccounted for. `-X` example `:runner :kaocha :suite :unit` in the same
   `intro` string stays unchanged (adapter `-X` path is out of scope).
 
+- inconsistency review (plan-review session, post-docs-slice-follow-up 00fffd1):
+  added 1 design step — plan.md step 5 lists `--config` among "tests unchanged",
+  but the only `--config` parse test (`cli_test.clj:232`) is fused with the
+  removed `--suites` flag and steps.md Slice 2 correctly directs editing it;
+  classified actionable because a literal reading of plan step 5 would leave the
+  broken combined `--suites "[:unit]"` assertion. Plan vs steps otherwise
+  consistent (slice order, core-mode argument-error framing, docs-slice
+  api_docs.clj mechanism, position-agnostic collapse). The "byte-for-byte what
+  the old flags produced" claim appears identically in design.md and plan.md
+  (vs the repeatable `--suite`/`-s` string path, not the removed `--suites` EDN
+  path) — same framing in both files, so not a cross-file inconsistency.
+
 - ambiguity review (plan-review session, post-docs-slice-follow-up 00fffd1): no
   ambiguity review feedback — re-ran after the docs-slice edits; verified anchors
   (api_docs.clj:72 `-m`/:68 `-X`, README 79/143/144/146, AGENTS 128, root

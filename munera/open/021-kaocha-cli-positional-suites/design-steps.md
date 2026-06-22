@@ -49,3 +49,15 @@
       `doc/API.md`. (Out-of-scope note for maintainer: `SKILL.md:159` also
       carries the stale `--suite unit` example but lies outside the design's
       README/AGENTS/API doc scope — flag, do not silently expand scope.)
+- [ ] Plan/steps `--config`-test inconsistency: plan.md step 5 lists `--config`
+      among tests to "Keep ... unchanged", but the only `--config` parse test is
+      the combined `cli_test.clj:232` "accepted Kaocha suites and config EDN
+      flags" case that also exercises the now-removed `--suites` flag (and which
+      steps.md Slice 2 correctly directs to edit: "Keep the `--suites`/`--config`
+      EDN test only for `--config`; replace the `--suites` portion"). steps.md
+      pointedly omits `--config` from its own "unchanged" list. Reconcile plan.md
+      step 5 so it does not claim the `--config` test is unchanged: state that
+      `--config` coverage is preserved but the fused `--suites`/`--config` test
+      must be split/edited to drop the removed `--suites` flag (matching steps.md
+      Slice 2). Leaving the literal `--suites "[:unit]"` token in place would,
+      after flag removal, hit the `-`-prefixed "Unknown option" branch.

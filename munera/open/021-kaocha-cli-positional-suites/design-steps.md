@@ -61,7 +61,7 @@
       must be split/edited to drop the removed `--suites` flag (matching steps.md
       Slice 2). Leaving the literal `--suites "[:unit]"` token in place would,
       after flag removal, hit the `-`-prefixed "Unknown option" branch.
-- [ ] design.md↔plan/steps `--config`-test residual inconsistency: after the
+- [x] design.md↔plan/steps `--config`-test residual inconsistency: after the
       plan step 5 follow-up (617b3ee) reconciled plan↔steps, design.md Approach
       step 6 (lines 65-66) still says "Keep `--focus`, `--kaocha-opt`, and
       `--config` pass-through tests **as-is**", which now contradicts plan.md

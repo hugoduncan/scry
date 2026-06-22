@@ -62,8 +62,13 @@ Decision (Interpretation A, confirmed with maintainer): keep the adapter and the
 
 6. Update `cli_test.clj` Kaocha `-m` parsing tests to cover positional suites
    (single → `:suite`, multiple → `:suites`), and remove the obsolete
-   `--suite`/`-s`/`--suites`/mutual-exclusion flag tests. Keep `--focus`,
-   `--kaocha-opt`, and `--config` pass-through tests as-is.
+   `--suite`/`-s`/`--suites`/mutual-exclusion flag tests. Keep `--focus` and
+   `--kaocha-opt` pass-through tests as-is. `--config` *coverage* is preserved,
+   but its test is not left unchanged: the only `--config` parse test is the
+   fused "accepted Kaocha suites and config EDN flags" case, which also
+   exercises the now-removed `--suites` flag, so it is split/edited to drop the
+   `--suites` portion and keep `--config` (matching plan step 5 / steps
+   Slice 2).
 
 7. Update `README.md`, `AGENTS.md`, and regenerate `doc/API.md` if the public
    surface text changes there.

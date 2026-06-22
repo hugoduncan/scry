@@ -537,3 +537,18 @@ Verification (all green):
   Approach step 6 (lines 65-66) to state `--config` *coverage* preserved while
   the fused test is split; leave Constraints (l.91)/Acceptance (l.104) and
   `--focus`/`--kaocha-opt` untouched; keep Interpretation A frozen.
+
+### Final design-step reconciliation — complete
+
+- Executed the last open design-step (design-steps.md, "Plan-review follow-up
+  (inconsistency review)", 3rd item). design.md text-only edit, no code/test
+  impact (the fused `--suites`/`--config` test split was already done in the
+  implementation pass). Reworded design.md Approach step 6 to mirror plan.md
+  step 5: `--focus`/`--kaocha-opt` tests stay as-is; `--config` *coverage* is
+  preserved while its fused test is split/edited to drop the removed `--suites`
+  portion. Left Constraints (`--config` *behavior* unchanged) and Acceptance
+  untouched; Interpretation A frozen.
+- With this, all steps.md checklist items and all design-steps are checked;
+  code, tests, docs (README/AGENTS/doc/API.md/CHANGELOG), and all verification
+  (recorded above) are complete. Out-of-scope residual: root `SKILL.md:159`
+  stale `-m --suite` form, flagged for the maintainer.

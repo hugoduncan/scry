@@ -16,6 +16,11 @@
 - ambiguity review: added 1 design step (resolve the Open Questions interleaving
   rule into a definitive decision + explicit positional-vs-token discrimination
   rule).
+- inconsistency re-review (post follow-up edits): added 1 design step — the
+  first Constraints bullet's "must not change except that ... are now an argument
+  error" clause contradicts its own corrected rationale (positionals were already
+  an argument error); the real delta is the rejection message/mechanism, not the
+  `:scry.cli/argument-error` outcome-kind.
 - inconsistency review: added 2 design steps (reconcile "trailing" wording in
   Approach step 2 vs the position-agnostic Open Questions default; correct the
   inaccurate "bare positionals previously unreachable in core mode" rationale —

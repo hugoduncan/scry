@@ -45,6 +45,25 @@
   unaccounted for. `-X` example `:runner :kaocha :suite :unit` in the same
   `intro` string stays unchanged (adapter `-X` path is out of scope).
 
+### Notes for the plan-review inconsistency follow-up (`--config`-test design-step)
+
+- This follow-up is a plan.md step-5 wording correction only — no code, test, or
+  scope change (Interpretation A frozen). Do not start editing `cli_test.clj`
+  here; the actual test edit belongs to the implementation slice per steps.md
+  Slice 2.
+- steps.md Slice 2 is already correct (it keeps the combined test "only for
+  `--config`" and omits `--config` from its unchanged list) and is read-only
+  task context — fix plan.md to match steps.md, not the reverse.
+- Precise reconciliation: in plan.md step 5, remove `--config` from the "Keep
+  ... unchanged" clause; instead state that `--config` *coverage* is preserved
+  while the fused `cli_test.clj:232` "accepted Kaocha suites and config EDN
+  flags" test is split/edited to drop the removed `--suites` portion. Keep
+  `--focus` and `--kaocha-opt` as genuinely-unchanged tests.
+- Relevant non-task anchor: `test/scry/cli_test.clj:232` (the combined
+  `--suites`/`--config` EDN test); the removed `--suites`/`--suite`/`-s` flag
+  tests are at `cli_test.clj:220-236` and the mutual-exclusion test at
+  `cli_test.clj:275-276`.
+
 - inconsistency review (plan-review session, post-docs-slice-follow-up 00fffd1):
   added 1 design step — plan.md step 5 lists `--config` among "tests unchanged",
   but the only `--config` parse test (`cli_test.clj:232`) is fused with the

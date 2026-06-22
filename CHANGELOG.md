@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added Kaocha CLI option pass-through: the `-m` `--focus SYM` flag (repeatable) forwards Kaocha's focus selector, the generic `-m` `--kaocha-opt KEY VALUE` flag forwards any other raw Kaocha cli-option, and any `-X` top-level key outside scry's own option set is forwarded as pass-through. Forwarded options are merged into the resolved Kaocha config's `:kaocha/cli-options` with an explicit `:config` authoritative on conflict, and `:focus` values are coerced to the keyword shape Kaocha's filter plugin expects. These flags are rejected in core (`--runner clojure-test`) mode; because `-X` has no unknown-key rejection, a mistyped `-X` key surfaces as a Kaocha runner/load error rather than an argument error.
 - Added a generated quickdoc API reference at `doc/API.md`, plus `bb api-docs` / `bb api-docs --check` maintainer commands for reproducible regeneration.
 
 ## [0.1.28] - 2026-06-04

@@ -183,7 +183,7 @@
 
 ## Docs review follow-ups (2026-06-21)
 
-- [ ] Add an `## Unreleased` entry to `CHANGELOG.md` for this task's
+- [x] Add an `## Unreleased` entry to `CHANGELOG.md` for this task's
   user-visible Kaocha CLI pass-through feature. The change introduces new
   user-facing flags/behaviours (`-m` `--focus SYM` repeatable, `-m`
   `--kaocha-opt KEY VALUE`, `-X` top-level-key pass-through, merge into the

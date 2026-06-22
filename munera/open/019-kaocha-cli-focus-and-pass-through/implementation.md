@@ -717,3 +717,11 @@ Task complete: all six slices implemented and verified.
   documented in README + `scry.kaocha/run` docstring/`doc/API.md`, but
   `CHANGELOG.md` `## Unreleased` was not updated. README/API.md/CLI usage text
   otherwise accurate and consistent.
+
+## Docs review follow-up execution (2026-06-21)
+
+- Addressed 1 docs-review follow-up step: added an `## Unreleased` CHANGELOG
+  entry for the Kaocha CLI pass-through feature (`--focus`, `--kaocha-opt`,
+  `-X` top-level pass-through, `:kaocha/cli-options` merge with `:config`
+  authoritative, `:focus` keyword coercion, `-X` mistyped-key trade-off),
+  matching existing changelog style.

@@ -83,6 +83,16 @@
   pathway are all accurate and unambiguous. Updated docs-slice text added no new
   ambiguity.
 
+- ambiguity review (plan-review session, post --config-step follow-up 617b3ee):
+  no ambiguity review feedback — re-ran on current plan.md/steps.md after the
+  plan step 5 `--config`-wording edit. That edit is a precise clarification (no
+  new ambiguity). Re-verified discrimination rule, `:suite-values`
+  accumulator/count-based collapse, core-mode `kaocha-only-keys`/`reject-keys`
+  rejection, REPL-check return shapes (`:suite`/`:suites` survive
+  `normalize-kaocha-options`), test specs, and doc anchors (api_docs.clj:72
+  `-m`/:68 `-X`, README 79/143/144/146, AGENTS 128, root SKILL.md:159
+  out-of-scope) — all concrete and code-grounded.
+
 ### Plan-review follow-up pass (batch baseline 00fffd1) — complete
 
 - Batch segment: `9c26f06` (plan ambiguity, no feedback) → `84c2d66` (plan

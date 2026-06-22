@@ -548,6 +548,17 @@ Verification (all green):
   (8/57, 0/0) green. README/AGENTS/api_docs.clj/doc/API.md/CHANGELOG consistent;
   `-X` examples unchanged; out-of-scope `SKILL.md:159` correctly left flagged.
 
+### Test-shaper review pass (independent, HEAD 0fb83c1)
+
+- added 0 steps; no actionable feedback. Re-ran `scry.cli-test` (45/363, 0/0)
+  and `scry.cli-kaocha-test` (8/57, 0/0) green. Positional partition is complete
+  and economical (single→`:suite`, multi→`:suites`, interleaved-with-flags as the
+  `--focus`-not-mis-collected guard, core-mode rejection, removed-flag
+  regression); assertions are behaviour-focused (collapse values, exit codes,
+  stdout substrings, result files); core-mode rejection asserts only outcome-kind
+  (not the moved message); e2e uses real Kaocha via the injected boundary with
+  unique namespaces/temp dirs (deterministic, no mocks).
+
 ### Test-review pass (independent, HEAD 9753507)
 
 - added 0 steps; no new actionable feedback. Independently confirmed all three

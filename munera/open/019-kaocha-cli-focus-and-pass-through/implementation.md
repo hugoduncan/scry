@@ -557,3 +557,33 @@ Implemented core pass-through collection, `-m` flags, and adapter merge/coercion
 
 Next slice (4): CLI integration tests in `scry.cli-kaocha-test` exercising `-m`
 and `-X` acceptance end-to-end; then docs (Slice 5) + final verification (6).
+
+## Implementation — Slices 4–6 (2026-06-21)
+
+- **Slice 4 (CLI integration).** Added `kaocha-cli-focus-pass-through-test` in
+  `test/scry/cli_kaocha_test.clj`: a tests.edn project with two vars
+  (`keep-test` passing, `drop-test` failing); unfocused run exits 1, while both
+  `-m --focus <var>` and `-X :focus "<var>"` exit 0 and execute only the focused
+  var (`:canonical-results` = `[keep-var]`). Existing
+  `kaocha-cli-suite-run-test` / `-explicit-config-run-test` / `-fallback-dirs-test`
+  still cover `--suite`/`--config`/`--dirs`; core-mode reject covered in cli-test.
+
+- **Slice 5 (docs).** Regenerated `doc/API.md` (`scry.kaocha/run` now documents
+  `:kaocha-extra`); `bb api-docs --check` clean; `scry.api-docs-test` green
+  (58 assertions). Updated `README.md` Kaocha CLI section with `--focus`,
+  `--kaocha-opt`, the `-X` top-level pass-through, the `-X` mistyped-key
+  trade-off, and config-authoritative merge + `:focus` coercion note.
+
+- **Slice 6 (final verification), all green:**
+  - `scry.cli-test` — 44 tests / 323 assertions.
+  - `scry.kaocha-test` + `scry.cli-kaocha-test` — 19 tests / 107 assertions.
+  - core slice (`scry.capture-test scry.clojure-test-test scry.cli-test`) via
+    `scry/run` — 50 vars / 495 assertions, `:pass? true`.
+  - `scry.api-docs-test` — 1 test / 58 assertions.
+  - `bb clj-fmt:check` — all formatted; `bb clj-kondo:lint` — 0 errors/warnings.
+  - Real acceptance commands in the scry project (no tests.edn → synthetic
+    fallback): `clojure -M:test:kaocha -m scry.cli --runner kaocha --focus
+    scry.cli-test/parse-main-args-test` and the `-X` equivalent both run only the
+    focused var (Tests: 1 passed) and exit 0.
+
+Task complete: all six slices implemented and verified.

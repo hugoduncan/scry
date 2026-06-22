@@ -247,6 +247,47 @@
                (is (= :fail (:status result-data)))
                (is (str/includes? (:out result-data) "explicit out"))))))))))
 
+(deftest kaocha-cli-focus-pass-through-test
+  ;; --focus (-m) and :focus (-X) pass-through reach the Kaocha runner and
+  ;; actually filter execution to the focused var, end-to-end through the CLI.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [unit-ns (unique-ns "focus" "unit-test")
+           keep-var (symbol (str unit-ns) "keep-test")]
+       (write-suite-test-ns!
+        project
+        unit-ns
+        "(deftest keep-test\n  (is true))\n\n(deftest drop-test\n  (is (= 1 2)))\n")
+       (write-project-file!
+        project
+        "tests.edn"
+        (str "#kaocha/v1\n"
+             "{:tests [{:id :unit\n"
+             "          :type :kaocha.type/clojure.test\n"
+             "          :test-paths [\"test\"]\n"
+             "          :ns-patterns [" (pr-str (exact-ns-pattern unit-ns)) "]}]}"))
+       (with-user-dir-and-ns-cleanup project [unit-ns]
+         (testing "without focus the failing var runs and the run fails"
+           (let [outcome (run-cli-in project (#'cli/normalize-exec-opts
+                                              {:runner :kaocha}))]
+             (is (= 1 (:exit-code outcome)))))
+         (testing "-m --runner kaocha --focus filters to the focused var"
+           (let [opts (#'cli/parse-main-args
+                       ["--runner" "kaocha" "--focus" (str keep-var)])
+                 outcome (run-cli-in project opts)]
+             (is (= 0 (:exit-code outcome)))
+             (is (str/starts-with? (:stdout outcome) ".Assertions: 1 passed"))
+             (is (= [keep-var]
+                    (mapv :var (:canonical-results (:result outcome)))))))
+         (testing "-X :runner :kaocha :focus filters to the focused var"
+           (let [opts (#'cli/normalize-exec-opts
+                       {:runner :kaocha :focus (str keep-var)})
+                 outcome (run-cli-in project opts)]
+             (is (= 0 (:exit-code outcome)))
+             (is (str/starts-with? (:stdout outcome) ".Assertions: 1 passed"))
+             (is (= [keep-var]
+                    (mapv :var (:canonical-results (:result outcome))))))))))))
+
 (deftest kaocha-adapter-progress-callback-test
   ;; The optional adapter exposes a live end-of-var progress callback before the
   ;; final scry result is transformed.

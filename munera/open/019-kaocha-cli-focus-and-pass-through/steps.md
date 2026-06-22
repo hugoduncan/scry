@@ -84,33 +84,33 @@
 
 ## Slice 4 — CLI Kaocha integration + acceptance
 
-- [ ] In `test/scry/cli_kaocha_test.clj`, add a test exercising the `-m`
+- [x] In `test/scry/cli_kaocha_test.clj`, add a test exercising the `-m`
   `--runner kaocha --focus my.ns/test-foo` path end-to-end (focused run).
-- [ ] Add a test exercising the `-X` `:runner :kaocha :focus "my.ns/test-foo"`
+- [x] Add a test exercising the `-X` `:runner :kaocha :focus "my.ns/test-foo"`
   path end-to-end.
-- [ ] Add/confirm a test that existing Kaocha options (`--suite`, `--config`,
+- [x] Add/confirm a test that existing Kaocha options (`--suite`, `--config`,
   `--dirs`) still behave as before.
-- [ ] Confirm `:clojure-test` (core) mode results are unchanged by the new code
+- [x] Confirm `:clojure-test` (core) mode results are unchanged by the new code
   (no `:kaocha-extra` collection effect in core normalization path).
-- [ ] Run focused `scry.cli-kaocha-test` with the `:kaocha` alias; confirm green.
+- [x] Run focused `scry.cli-kaocha-test` with the `:kaocha` alias; confirm green.
 
 ## Slice 5 — Docs
 
-- [ ] Run `bb api-docs` to regenerate `doc/API.md` for the updated
+- [x] Run `bb api-docs` to regenerate `doc/API.md` for the updated
   `scry.kaocha/run` docstring.
-- [ ] Run `bb api-docs --check` and the focused api-docs regression test
+- [x] Run `bb api-docs --check` and the focused api-docs regression test
   (`scry.api-docs-test`) with the `:quickdoc:quickdoc-test:kaocha` aliases.
-- [ ] Update `README.md`: document the `--focus` and `--kaocha-opt` CLI options,
+- [x] Update `README.md`: document the `--focus` and `--kaocha-opt` CLI options,
   `-X` top-level pass-through, and the `-X` mistyped-key trade-off.
-- [ ] Verify README examples stay consistent with the actual CLI/option surface.
+- [x] Verify README examples stay consistent with the actual CLI/option surface.
 
 ## Slice 6 — Final command-line verification
 
-- [ ] Run the core command-line CLI checks (`scry.cli-test`).
-- [ ] Run the optional Kaocha CLI command-line checks
+- [x] Run the core command-line CLI checks (`scry.cli-test`).
+- [x] Run the optional Kaocha CLI command-line checks
   (`scry.cli-kaocha-test`, `scry.kaocha-test`) with `:kaocha`.
-- [ ] Run at least one real acceptance command:
+- [x] Run at least one real acceptance command:
   `clojure -M:test:kaocha -m scry.cli --runner kaocha --focus <var>` and/or
   `clojure -X:test:kaocha scry.cli/run :runner :kaocha :focus "<var>"`.
-- [ ] Run `bb clj-fmt:check` and `bb clj-kondo:lint`.
-- [ ] Record the commands run and results in `implementation.md`.
+- [x] Run `bb clj-fmt:check` and `bb clj-kondo:lint`.
+- [x] Record the commands run and results in `implementation.md`.

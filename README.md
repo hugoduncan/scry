@@ -141,9 +141,18 @@ Kaocha CLI mode is available when the optional adapter is on the classpath:
 clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
 clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit --suite integration
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
+clojure -M:test:kaocha -m scry.cli --runner kaocha --focus my.ns/test-foo
+clojure -X:test:kaocha scry.cli/run :runner :kaocha :focus '"my.ns/test-foo"'
 ```
 
 Kaocha CLI mode accepts Kaocha suite/config options and fallback `:source-paths`, `:test-paths`, and `:ns-patterns` options. `--dir` / `:dirs` maps to fallback `:test-paths` when no explicit Kaocha `:config` is supplied. Core-only namespace, var, and `:ns-pattern` selectors are rejected in Kaocha mode. As with the adapter API, Kaocha-captured stdout/stderr are preserved as merged `:out` with empty `:err` in result files unless the adapter supplies separate streams.
+
+Kaocha-specific options can be passed through to the underlying Kaocha runner:
+
+- On `-m`, the named `--focus SYM` flag (repeatable) forwards Kaocha's focus selector, and the generic `--kaocha-opt KEY VALUE` flag forwards any other raw Kaocha cli-option. Unknown bare `-m` flags are still rejected as argument errors, and these Kaocha-only flags are rejected in core (`--runner clojure-test`) mode.
+- On `-X`, any top-level key outside scry's own option set (for example `:focus "my.ns/test-foo"`) is forwarded as pass-through. Because `-X` has no unknown-key rejection, a mistyped `-X` key is forwarded and surfaces as a Kaocha runner/load error rather than an argument error.
+
+Forwarded options are merged into the resolved Kaocha config's `:kaocha/cli-options`, with an explicit `:config` authoritative on conflict. `:focus` values are coerced to the keyword shape Kaocha's filter plugin expects, so `--focus my.ns/test-foo` (`-m`) and `:focus "my.ns/test-foo"` (`-X`) both run only the focused test.
 
 Use `clojure -M:test -m scry.cli --help` for supported main-style flags.
 

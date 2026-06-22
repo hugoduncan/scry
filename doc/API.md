@@ -73,7 +73,7 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
 Main-style CLI usage is run through project aliases, for example `clojure -M:test -m scry.cli` and `clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L605-L612">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L637-L644">Source</a></sub></p>
 
 -----
 # <a name="scry.core">scry.core</a>
@@ -265,6 +265,14 @@ Run kaocha tests in-process and return scry's inspectable result map.
      :ns-patterns        fallback namespace-name regex strings
      :result-format      suite-scope formatting overrides
      :progress-callback  optional function called after each completed test var
+     :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
+                         CLI's bounded pass-through (e.g. `:focus`). It is merged
+                         into the resolved config's :kaocha/cli-options with the
+                         resolved :config authoritative on conflict. Known values
+                         are coerced (`:focus` raw string/symbol/keyword scalar or
+                         collection becomes a vector of keywords); unknown keys are
+                         forwarded as-is, so a mistyped key surfaces as a runner or
+                         load error rather than an argument error.
 
    When :config is omitted, the current project's tests.edn is loaded if it
    exists; otherwise a synthetic :unit suite is built from :source-paths,
@@ -282,4 +290,4 @@ Run kaocha tests in-process and return scry's inspectable result map.
    :err is empty.
 
    Returns the same scoped result model as [`scry.core/run`](#scry.core/run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L270-L313">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L321-L373">Source</a></sub></p>

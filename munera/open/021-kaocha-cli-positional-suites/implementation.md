@@ -4,6 +4,13 @@
 
 ### Plan review (plan-review session)
 
+- inconsistency review (plan + steps): added 1 design step — the docs slice
+  (plan step 6 / steps Slice 3) says "regenerate `doc/API.md` (`bb api-docs`)"
+  to reach the positional form, but that example is curated prose hardcoded in
+  `bb/scry/api_docs.clj`; regeneration re-emits it unchanged and the doc gates
+  (`bb api-docs --check`, `scry.api-docs-test`) won't flag the stale `--suite`
+  text. `bb/scry/api_docs.clj` must be edited. `SKILL.md:159` also has the stale
+  form but is outside the design's README/AGENTS/API doc scope.
 - ambiguity review (plan + steps): no ambiguity review feedback — accumulator
   (`:suite-values`), count-based collapse (single→`:suite`/multi→`:suites`),
   positional-vs-token discrimination rule, dropped-vs-retained mutual-exclusion

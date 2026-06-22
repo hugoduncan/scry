@@ -32,3 +32,20 @@
       "Kaocha options require :runner :kaocha" via the existing
       `kaocha-only-keys`/`reject-keys` path, since positionals now collapse to
       `:suite`/`:suites`), not the error-ness or the outcome-kind contract.
+
+## Plan-review follow-up (inconsistency review)
+
+- [ ] Docs-sync slice mechanism-vs-goal inconsistency: the `doc/API.md`
+      Main-style example `--runner kaocha --suite unit` is curated prose
+      hardcoded in `bb/scry/api_docs.clj` (the `intro` string), not regenerated
+      from a runtime docstring. Plan step 6 and steps Slice 3 say only
+      "regenerate `doc/API.md` (`bb api-docs`)", which re-emits the stale
+      `--suite` example unchanged, so the stated goal (API example reflects the
+      positional form) is unreachable by regeneration alone — and the gates do
+      not catch it (`bb api-docs --check` only compares the committed file to
+      regeneration; `scry.api-docs-test` does not pin this example). Update
+      plan.md step 6 / the docs slice to require editing the curated example in
+      `bb/scry/api_docs.clj` to the positional form before regenerating
+      `doc/API.md`. (Out-of-scope note for maintainer: `SKILL.md:159` also
+      carries the stale `--suite unit` example but lies outside the design's
+      README/AGENTS/API doc scope — flag, do not silently expand scope.)

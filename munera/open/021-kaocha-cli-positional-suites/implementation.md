@@ -2,6 +2,10 @@
 
 ## Review
 
+- architectural review (final design, post-inconsistency edits 4b197c2): no
+  actionable feedback — `-m`-only scope, `-X`/adapter and dynamic-load
+  boundaries, shared `normalize-exec-opts` funnel, and `:scry.cli/outcome-kind`
+  contract all preserved.
 - architectural review: no actionable feedback (design fits the parse → collapse
   → normalize → execute pipeline, the frozen `-m`-only scope, the `-X`/adapter
   boundary, and the `:scry.cli/outcome-kind` contract).

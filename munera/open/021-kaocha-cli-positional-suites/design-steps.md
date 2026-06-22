@@ -61,3 +61,19 @@
       must be split/edited to drop the removed `--suites` flag (matching steps.md
       Slice 2). Leaving the literal `--suites "[:unit]"` token in place would,
       after flag removal, hit the `-`-prefixed "Unknown option" branch.
+- [ ] design.md↔plan/steps `--config`-test residual inconsistency: after the
+      plan step 5 follow-up (617b3ee) reconciled plan↔steps, design.md Approach
+      step 6 (lines 65-66) still says "Keep `--focus`, `--kaocha-opt`, and
+      `--config` pass-through tests **as-is**", which now contradicts plan.md
+      step 5 ("the `--config` test is **not left unchanged** ... split/edited to
+      drop the `--suites` portion") and steps.md Slice 2. The only `--config`
+      parse test is the fused `cli_test.clj` "accepted Kaocha suites and config
+      EDN flags" case, so a literal reading of design.md step 6 would preserve
+      the broken `--suites "[:unit]"` assertion (the same failure mode the
+      plan-side review flagged). Reconcile design.md Approach step 6: keep
+      `--focus`/`--kaocha-opt` tests as-is, but state that `--config` *coverage*
+      is preserved while its fused `--suites`/`--config` test is split/edited to
+      drop the removed `--suites` portion (matching plan step 5 / steps Slice 2).
+      Wording-only correction; do NOT touch the design.md Constraints (line 91)
+      or Acceptance (line 104) lines, which correctly speak of `--config`
+      *behavior* (unchanged), and do not alter Interpretation A scope.

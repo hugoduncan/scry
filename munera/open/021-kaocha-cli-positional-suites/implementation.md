@@ -93,6 +93,18 @@
   `-m`/:68 `-X`, README 79/143/144/146, AGENTS 128, root SKILL.md:159
   out-of-scope) — all concrete and code-grounded.
 
+- inconsistency review (plan-review session, post --config-step follow-up
+  617b3ee): added 1 design step — the 617b3ee plan edit reconciled plan↔steps
+  but surfaced a design↔plan divergence: design.md Approach step 6 still says
+  keep the `--config` pass-through test "as-is", contradicting plan step 5 /
+  steps Slice 2 (the fused `--suites`/`--config` test must be split/edited).
+  Classified actionable by the same standard the plan-side `--config` finding
+  used (literal reading preserves the broken `--suites "[:unit]"` assertion).
+  Scoped to design.md Approach step 6 wording only — Constraints (l.91) and
+  Acceptance (l.104) speak of `--config` *behavior* (unchanged) and stay; no
+  scope change. Plan/steps otherwise consistent with design (scope, parser rule,
+  collapse, core-mode argument-error, docs-slice api_docs.clj mechanism).
+
 ### Plan-review follow-up pass (batch baseline 00fffd1) — complete
 
 - Batch segment: `9c26f06` (plan ambiguity, no feedback) → `84c2d66` (plan

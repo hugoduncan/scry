@@ -600,3 +600,8 @@ Task complete: all six slices implemented and verified.
   `scry.cli-kaocha-test` (63 tests, 430 assertions), `bb clj-fmt:check`,
   `bb clj-kondo:lint` (0/0), `bb api-docs --check`.
 - No actionable issues found; added 0 follow-up steps.
+
+## Test review (2026-06-21)
+
+- Added 1 follow-up step: synthetic-fallback path focus filtering is verified
+  only by a manual acceptance command, not an automated test.

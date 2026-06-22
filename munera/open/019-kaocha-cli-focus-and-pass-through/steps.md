@@ -114,3 +114,23 @@
   `clojure -X:test:kaocha scry.cli/run :runner :kaocha :focus "<var>"`.
 - [x] Run `bb clj-fmt:check` and `bb clj-kondo:lint`.
 - [x] Record the commands run and results in `implementation.md`.
+
+## Test review follow-ups (2026-06-21)
+
+- [ ] Add an automated test that `:kaocha-extra {:focus ...}` actually filters
+  execution on the **synthetic-fallback** config path (no `tests.edn`,
+  caller-provided `:test-paths`/`:ns-patterns`, no explicit `:config`). The
+  plan listed filter-plugin presence across all three config paths (tests.edn,
+  explicit `:config`, synthetic fallback) as a risk, and the implementation
+  generalized `ensure-runtime-plugins` to add `:kaocha.plugin/filter`
+  specifically because "synthetic fallback ... may omit Kaocha's default plugin
+  chain". Real end-to-end focus filtering is currently automated only for the
+  tests.edn path (`kaocha-cli-focus-pass-through-test`) and the explicit bare
+  `:config` path (`kaocha-extra-focus-filters-execution-test`); the
+  synthetic-fallback path is verified only by the manual acceptance command
+  recorded in `implementation.md`. Extend `no-tests-edn-fallback-test` (or add a
+  sibling) to assert the focused-var executed set is actually reduced via the
+  fallback path, locking in the filter-plugin-ensure behaviour against
+  regression. (Pattern: `kaocha-run {:test-paths [...] :ns-patterns [...]
+  :kaocha-extra {:focus [...]}}` with a mixed pass/fail fixture, asserting the
+  executed `:var` set and `:summary :var-count`.)

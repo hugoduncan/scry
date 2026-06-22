@@ -439,3 +439,14 @@ Verification (all green):
   breaking `-m` Kaocha positional-selector change and `--suite`/`-s`/`--suites`
   removal; noted `-X` keys and `scry.kaocha/run` adapter unchanged. Pure docs
   change; no code/test impact.
+
+### Architectural review (shared design-review session, first turn)
+
+- no architectural review feedback. Sole architecture sources are AGENTS.md
+  notes (`META.md`/`doc/architecture.md` do not exist). Design preserves the
+  dependency boundary (no load-time `scry.kaocha` require; Kaocha stays
+  dynamically loaded), confines the change to the `-m` parser, reuses the shared
+  parse→collapse→normalize→execute funnel and the `kaocha-only-keys`/`reject-keys`
+  core-mode rejection path (no parallel branch), and keeps the
+  `:scry.cli/outcome-kind` contract. `-m`-positional vs `-X`-keyword surface
+  divergence is the frozen Interpretation-A scope decision, not a misfit.

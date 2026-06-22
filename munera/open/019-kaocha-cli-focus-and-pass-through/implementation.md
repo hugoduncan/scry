@@ -732,3 +732,15 @@ Task complete: all six slices implemented and verified.
   CLI usage text, and the `## Unreleased` CHANGELOG entry are accurate and
   mutually consistent for the new pass-through surface; `bb api-docs --check`
   exits 0 (committed `doc/API.md` current).
+
+## Code-shaper review (2026-06-21)
+
+- Added 0 follow-up steps. Reviewed `scry.cli` (`scry-managed-keys`,
+  `normalize-kaocha-options` collection, `normalize-core-options` reject,
+  `parse-main-args` `--focus`/`--kaocha-opt`) and `scry.kaocha` (focus coercion,
+  `apply-kaocha-extra`, `ensure-runtime-plugins`) against simplicity /
+  consistency / robustness. Helpers are single-responsibility, cfg-first
+  threading and naming are consistent, and the `:focus` vector-vs-scalar
+  data-shape asymmetry is a deliberate, documented design absorbed by
+  `coerce-focus`. No code-shape defect found that improves without adding an
+  unnecessary abstraction.

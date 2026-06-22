@@ -426,3 +426,9 @@ Verification (all green):
   `kaocha-cli-suite-run-test`. Untested positional-before-first-flag sub-case is
   not behaviourally distinct from the covered selector-before-a-flag case, so it
   is incidental case-explosion, not new signal.
+
+### Docs-review pass
+
+- added 1 step: `CHANGELOG.md` Unreleased not updated for the user-visible `-m`
+  flag removal / positional-selector change (README/AGENTS/doc/API.md are all
+  consistent and complete). Slice 3 omitted CHANGELOG.

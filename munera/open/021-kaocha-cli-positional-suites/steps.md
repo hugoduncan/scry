@@ -80,6 +80,19 @@
 - [x] Regenerate `doc/API.md` with `bb api-docs` and verify the CLI
       `--runner kaocha ...` example text reflects the positional form.
 
+## Docs-review follow-up
+
+- [ ] Record this user-visible CLI change in `CHANGELOG.md` under `##
+      Unreleased`: the `-m` Kaocha mode now takes suite selectors as trailing
+      positional arguments (`--runner kaocha unit [integration ...]`), and the
+      `--suite`/`-s`/`--suites` flags are removed (clean removal, no alias). The
+      `-X` `:suite`/`:suites` keys and the `scry.kaocha/run` adapter are
+      unchanged. This is a user-facing breaking change to the `-m` surface and
+      is not currently reflected in the Unreleased section (which only describes
+      the earlier `--focus`/`--kaocha-opt` pass-through work); the
+      review-task-docs checklist requires user-visible flag/command changes to
+      be logged in `CHANGELOG.md`.
+
 ## Slice 4 — Final command-line verification (record in implementation.md)
 
 - [x] Run focused core CLI tests:

@@ -114,3 +114,22 @@
       positional case that resolves via the unique-text fallback (not an exact
       id) to lock in the claimed `select-suites` parity for the `:kaocha-argv`
       path.
+
+## Test review follow-up (test-shaper)
+
+- [ ] `kaocha-argv-forwarded-config-authoritative-test` proves the "explicit
+      `:config` wins over a forwarded `:kaocha-argv` option" constraint only by
+      hand-reconstructing `run`'s pipeline (calling private `parse-kaocha-argv`
+      then `apply-kaocha-extra` directly), asserting an implementation
+      composition rather than an observable `run` outcome. It can stay green even
+      if `run` stops composing parse→merge in that order. Add an end-to-end case
+      through `kaocha-run` (as `kaocha-argv-forwarded-focus-filters-execution-test`
+      already does) where a resolved `:config` cli-option and a conflicting
+      forwarded `:kaocha-argv` option set the same key, asserting the `:config`
+      value governs the actual run.
+- [ ] `kaocha-argv-forwarded-positional-unique-text-fallback-test` likewise
+      reconstructs the path by calling private `parse-kaocha-argv` then
+      `select-suites` directly instead of routing through `run`. Prove the OQ3
+      unique-text positional parity for the real `:kaocha-argv` path by asserting
+      suite selection via a `kaocha-run`/CLI invocation with a non-exact
+      positional, so the test breaks if `run`'s positional threading regresses.

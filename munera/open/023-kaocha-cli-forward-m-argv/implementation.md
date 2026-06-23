@@ -200,3 +200,11 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   unit tests and CLI end-to-end temp-project tests (forwarding, malformed
   reclassification, core-only rejection, positional suites, focus filter);
   real Kaocha, no mocks.
+
+## Test review (test-shaper)
+
+- added 2 steps: the `:config`-authoritative and OQ3 positional-fallback
+  `:kaocha-argv` tests assert reconstructed `run` composition (private
+  `parse-kaocha-argv` + `apply-kaocha-extra`/`select-suites`) rather than an
+  observable end-to-end `run`/CLI outcome, so they can stay green if `run`'s
+  composition regresses.

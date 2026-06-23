@@ -1,15 +1,27 @@
 # 023: Forward `-m` Kaocha arguments to Kaocha's own parser
 
+## Intent (why this task exists)
+
+scry is a test runner, **not a wrapper around Kaocha**. The CLI's guiding intent
+is that `scry.cli --runner kaocha` is a **drop-in replacement for Kaocha's own
+command line**: invocations that work against Kaocha's CLI should work against
+scry and mean the same thing. scry's value is its structured result model, not a
+new, curated CLI dialect. (See mementum/knowledge/cli-runner-drop-in-compatibility.md.)
+
+The bespoke `-m` Kaocha parsing (a bounded subset, plus scry-specific `--focus`
+and `--kaocha-opt`) is a symptom of treating scry as a Kaocha *wrapper*. Those
+flags exist only because scry re-implemented part of Kaocha's CLI instead of
+deferring to it. Drop-in compatibility means deferring to Kaocha's own parser.
+
 ## Goal
 
-Stop scry's `-m` CLI from hand-parsing a bounded subset of Kaocha options and
-suite selectors. Instead, in Kaocha mode (`--runner kaocha`), consume only the
-small set of scry-owned flags and forward **all remaining `-m` arguments
-verbatim** to Kaocha's own CLI parsing in the `scry.kaocha` adapter.
+In Kaocha mode (`--runner kaocha`), have `scry.cli` consume only the small set of
+scry-owned flags and forward **all remaining `-m` arguments verbatim** to
+Kaocha's own CLI parsing in the `scry.kaocha` adapter — so scry accepts Kaocha's
+full CLI surface as a drop-in invocation replacement.
 
 This removes the bespoke `--focus`, `--kaocha-opt`, and positional-suite-collapse
-machinery, gives `-m` users Kaocha's full option surface for free, and makes the
-`-m` Kaocha path consistent with how Kaocha's own CLI behaves.
+machinery and makes the `-m` Kaocha path behave like Kaocha's own CLI.
 
 ## Context
 
@@ -114,9 +126,17 @@ Out of scope / explicitly unchanged:
 - scry's result model, scope formatting, outcome classification, exit codes, and
   `.scry-results/` writing.
 
-Adjacent (note, do not do here): if Open Question 2 shows Kaocha lacks a clean
-reusable argv parser, a follow-up may be needed to vendor a minimal `tools.cli`
-spec; keep that out of this task unless trivial.
+Adjacent (note, do not do here):
+
+- If Open Question 2 shows Kaocha lacks a clean reusable argv parser, a follow-up
+  may be needed to vendor a minimal `tools.cli` spec; keep that out of this task
+  unless trivial.
+- **Default-runner cognitect compatibility.** The same drop-in intent says the
+  default `--runner clojure-test` CLI should be a drop-in replacement for the
+  cognitect test-runner CLI. scry's core flags already mirror it (`-d/--dir`,
+  `-n/--namespace`, `-v/--var`, `--namespace-regex`), but include/exclude
+  selector metadata (`-i/--include` / `-e/--exclude`) is unsupported. Closing
+  that gap is a **separate task**, not part of 023.
 
 ## Constraints
 
@@ -152,10 +172,20 @@ spec; keep that out of this task unless trivial.
 ## Open Questions
 
 1. **Which flags stay scry-owned on `-m` Kaocha mode?** `--runner`, `--help`,
-   `--result-format` are scry concerns (not Kaocha's) and should stay owned. Do
+   `--result-format` are scry concerns (not Kaocha's) and stay owned. Do
    `--config` (scry EDN map) and `--dir` (→ `:test-paths` fallback) stay owned,
    or are they dropped in favour of Kaocha's own `--config-file PATH`? Leaning:
    keep `--config`/`--dir` owned for now to avoid widening scope.
+
+   **Decided — `--namespace`/`--var`/`--ns-pattern` (core-only selectors):**
+   keep them scry-owned and **rejected with a clean `:scry.cli/argument-error`**
+   in Kaocha mode, exactly as today (`normalize-kaocha-options` →
+   `reject-keys core-only-keys`). They are not Kaocha concepts and must not be
+   forwarded: the Kaocha equivalent of "run this namespace/var" is Kaocha's own
+   `--focus my.ns` / `--focus my.ns/test-foo`, reached by plain forwarding. This
+   keeps their clean classification even though *unrecognised* `-m` tokens now
+   reclassify to runner/load errors — a deliberate scry validation is not an
+   "unknown flag".
 2. **What is the reusable Kaocha argv→(cli-options, suites) entry point?**
    Investigate `kaocha.runner`'s `tools.cli` spec and `kaocha.config/apply-cli-args`
    (already used by `select-suites` for positional ids). Determine whether a

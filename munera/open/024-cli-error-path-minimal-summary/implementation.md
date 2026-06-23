@@ -144,3 +144,9 @@ architecture/ambiguity/inconsistency review batch:
   runner-error with stderr diagnostic present). Infra deps are injected via
   `test-boundary` (`:out`/`:err`/`:run-clojure-test`/`:resolve-kaocha-runner`),
   not mocked. No actionable findings.
+
+## test-shaper review session
+
+- added 2 steps: redundant -X non-duplication assertion in `cli_test.clj`, and
+  inconsistent exact-vs-substring stdout-summary assertion style between
+  `cli_test.clj` and `cli_kaocha_test.clj`.

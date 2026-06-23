@@ -54,3 +54,20 @@
 - [x] Run focused Kaocha CLI tests:
       `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"`
 - [x] Record commands and results in `implementation.md`.
+
+## test-shaper review follow-ups
+
+- [ ] In `test/scry/cli_test.clj` (-X argument-error test, ~line 1336–1339),
+      drop or simplify the redundant non-duplication assertion. The preceding
+      exact-equality assertion on the whole `stdout` string already proves the
+      summary line appears exactly once; the follow-up
+      `(is (= 1 (count (filter #(= % "scry CLI error outcome") (re-seq ...)))))`
+      adds no signal (the `filter` is a no-op over a literal-matching regex) and
+      obscures intent.
+- [ ] Align the Kaocha runner-error stdout-summary assertion in
+      `test/scry/cli_kaocha_test.clj` (~line 456) with the core `cli_test.clj`
+      style: core tests assert the minimal summary with exact `=` (byte-stable
+      contract), while the Kaocha test only uses `str/includes?`. Use exact
+      equality if the runner-error path emits nothing else on stdout, or add a
+      short comment justifying the looser substring match if progress output can
+      precede the summary.

@@ -313,3 +313,13 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   remains valid (forwards an explicit non-default `--config-file`).
 - verification: `scry.kaocha-test` + `scry.cli-kaocha-test` (33 tests / 170
   asserts, 0F/0E); `bb clj-kondo:lint` 0/0; `bb clj-fmt:check` clean.
+
+## Code-shaper review (5th pass)
+
+- no new actionable issues; no follow-up steps added. Verified independently
+  that `kaocha-cli-option-spec`'s `(concat config-plugins default-cli-spec-plugins)`
+  cannot produce duplicate cli-option specs: `plugin/load-all` dedupes, so a
+  config already carrying randomize/filter/capture-output yields a single
+  `--focus`/`--[no-]randomize` etc. The two argv parses (base-spec
+  `forwarded-config-file` then full-spec `parse-kaocha-argv`) remain inherent to
+  the config→plugin-chain→full-spec ordering and were already accepted.

@@ -160,9 +160,16 @@
                                            :ns-patterns ["foo.*"]
                                            :config config
                                            :suites ["unit"]
+                                           :kaocha-argv ["--focus" "my.ns/test-foo"]
                                            :focus "my.ns/test-foo"})]
       ;; Only the unknown key is forwarded as pass-through.
       (is (= {:focus "my.ns/test-foo"} (:kaocha-extra opts)))
+      ;; :kaocha-argv is scry-managed: it routes to its own normalized
+      ;; destination and must never leak into :kaocha-extra (the -X path must
+      ;; not forward raw -m argv), guarding Slice 4's "no :kaocha-argv leakage
+      ;; into -X".
+      (is (= ["--focus" "my.ns/test-foo"] (:kaocha-argv opts)))
+      (is (not (contains? (:kaocha-extra opts) :kaocha-argv)))
       ;; Each scry-managed key routes to its normalized destination ...
       (is (= :kaocha (:runner opts)))
       (is (contains? opts :result-format))

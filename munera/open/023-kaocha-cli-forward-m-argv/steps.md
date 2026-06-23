@@ -94,21 +94,21 @@
 
 ## Test review follow-up
 
-- [ ] `:kaocha-argv` is in `scry-managed-keys` specifically to stop it leaking
+- [x] `:kaocha-argv` is in `scry-managed-keys` specifically to stop it leaking
       into `:kaocha-extra` on the `-X` path, but the
       `normalize-exec-opts-kaocha-pass-through-test` "full scry-managed closed
       set never leaks" subtest does not include `:kaocha-argv` in its input map,
       so that leak-prevention is untested. Add `:kaocha-argv` to that closed-set
       input and assert it neither lands in `:kaocha-extra` nor is otherwise
       forwarded (covers Slice 4's "no `:kaocha-argv` leakage into `-X`").
-- [ ] The "explicit `:config` is authoritative over forwarded options" constraint
+- [x] The "explicit `:config` is authoritative over forwarded options" constraint
       is only exercised for the `-X` `:kaocha-extra` path
       (`kaocha-extra-merge-config-authoritative-test` calls `apply-kaocha-extra`
       directly). No test conflicts an explicit `:config` cli-option with a
       `:kaocha-argv`-forwarded option to prove the parsed-argv path also defers
       to `:config`. Add an adapter test where `:config` and a forwarded
       `:kaocha-argv` option set the same cli-option and assert `:config` wins.
-- [ ] Positional-suite forwarding is asserted only with exact suite ids
+- [x] Positional-suite forwarding is asserted only with exact suite ids
       (`unit`/`integration`); OQ3's preserved unique-text/name fuzzy resolution
       on forwarded `-m` positionals is not exercised end-to-end. Add a forwarded
       positional case that resolves via the unique-text fallback (not an exact

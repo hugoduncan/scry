@@ -479,6 +479,43 @@
          "forwarded --focus runs only the focused var")
      (is (= 1 (get-in focused-result [:summary :var-count]))))))
 
+(deftest kaocha-argv-forwarded-config-authoritative-test
+  ;; The resolved :config is authoritative over an option set via forwarded
+  ;; :kaocha-argv, exercising the parsed-argv merge path (not just the -X
+  ;; :kaocha-extra path). This mirrors run's composition: parse the forwarded
+  ;; argv against the base config, then merge the parsed cli-options through
+  ;; apply-kaocha-extra (resolved config authoritative on conflict).
+  (when-kaocha-available
+   (let [parse-kaocha-argv (kaocha-var 'parse-kaocha-argv)
+         apply-kaocha-extra (kaocha-var 'apply-kaocha-extra)
+         base-cfg {:kaocha/tests []
+                   :kaocha/cli-options {:focus [:keep/this]}}
+         parsed (parse-kaocha-argv base-cfg ["--focus" "override/ignored"])
+         result (apply-kaocha-extra base-cfg (:cli-options parsed))]
+     (is (= [:override/ignored] (:focus (:cli-options parsed)))
+         "forwarded argv parsed the conflicting option")
+     (is (= [:keep/this] (get-in result [:kaocha/cli-options :focus]))
+         "explicit config :focus wins over the forwarded :kaocha-argv option"))))
+
+(deftest kaocha-argv-forwarded-positional-unique-text-fallback-test
+  ;; A forwarded -m positional suite selector that is not an exact configured id
+  ;; still resolves via the unique-text/name fallback through the same
+  ;; select-suites path used by :suite/:suites, locking in OQ3 parity for the
+  ;; :kaocha-argv path.
+  (when-kaocha-available
+   (let [parse-kaocha-argv (kaocha-var 'parse-kaocha-argv)
+         select-suites (kaocha-var 'select-suites)
+         cfg {:kaocha/tests [{:kaocha.testable/id :my.suite/unit}
+                             {:kaocha.testable/id :other/integration}]}
+         parsed (parse-kaocha-argv cfg ["unit"])
+         result (select-suites cfg (:suites parsed))]
+     (is (= [:unit] (:suites parsed))
+         "positional parsed to a keyword that is not an exact configured id")
+     (is (= {:my.suite/unit nil
+             :other/integration true}
+            (suite-skip-map result))
+         "non-exact positional resolves via unique-text fallback to :my.suite/unit"))))
+
 (deftest kaocha-extra-merge-config-authoritative-test
   ;; :kaocha-extra merges into the resolved config's :kaocha/cli-options with the
   ;; resolved config authoritative on conflict; non-conflicting keys still apply.

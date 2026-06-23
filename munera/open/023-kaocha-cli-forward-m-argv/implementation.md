@@ -178,3 +178,18 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   omits it), no end-to-end `:config`-authoritative-over-forwarded-`:kaocha-argv`
   conflict test, and forwarded positional fuzzy (unique-text) suite resolution
   not exercised.
+
+## Test review follow-up
+
+- addressed 3 test-review steps:
+  - cli-test: added `:kaocha-argv` to the closed-set input of
+    `normalize-exec-opts-kaocha-pass-through-test` and asserted it routes to
+    `:kaocha-argv` and never leaks into `:kaocha-extra` (covers no `-X` leakage).
+  - kaocha-test: added `kaocha-argv-forwarded-config-authoritative-test`
+    mirroring run's parse→`apply-kaocha-extra` merge to prove explicit `:config`
+    cli-options win over a conflicting forwarded `:kaocha-argv` option.
+  - kaocha-test: added
+    `kaocha-argv-forwarded-positional-unique-text-fallback-test` exercising a
+    forwarded positional that resolves via unique-text fallback (not an exact
+    id) through `parse-kaocha-argv`→`select-suites` (OQ3 parity).
+  - Verified: `scry.cli-test` (45/386) and `scry.kaocha-test` (21/93) green.

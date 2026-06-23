@@ -40,6 +40,12 @@
   other resolved points (owned set, positional→`select-suites` routing,
   `:kaocha-argv` `-m`-only, slice numbering) are cross-file consistent.
 
+- inconsistency review (2nd pass): no new inconsistency review feedback. Owned
+  flag set, core-only-selector rejection, OQ3 positional→`select-suites`,
+  `:kaocha-argv` `-m`-only, and Slice 4 tests↔acceptance all agree across
+  plan.md/steps.md/design-steps.md. design.md OQ1's leaning is resolved by
+  plan.md OQ1 (plan supersedes a captured open question — not a contradiction).
+
 ## For the namespace/var design-step
 
 - Current rejection lives in `src/scry/cli.clj` `normalize-kaocha-options`

@@ -34,6 +34,19 @@
   other resolved points (owned set, positional→`select-suites` routing,
   `:kaocha-argv` `-m`-only, slice numbering) are cross-file consistent.
 
+## For the namespace/var design-step
+
+- Current rejection lives in `src/scry/cli.clj` `normalize-kaocha-options`
+  (`reject-keys opts core-only-keys ...`); `core-only-keys` =
+  `#{:namespaces :vars}` ∪ `ns-pattern-keys`. `--namespace`/`--var` are still
+  parsed by `parse-main-args` into `:namespaces`/`:vars`, then rejected there —
+  so today Kaocha-mode `--namespace` gives an `argument-error`, not a forward.
+- Principle: whichever option is chosen, keep the core/adapter boundary intact
+  (core forwards opaque strings; no Kaocha require at load time) and preserve the
+  `:scry.cli/outcome-kind` contract — only the unknown-flag→runner/load-error
+  reclassification is an accepted change; deciding namespace/var should be a
+  deliberate, tested classification, not an accidental side effect of forwarding.
+
 ## Context for downstream slices
 
 - design-review session (architecture, ambiguity, inconsistency) added no

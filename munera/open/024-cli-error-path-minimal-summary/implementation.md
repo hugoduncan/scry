@@ -135,3 +135,12 @@ architecture/ambiguity/inconsistency review batch:
 - reviewed implementation against design/plan: faithful, tests green (cli-test
   394 assertions, cli-kaocha-test 74 assertions), docs updated. No actionable
   findings; 0 follow-up steps added.
+
+## test-review session
+
+- added 0 steps: test suite is well-formed and covers every design behaviour
+  (runner-error/argument-error -m & -X stdout summary, single-line non-duplication,
+  `:summary` nil, `--help`/load-error/success regression guards, Kaocha-mode
+  runner-error with stderr diagnostic present). Infra deps are injected via
+  `test-boundary` (`:out`/`:err`/`:run-clojure-test`/`:resolve-kaocha-runner`),
+  not mocked. No actionable findings.

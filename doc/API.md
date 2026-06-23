@@ -73,7 +73,7 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
 Main-style CLI usage is run through project aliases, for example `clojure -M:test -m scry.cli` and `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L716-L723">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L785-L792">Source</a></sub></p>
 
 -----
 # <a name="scry.core">scry.core</a>
@@ -265,6 +265,18 @@ Run kaocha tests in-process and return scry's inspectable result map.
      :ns-patterns        fallback namespace-name regex strings
      :result-format      suite-scope formatting overrides
      :progress-callback  optional function called after each completed test var
+     :kaocha-argv        a vector of raw `-m` CLI strings forwarded verbatim by
+                         the scry CLI in Kaocha mode (every token that is not a
+                         scry-owned flag: unknown `--flags`, their values, and
+                         positional suite names). They are parsed with Kaocha's
+                         own CLI machinery (its `tools.cli` spec plus active
+                         plugins' option hooks); parsed cli-options are merged
+                         like `:kaocha-extra` (resolved `:config` authoritative
+                         on conflict) and positional selectors are routed through
+                         the same `:suite`/`:suites` resolution. Malformed Kaocha
+                         options surface as a runner/load error rather than an
+                         argument error. This option is `-m`-only; the `-X` map
+                         path uses `:kaocha-extra`.
      :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
                          CLI's bounded pass-through (e.g. `:focus`). It is merged
                          into the resolved config's :kaocha/cli-options with the
@@ -295,4 +307,4 @@ Run kaocha tests in-process and return scry's inspectable result map.
    print is suppressed.
 
    Returns the same scoped result model as [`scry.core/run`](#scry.core/run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L344-L409">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L372-L453">Source</a></sub></p>

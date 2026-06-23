@@ -437,6 +437,48 @@
      (is (= [:my.ns/test-foo] (coerce-focus 'my.ns/test-foo)))
      (is (= [:a :b :c] (coerce-focus ["a" :b 'c]))))))
 
+(deftest kaocha-argv-parse-test
+  ;; parse-kaocha-argv uses Kaocha's own tools.cli spec (base runner spec plus
+  ;; default plugins' cli-options hooks) to split forwarded -m argv into parsed
+  ;; cli-options and positional suite selectors, dropping the :config-file
+  ;; default and coercing positionals to keywords. Unknown options throw.
+  (when-kaocha-available
+   (let [parse-kaocha-argv (kaocha-var 'parse-kaocha-argv)
+         cfg {:kaocha/tests []}]
+     (testing "forwarded Kaocha option and positionals split apart"
+       (let [{:keys [cli-options suites]}
+             (parse-kaocha-argv cfg ["--focus" "my.ns/test-foo"
+                                     "unit" "integration"])]
+         (is (= {:focus [:my.ns/test-foo]} cli-options)
+             "config-file default dropped; focus coerced to keyword vector")
+         (is (= [:unit :integration] suites))))
+     (testing "boolean Kaocha flag forwards as cli-option"
+       (let [{:keys [cli-options suites]}
+             (parse-kaocha-argv cfg ["--no-randomize"])]
+         (is (= {:randomize false} cli-options))
+         (is (= [] suites))))
+     (testing "unknown forwarded option throws (runner/load-error path)"
+       (is (thrown? clojure.lang.ExceptionInfo
+                    (parse-kaocha-argv cfg ["--no-such-flag"])))))))
+
+(deftest kaocha-argv-forwarded-focus-filters-execution-test
+  ;; :kaocha-argv forwarding actually filters executed vars end-to-end through
+  ;; the adapter run, matching the :kaocha-extra focus behaviour but arriving via
+  ;; raw forwarded argv parsed by Kaocha's own CLI machinery.
+  (when-kaocha-available
+   (let [cfg (suite-config [:unit] "scry\\.fixtures\\.mixed")
+         result-format {:suite {:top-level-keys [:summary :pass? :results :failures]}}
+         executed (fn [result] (set (map :var (:results result))))
+         all-result (kaocha-run {:config cfg :result-format result-format})
+         focused-result (kaocha-run
+                         {:config cfg
+                          :kaocha-argv ["--focus" "scry.fixtures.mixed/pass-then-fail"]
+                          :result-format result-format})]
+     (is (= 2 (get-in all-result [:summary :var-count])))
+     (is (= #{'scry.fixtures.mixed/pass-then-fail} (executed focused-result))
+         "forwarded --focus runs only the focused var")
+     (is (= 1 (get-in focused-result [:summary :var-count]))))))
+
 (deftest kaocha-extra-merge-config-authoritative-test
   ;; :kaocha-extra merges into the resolved config's :kaocha/cli-options with the
   ;; resolved config authoritative on conflict; non-conflicting keys still apply.

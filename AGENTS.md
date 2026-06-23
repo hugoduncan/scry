@@ -129,6 +129,8 @@ clojure -M:test:kaocha -m scry.cli --runner kaocha unit
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
+In `-m` Kaocha mode, `scry.cli --runner kaocha` is a drop-in for Kaocha's own command line: scry consumes only its own flags (`--runner`/`-r`, `--help`/`-h`, `--result-format`, `--config`, `--dir`/`-d`) and forwards every other argument — Kaocha options (e.g. `--focus`, `--no-randomize`) and positional `[SUITE]...` selectors — verbatim to Kaocha's own CLI parser via the adapter's `:kaocha-argv` option. The scry-specific `-m --focus`/`--kaocha-opt` flags and the `-m` positional-suite collapse are gone. A malformed `-m` Kaocha option therefore surfaces as `:scry.cli/runner-error`/`:scry.cli/load-error`, not `:scry.cli/argument-error`; core-only `--namespace`/`--var`/`--ns-pattern` selectors stay rejected with a clean `:scry.cli/argument-error` in Kaocha mode. The `-X` path keeps using `:kaocha-extra` pass-through and core (`--runner clojure-test`) mode is unchanged.
+
 If you need raw API inspection from a one-off command, call `scry.core/run` explicitly:
 
 ```sh

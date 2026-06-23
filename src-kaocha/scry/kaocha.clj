@@ -11,8 +11,10 @@
    [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.test]
+   [clojure.tools.cli :as cli]
    [kaocha.api :as api]
    [kaocha.config :as config]
+   [kaocha.plugin :as plugin]
    [kaocha.type :as type]
    [scry.capture :as capture]))
 
@@ -205,6 +207,44 @@
               (merge (coerce-kaocha-extra extra) cli-options)))
     cfg))
 
+(def ^:private default-cli-spec-plugins
+  "Kaocha's default plugin chain. Included when building the forwarded-argv
+   option spec so the standard Kaocha flag surface (e.g. `--focus`,
+   `--[no-]randomize`) is always parseable as a drop-in, even for synthetic
+   fallback configs that omit Kaocha's default plugins. A flag only takes effect
+   if its plugin is active during the run, but it should never fail to parse."
+  [:kaocha.plugin/randomize
+   :kaocha.plugin/filter
+   :kaocha.plugin/capture-output])
+
+(defn- kaocha-cli-option-spec
+  "Build the full `clojure.tools.cli` option spec for forwarded `-m` argv:
+   Kaocha's own base runner spec extended by the config's plugins (plus Kaocha's
+   default plugins) `:kaocha.hooks/cli-options`, mirroring `kaocha.runner/-main*`.
+   Using Kaocha's own spec is what makes scry a drop-in for Kaocha's CLI: arity
+   and parsing of every Kaocha option are decided by Kaocha, not re-implemented
+   here."
+  [cfg]
+  (let [base @(requiring-resolve 'kaocha.runner/cli-options)
+        plugin-chain (plugin/load-all (concat (:kaocha/plugins cfg)
+                                              default-cli-spec-plugins))]
+    (plugin/run-hook* plugin-chain :kaocha.hooks/cli-options base)))
+
+(defn- parse-kaocha-argv
+  "Parse a forwarded raw `-m` Kaocha argv vector with Kaocha's own CLI machinery.
+
+   Returns `{:cli-options <parsed options minus the :config-file default>
+             :suites <positional selectors coerced to keywords>}`. Throws
+   `ex-info` when Kaocha's parser reports option errors (the accepted `-m`
+   unknown-flag reclassification to a runner/load error)."
+  [cfg argv]
+  (let [{:keys [options arguments errors]} (cli/parse-opts argv (kaocha-cli-option-spec cfg))]
+    (when (seq errors)
+      (throw (ex-info (str "Invalid Kaocha CLI arguments: " (str/join "; " errors))
+                      {:kaocha-argv (vec argv) :errors errors})))
+    {:cli-options (dissoc options :config-file)
+     :suites (mapv (requiring-resolve 'kaocha.runner/parse-kw) arguments)}))
+
 (defn- event-var-symbol
   [event]
   (when-let [v (:var event)]
@@ -353,6 +393,18 @@
      :ns-patterns        fallback namespace-name regex strings
      :result-format      suite-scope formatting overrides
      :progress-callback  optional function called after each completed test var
+     :kaocha-argv        a vector of raw `-m` CLI strings forwarded verbatim by
+                         the scry CLI in Kaocha mode (every token that is not a
+                         scry-owned flag: unknown `--flags`, their values, and
+                         positional suite names). They are parsed with Kaocha's
+                         own CLI machinery (its `tools.cli` spec plus active
+                         plugins' option hooks); parsed cli-options are merged
+                         like `:kaocha-extra` (resolved `:config` authoritative
+                         on conflict) and positional selectors are routed through
+                         the same `:suite`/`:suites` resolution. Malformed Kaocha
+                         options surface as a runner/load error rather than an
+                         argument error. This option is `-m`-only; the `-X` map
+                         path uses `:kaocha-extra`.
      :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
                          CLI's bounded pass-through (e.g. `:focus`). It is merged
                          into the resolved config's :kaocha/cli-options with the
@@ -385,11 +437,15 @@
    Returns the same scoped result model as `scry.core/run`."
   ([] (run {}))
   ([opts]
-   (let [cfg (-> opts
-                 resolve-config
-                 (select-suites (suite-selectors opts))
+   (let [base-cfg (resolve-config opts)
+         argv (:kaocha-argv opts)
+         parsed-argv (when (seq argv) (parse-kaocha-argv base-cfg argv))
+         selectors (concat (suite-selectors opts) (:suites parsed-argv))
+         cfg (-> base-cfg
+                 (select-suites selectors)
                  apply-runtime-defaults
                  (apply-kaocha-extra (:kaocha-extra opts))
+                 (apply-kaocha-extra (:cli-options parsed-argv))
                  (apply-progress-reporter (:progress-callback opts)))
          start (System/nanoTime)
          kaocha-result (capture/without-context

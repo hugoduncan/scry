@@ -34,20 +34,19 @@
 
      :kaocha
      ["Usage:"
-      "  clojure -M:test:kaocha -m scry.cli --runner kaocha [options] [SUITE]..."
+      "  clojure -M:test:kaocha -m scry.cli --runner kaocha [scry options] [kaocha args]..."
       "  clojure -X:test:kaocha scry.cli/run :runner :kaocha"
       ""
-      "Options:"
+      "scry options:"
       "  -r, --runner RUNNER             clojure-test (default) or kaocha"
       "  -d, --dir DIR                   Test directory; repeatable"
       "      --result-format EDN         Result-format map"
       "      --config EDN                Kaocha config map"
-      "      --focus SYM                 Kaocha focus selector; repeatable"
-      "      --kaocha-opt KEY VALUE      Forward a raw Kaocha cli-option"
       "      --help                      Print this help"
       ""
-      "Positional arguments:"
-      "  [SUITE]...                      Kaocha suite selectors"]
+      "All other arguments — Kaocha options (e.g. --focus SYM, --no-randomize)"
+      "and positional [SUITE]... selectors — are forwarded verbatim to Kaocha's"
+      "own CLI parser. See Kaocha's own --help for its full option surface."]
 
      ["Usage:"
       "  clojure -M:test -m scry.cli [options]"
@@ -61,12 +60,13 @@
       "      --ns-pattern REGEX          Namespace regex, core mode only"
       "      --result-format EDN         Result-format map"
       "      --config EDN                Kaocha config map"
-      "      --focus SYM                 Kaocha focus selector; repeatable, Kaocha mode only"
-      "      --kaocha-opt KEY VALUE      Forward a raw Kaocha cli-option; Kaocha mode only"
       "      --help                      Print this help"
       ""
-      "Positional arguments:"
-      "  [SUITE]...                      Kaocha suite selectors; Kaocha mode only"])))
+      "Kaocha mode forwards all other arguments verbatim to Kaocha's own CLI"
+      "parser:"
+      "  [kaocha args]...                Kaocha options (e.g. --focus SYM,"
+      "                                  --no-randomize) and positional [SUITE]..."
+      "                                  selectors; Kaocha mode only"])))
 
 (def ^:private result-scopes [:suite :namespace :var])
 
@@ -88,7 +88,7 @@
 ;; not a key to collect, so the `-X` collection step must not re-collect an
 ;; already-present `:kaocha-extra` map into a nested one.
 (def ^:private scry-managed-keys
-  (into #{:runner :result-format :progress-callback :kaocha-extra :dirs}
+  (into #{:runner :result-format :progress-callback :kaocha-extra :kaocha-argv :dirs}
         (concat core-only-keys kaocha-only-keys kaocha-fallback-keys)))
 
 (defn- argument-error
@@ -289,7 +289,8 @@
                      (present? opts :dirs) (assoc :test-paths (normalize-dirs (:dirs opts)))
                      (present? opts :source-paths) (assoc :source-paths (:source-paths opts))
                      (present? opts :test-paths) (assoc :test-paths (:test-paths opts))
-                     (present? opts :ns-patterns) (assoc :ns-patterns (:ns-patterns opts)))
+                     (present? opts :ns-patterns) (assoc :ns-patterns (:ns-patterns opts))
+                     (present? opts :kaocha-argv) (assoc :kaocha-argv (:kaocha-argv opts)))
         ;; Collect every top-level key outside the scry-managed set as raw
         ;; pass-through. On `-X` these are scattered top-level keys (e.g.
         ;; `:focus`); on `-m` the parser pre-builds a `:kaocha-extra` map (which
@@ -348,73 +349,89 @@
                    (assoc :suites (vec suite-values))))]
     opts))
 
-(defn- parse-main-args
+(defn- argv-runner
+  "Resolve the effective runner from raw `-m` argv before per-token parsing.
+
+   `--runner`/`-r` may appear anywhere in argv, so a pre-pass is needed to decide
+   whether unrecognized tokens are forwarded to Kaocha (`:kaocha`) or rejected as
+   unknown options (core mode). Uses the lenient `help-runner` mapping and falls
+   back to `:clojure-test` for an absent or unrecognized runner so the eventual
+   `normalize-runner` still raises the argument error for a bad runner value."
   [args]
-  (loop [remaining (seq args)
-         raw {}]
+  (loop [remaining (seq args)]
     (if-not remaining
-      (if (:help? raw)
-        {:help? true :usage (usage-for (help-runner (:runner raw)))}
-        (normalize-exec-opts (main-opts->exec-opts raw)))
+      :clojure-test
       (let [flag (first remaining)
             more (next remaining)]
-        (case flag
-          ("--help" "-h")
-          (recur more (assoc raw :help? true))
+        (if (contains? #{"--runner" "-r"} flag)
+          (or (help-runner (first more)) :clojure-test)
+          (recur more))))))
 
-          ("--runner" "-r")
-          (let [value (require-value more flag)]
-            (recur (next more) (assoc raw :runner value)))
+(defn- parse-main-args
+  [args]
+  (let [kaocha? (= :kaocha (argv-runner args))]
+    (loop [remaining (seq args)
+           raw {}]
+      (if-not remaining
+        (if (:help? raw)
+          {:help? true :usage (usage-for (help-runner (:runner raw)))}
+          (normalize-exec-opts (main-opts->exec-opts raw)))
+        (let [flag (first remaining)
+              more (next remaining)]
+          (case flag
+            ("--help" "-h")
+            (recur more (assoc raw :help? true))
 
-          ("--dir" "-d")
-          (let [value (require-value more flag)]
-            (recur (next more) (add-repeat raw :dirs value)))
+            ("--runner" "-r")
+            (let [value (require-value more flag)]
+              (recur (next more) (assoc raw :runner value)))
 
-          ("--namespace" "--ns" "-n")
-          (let [value (require-value more flag)]
-            (recur (next more) (add-repeat raw :namespaces value)))
+            ("--dir" "-d")
+            (let [value (require-value more flag)]
+              (recur (next more) (add-repeat raw :dirs value)))
 
-          ("--var" "-v")
-          (let [value (require-value more flag)]
-            (recur (next more) (add-repeat raw :vars value)))
+            ("--namespace" "--ns" "-n")
+            (let [value (require-value more flag)]
+              (recur (next more) (add-repeat raw :namespaces value)))
 
-          ("--ns-pattern" "--namespace-pattern" "--namespace-regex")
-          (let [value (require-value more flag)]
-            (when-let [previous (:ns-pattern-option raw)]
-              (argument-error "Specify only one namespace pattern option"
-                              {:options [previous flag]}))
-            (recur (next more) (assoc raw
-                                      :ns-pattern value
-                                      :ns-pattern-option flag)))
+            ("--var" "-v")
+            (let [value (require-value more flag)]
+              (recur (next more) (add-repeat raw :vars value)))
 
-          "--result-format"
-          (let [value (require-value more flag)]
-            (recur (next more)
-                   (assoc raw :result-format (read-edn-option value :result-format))))
+            ("--ns-pattern" "--namespace-pattern" "--namespace-regex")
+            (let [value (require-value more flag)]
+              (when-let [previous (:ns-pattern-option raw)]
+                (argument-error "Specify only one namespace pattern option"
+                                {:options [previous flag]}))
+              (recur (next more) (assoc raw
+                                        :ns-pattern value
+                                        :ns-pattern-option flag)))
 
-          "--config"
-          (let [value (require-value more flag)]
-            (recur (next more) (assoc raw :config (read-edn-option value :config))))
+            "--result-format"
+            (let [value (require-value more flag)]
+              (recur (next more)
+                     (assoc raw :result-format (read-edn-option value :result-format))))
 
-          "--focus"
-          (let [value (require-value more flag)]
-            (recur (next more)
-                   (update-in raw [:kaocha-extra :focus] (fnil conj []) value)))
+            "--config"
+            (let [value (require-value more flag)]
+              (recur (next more) (assoc raw :config (read-edn-option value :config))))
 
-          "--kaocha-opt"
-          (let [k (require-value more flag)
-                after-key (next more)
-                v (require-value after-key flag)]
-            (recur (next after-key)
-                   (assoc-in raw [:kaocha-extra (keyword k)] v)))
-
-          ;; Positional suite selectors (Kaocha mode). A token starting with `-`
-          ;; that is not a recognized flag is an unknown-option argument error;
-          ;; any other token is collected, in order, as a positional suite
-          ;; selector that `main-opts->exec-opts` collapses to `:suite`/`:suites`.
-          (if (str/starts-with? flag "-")
-            (argument-error (str "Unknown option: " flag) {:option flag})
-            (recur more (add-repeat raw :suite-values flag))))))))
+          ;; Default branch: a token that is not a scry-owned flag.
+          ;;
+          ;; In Kaocha mode every such token — unknown `--flags`, their values,
+          ;; and positional suite names — is forwarded verbatim, in original
+          ;; order, as `:kaocha-argv` for Kaocha's own CLI parser. scry never
+          ;; interprets these tokens; only Kaocha knows their arities.
+          ;;
+          ;; In core mode a token starting with `-` is an unknown-option argument
+          ;; error; any other token is collected, in order, as a positional that
+          ;; `main-opts->exec-opts` collapses and `normalize-core-options`
+          ;; rejects, preserving today's behaviour.
+            (if kaocha?
+              (recur more (add-repeat raw :kaocha-argv flag))
+              (if (str/starts-with? flag "-")
+                (argument-error (str "Unknown option: " flag) {:option flag})
+                (recur more (add-repeat raw :suite-values flag))))))))))
 
 ;;; CLI execution
 

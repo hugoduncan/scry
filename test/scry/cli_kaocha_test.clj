@@ -205,10 +205,11 @@
              (is (not (str/includes? (:stdout outcome) "Randomized"))))))))))
 
 (deftest kaocha-cli-positional-suite-run-test
-  ;; Positional suite selectors on the -m wrapper flow through the full
-  ;; parse -> collapse -> normalize -> scry.kaocha/run chain: a single
-  ;; positional selects one suite (:suite), multiple positionals select many
-  ;; (:suites).
+  ;; Positional suite selectors on the -m wrapper forward verbatim as
+  ;; :kaocha-argv and flow through parse -> normalize -> scry.kaocha/run, where
+  ;; the adapter routes them through the same exact-id-then-unique-text
+  ;; select-suites resolution as :suite/:suites: a single positional selects one
+  ;; suite, multiple positionals select many.
   (when-kaocha-available
    (with-temp-dir [project]
      (let [unit-ns (unique-ns "pos" "unit-test")
@@ -227,7 +228,7 @@
          (testing "single positional selector runs only the selected suite"
            (let [opts (#'cli/parse-main-args ["--runner" "kaocha" "unit"])
                  outcome (run-cli-in project opts)]
-             (is (= "unit" (:suite opts)))
+             (is (= ["unit"] (:kaocha-argv opts)))
              (is (= 0 (:exit-code outcome)))
              (is (str/starts-with? (:stdout outcome) ".Assertions: 1 passed"))
              (is (= [] (result-files project)))))
@@ -235,7 +236,7 @@
            (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                               "unit" "integration"])
                  outcome (run-cli-in project opts)]
-             (is (= ["unit" "integration"] (:suites opts)))
+             (is (= ["unit" "integration"] (:kaocha-argv opts)))
              (is (= 1 (:exit-code outcome)))
              (is (str/includes? (:stdout outcome)
                                 "Assertions: 1 passed, 1 failed, 0 errored"))
@@ -391,15 +392,15 @@
              (is (= [keep-var]
                     (mapv :var (:canonical-results (:result outcome))))))))))))
 
-(deftest kaocha-cli-kaocha-opt-generic-pass-through-test
-  ;; The generic --kaocha-opt KEY VALUE mechanism reaches the Kaocha runner and
-  ;; actually filters execution, end-to-end through the CLI. This locks in the
-  ;; full -m flag -> normalize -> :kaocha-extra -> scry.kaocha/run chain for the
-  ;; generic mechanism, including raw-string :focus coercion arriving via
-  ;; --kaocha-opt rather than the named --focus flag.
+(deftest kaocha-cli-forwarded-option-reaches-kaocha-test
+  ;; A previously-unsupported Kaocha option (`--no-randomize`) forwards verbatim
+  ;; to Kaocha's own parser and demonstrably affects the run: with randomization
+  ;; disabled, no `:seed` is surfaced in the result summary. A focused selector
+  ;; forwarded alongside still filters execution, proving the full
+  ;; -m -> :kaocha-argv -> Kaocha parse -> run chain for a non-scry option.
   (when-kaocha-available
    (with-temp-dir [project]
-     (let [unit-ns (unique-ns "kaocha-opt" "unit-test")
+     (let [unit-ns (unique-ns "forward-opt" "unit-test")
            keep-var (symbol (str unit-ns) "keep-test")]
        (write-suite-test-ns!
         project
@@ -414,14 +415,56 @@
              "          :test-paths [\"test\"]\n"
              "          :ns-patterns [" (pr-str (exact-ns-pattern unit-ns)) "]}]}"))
        (with-user-dir-and-ns-cleanup project [unit-ns]
-         (testing "-m --runner kaocha --kaocha-opt focus filters to the focused var"
+         (testing "--no-randomize forwards and disables seed; --focus still filters"
            (let [opts (#'cli/parse-main-args
-                       ["--runner" "kaocha" "--kaocha-opt" "focus" (str keep-var)])
+                       ["--runner" "kaocha" "--no-randomize"
+                        "--focus" (str keep-var)])
                  outcome (run-cli-in project opts)]
+             (is (= ["--no-randomize" "--focus" (str keep-var)]
+                    (:kaocha-argv opts)))
              (is (= 0 (:exit-code outcome)))
              (is (str/starts-with? (:stdout outcome) ".Assertions: 1 passed"))
              (is (= [keep-var]
-                    (mapv :var (:canonical-results (:result outcome))))))))))))
+                    (mapv :var (:canonical-results (:result outcome)))))
+             (is (nil? (get-in outcome [:result :summary :seed]))
+                 "disabling randomization suppresses the surfaced seed"))))))))
+
+(deftest kaocha-cli-malformed-option-is-runner-error-test
+  ;; A malformed -m Kaocha option is no longer an scry argument error: it
+  ;; forwards to Kaocha's own parser, which rejects it, so scry surfaces a
+  ;; runner error (the accepted -m reclassification trade-off).
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [unit-ns (unique-ns "typo" "unit-test")]
+       (write-suite-test-ns!
+        project
+        unit-ns
+        "(deftest passing-test\n  (is true))\n")
+       (write-tests-edn! project unit-ns unit-ns)
+       (with-user-dir-and-ns-cleanup project [unit-ns]
+         (let [opts (#'cli/parse-main-args
+                     ["--runner" "kaocha" "--no-such-kaocha-flag"])
+               outcome (run-cli-in project opts)]
+           (is (= ["--no-such-kaocha-flag"] (:kaocha-argv opts)))
+           (is (= 1 (:exit-code outcome)))
+           (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))))))))
+
+(deftest kaocha-cli-core-only-selectors-rejected-test
+  ;; Core-only namespace/var/ns-pattern selectors are not Kaocha concepts; in
+  ;; Kaocha mode they stay scry-owned and parsed-then-rejected with a clean
+  ;; argument error, distinct from the runner/load error of an unknown forwarded
+  ;; Kaocha flag.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (doseq [args [["--runner" "kaocha" "--namespace" "my.ns"]
+                   ["--runner" "kaocha" "--var" "my.ns/test-foo"]
+                   ["--runner" "kaocha" "--ns-pattern" "my\\.ns"]]]
+       (let [ex (try
+                  (#'cli/parse-main-args args)
+                  nil
+                  (catch clojure.lang.ExceptionInfo e e))]
+         (is (= :scry.cli/argument-error (:type (ex-data ex)))
+             (str "expected argument-error for " (pr-str args))))))))
 
 (deftest kaocha-adapter-progress-callback-test
   ;; The optional adapter exposes a live end-of-var progress callback before the

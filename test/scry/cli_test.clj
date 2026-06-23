@@ -217,50 +217,51 @@
     (let [opts (#'cli/parse-main-args ["--namespace-regex" "scry\\.fixtures\\..*"])]
       (is (= :clojure-test (:runner opts)))
       (is (instance? java.util.regex.Pattern (:ns-pattern opts)))))
-  (testing "single positional suite selector collapses to :suite"
+  (testing "single positional suite selector forwards as :kaocha-argv"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                        "unit"])]
       (is (= :kaocha (:runner opts)))
-      (is (= "unit" (:suite opts)))
+      (is (= ["unit"] (:kaocha-argv opts)))
+      (is (not (contains? opts :suite)))
       (is (not (contains? opts :suites)))))
-  (testing "multiple positional suite selectors collapse to :suites"
+  (testing "multiple positional suite selectors forward as :kaocha-argv"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                        "unit" "integration"])]
       (is (= :kaocha (:runner opts)))
-      (is (= ["unit" "integration"] (:suites opts)))
-      (is (not (contains? opts :suite)))))
-  (testing "positional suite selectors are accepted interleaved with flags"
+      (is (= ["unit" "integration"] (:kaocha-argv opts)))))
+  (testing "Kaocha options and positionals forward verbatim in original order"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                        "unit"
                                        "--focus" "my.ns/test-foo"
                                        "integration"])]
       (is (= :kaocha (:runner opts)))
-      (is (= ["unit" "integration"] (:suites opts)))
-      (is (= {:focus ["my.ns/test-foo"]} (:kaocha-extra opts)))))
-  (testing "accepted Kaocha config EDN flag"
+      (is (= ["unit" "--focus" "my.ns/test-foo" "integration"]
+             (:kaocha-argv opts)))
+      (is (not (contains? opts :kaocha-extra)))))
+  (testing "accepted Kaocha config EDN flag stays scry-owned"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                        "--config" "{:kaocha/tests []}"])]
-      (is (= {:kaocha/tests []} (:config opts)))))
-  (testing "accepted Kaocha --focus pass-through flag"
+      (is (= {:kaocha/tests []} (:config opts)))
+      (is (not (contains? opts :kaocha-argv)))))
+  (testing "former --focus flag now forwards as raw :kaocha-argv"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                        "--focus" "my.ns/test-foo"])]
       (is (= :kaocha (:runner opts)))
-      (is (= {:focus ["my.ns/test-foo"]} (:kaocha-extra opts)))))
-  (testing "repeated --focus accumulates"
+      (is (= ["--focus" "my.ns/test-foo"] (:kaocha-argv opts)))
+      (is (not (contains? opts :kaocha-extra)))))
+  (testing "repeated forwarded Kaocha options accumulate in order"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                        "--focus" "my.ns/test-foo"
                                        "--focus" "my.ns/test-bar"])]
-      (is (= {:focus ["my.ns/test-foo" "my.ns/test-bar"]} (:kaocha-extra opts)))))
-  (testing "accepted generic --kaocha-opt KEY VALUE pass-through"
+      (is (= ["--focus" "my.ns/test-foo" "--focus" "my.ns/test-bar"]
+             (:kaocha-argv opts)))))
+  (testing "former --kaocha-opt and arbitrary flags forward as raw :kaocha-argv"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
-                                       "--kaocha-opt" "foo" "bar"])]
-      (is (= {:foo "bar"} (:kaocha-extra opts)))))
-  (testing "repeated --kaocha-opt accumulates distinct keys"
-    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
-                                       "--kaocha-opt" "a" "1"
-                                       "--kaocha-opt" "b" "2"])]
-      (is (= {:a "1" :b "2"} (:kaocha-extra opts)))))
-  (testing "--focus rejected in core mode"
+                                       "--kaocha-opt" "foo" "bar"
+                                       "--no-randomize"])]
+      (is (= ["--kaocha-opt" "foo" "bar" "--no-randomize"]
+             (:kaocha-argv opts)))))
+  (testing "former scry-specific Kaocha flag is rejected in core mode"
     (is (argument-error?
          #(#'cli/parse-main-args ["--runner" "clojure-test"
                                   "--focus" "my.ns/test-foo"]))))
@@ -268,21 +269,20 @@
     (is (argument-error?
          #(#'cli/parse-main-args ["--runner" "clojure-test"
                                   "foo"]))))
-  (testing "removed -m Kaocha suite flags now raise an unknown-option error"
-    ;; Clean-removal acceptance criterion: the former --suite/-s/--suites flags
-    ;; carry no alias on the -m wrapper; each must now be rejected as an unknown
-    ;; option rather than silently re-accepted.
-    (doseq [args [["--runner" "kaocha" "--suite" "unit"]
-                  ["--runner" "kaocha" "-s" "unit"]
-                  ["--runner" "kaocha" "--suites" "[:unit]"]]]
-      (is (argument-error? #(#'cli/parse-main-args args))
-          (str "expected :scry.cli/argument-error for " (pr-str args)))
-      (let [ex (try
-                 (#'cli/parse-main-args args)
-                 nil
-                 (catch clojure.lang.ExceptionInfo e e))]
-        (is (str/includes? (ex-message ex) "Unknown option:")
-            (str "expected \"Unknown option:\" message for " (pr-str args))))))
+  (testing "former -m Kaocha suite flags now forward to Kaocha verbatim"
+    ;; The removed --suite/-s/--suites flags are no longer scry concepts; in
+    ;; Kaocha mode they forward verbatim and Kaocha's own parser decides their
+    ;; fate (a runner/load error if unknown there), rather than scry rejecting
+    ;; them as argument errors.
+    (doseq [[args expected] [[["--runner" "kaocha" "--suite" "unit"]
+                              ["--suite" "unit"]]
+                             [["--runner" "kaocha" "-s" "unit"]
+                              ["-s" "unit"]]
+                             [["--runner" "kaocha" "--suites" "[:unit]"]
+                              ["--suites" "[:unit]"]]]]
+      (let [opts (#'cli/parse-main-args args)]
+        (is (= expected (:kaocha-argv opts))
+            (str "expected verbatim forwarding for " (pr-str args))))))
   (testing "help does not normalize or run"
     (let [parsed (#'cli/parse-main-args ["--help"])]
       (is (= true (:help? parsed)))

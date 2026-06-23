@@ -160,3 +160,9 @@ architecture/ambiguity/inconsistency review batch:
   summary line) with a justifying comment.
 - Verified: focused core CLI tests (45 tests / 393 assertions, 0 fail/err) and
   focused Kaocha CLI tests (11 tests / 74 assertions, 0 fail/err) both green.
+
+## test-shaper review session (follow-up)
+
+- added 1 step: the core (non-Kaocha) runner-error case in
+  `run-cli-no-tests-and-runner-errors-test` captures `out` but omits the
+  minimal-stdout-summary assertion that every other runner-error case makes.

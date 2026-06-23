@@ -71,3 +71,14 @@
       equality if the runner-error path emits nothing else on stdout, or add a
       short comment justifying the looser substring match if progress output can
       precede the summary.
+- [ ] In `test/scry/cli_test.clj` `run-cli-no-tests-and-runner-errors-test`
+      (the `scry.fixtures.missing-runner-exception` case, ~line 1182–1191), add
+      the missing minimal-stdout-summary assertion. This is the core
+      (non-Kaocha) `:scry.cli/runner-error` path — the most representative
+      runner-error case — yet it captures `out` via a `string-writer` and only
+      asserts `(str err)`, omitting the
+      `"No tests run — scry CLI error outcome: :scry.cli/runner-error\n"`
+      stdout assertion that every other runner-error case in the same deftest
+      makes. Assert `(str out)` equals the minimal summary so the new behavior
+      has byte-stable coverage on the core runner-error path, consistently with
+      the surrounding cases.

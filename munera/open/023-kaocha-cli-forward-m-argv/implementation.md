@@ -20,6 +20,15 @@
   as a new `-m`-only `run` option is consistent with Scope-out (which names only
   `:suite`/`:suites`/`:config`) and Constraints (doc/API.md update).
 
+## Plan reviews
+
+- ambiguity review: added 1 new design step. plan.md OQ1's scry-owned
+  Kaocha-mode flag set omits `--namespace`/`--var`, but steps.md Slice 1 hedges
+  ("if still core-relevant"); whether they are scry-rejected (current clear
+  `argument-error` via `normalize-kaocha-options` `core-only-keys`) or forwarded
+  into `:kaocha-argv` (Kaocha runner/load-error) is unresolved and affects
+  outcome-kind classification and a Slice 4 test.
+
 ## Context for downstream slices
 
 - design-review session (architecture, ambiguity, inconsistency) added no

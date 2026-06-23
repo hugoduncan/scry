@@ -129,3 +129,9 @@ architecture/ambiguity/inconsistency review batch:
 - `clojure -M:test:kaocha ... (ct/run-tests 'scry.cli-kaocha-test)` → 11 tests,
   74 assertions, 0 failures, 0 errors.
 - `bb clj-fmt:check` → all formatted; `bb clj-kondo:lint` → 0 errors/warnings.
+
+## implementation-review session
+
+- reviewed implementation against design/plan: faithful, tests green (cli-test
+  394 assertions, cli-kaocha-test 74 assertions), docs updated. No actionable
+  findings; 0 follow-up steps added.

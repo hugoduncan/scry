@@ -268,6 +268,15 @@
                                        "--no-randomize"])]
       (is (= ["--kaocha-opt" "foo" "bar" "--no-randomize"]
              (:kaocha-argv opts)))))
+  (testing "a repeated runner flag is rejected as an argument error"
+    ;; argv-runner resolves the forward/reject mode from the first occurrence
+    ;; while the executed runner would otherwise come from the last; rejecting
+    ;; a repeat keeps runner resolution authoritative and consistent.
+    (is (argument-error?
+         #(#'cli/parse-main-args ["--runner" "kaocha"
+                                  "--runner" "clojure-test" "foo"])))
+    (is (argument-error?
+         #(#'cli/parse-main-args ["-r" "kaocha" "-r" "kaocha"]))))
   (testing "former scry-specific Kaocha flag is rejected in core mode"
     (is (argument-error?
          #(#'cli/parse-main-args ["--runner" "clojure-test"

@@ -341,7 +341,7 @@
   [raw]
   (let [suite-values (:suite-values raw)
         opts (-> raw
-                 (dissoc :suite-values :help? :ns-pattern-option)
+                 (dissoc :suite-values :help? :ns-pattern-option :runner-option)
                  (cond->
                   (= 1 (count suite-values))
                    (assoc :suite (first suite-values))
@@ -385,7 +385,17 @@
 
             ("--runner" "-r")
             (let [value (require-value more flag)]
-              (recur (next more) (assoc raw :runner value)))
+              ;; Reject a repeated runner flag so the single argv-derived runner
+              ;; stays authoritative. `argv-runner` resolves the forward/reject
+              ;; mode from the first occurrence while `main-opts->exec-opts` would
+              ;; otherwise execute under the last; rejecting the repeat keeps both
+              ;; resolutions in agreement (mirrors the `--ns-pattern` guard).
+              (when (:runner raw)
+                (argument-error "Specify only one runner option"
+                                {:options [(:runner-option raw) flag]}))
+              (recur (next more) (assoc raw
+                                        :runner value
+                                        :runner-option flag)))
 
             ("--dir" "-d")
             (let [value (require-value more flag)]

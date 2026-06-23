@@ -278,3 +278,15 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   (last `--runner` wins) are two divergent runner resolutions over the same
   argv, so a repeated `--runner` forwards/rejects under one runner but executes
   under another.
+
+## Code-shaper review follow-up (3rd pass)
+
+- addressed 1 code-shaper review step: made runner resolution authoritative by
+  rejecting a repeated `--runner`/`-r` in `parse-main-args` (mirrors the
+  `--ns-pattern` guard), so the first-occurrence `argv-runner` forward/reject
+  mode can no longer disagree with the last-occurrence executed runner. Added
+  `:runner-option` tracking (dropped in `main-opts->exec-opts`) and a
+  `parse-main-args-test` case asserting repeated `--runner`/`-r` yields a clean
+  `:scry.cli/argument-error`.
+- verification: `scry.cli-test` (45 tests / 388 asserts, 0F/0E);
+  `bb clj-kondo:lint` 0/0; `bb clj-fmt:check` clean.

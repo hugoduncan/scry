@@ -145,7 +145,7 @@
 
 ## Code-shaper review follow-up (3rd pass)
 
-- [ ] The two-pass `-m` split introduced two independent resolutions of the
+- [x] The two-pass `-m` split introduced two independent resolutions of the
       effective runner from the same argv: `argv-runner` returns the *first*
       `--runner`/`-r` occurrence (deciding Kaocha-forward vs core-reject mode),
       while `parse-main-args` `(assoc raw :runner value)` lets the *last*

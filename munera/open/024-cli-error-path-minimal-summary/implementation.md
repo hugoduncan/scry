@@ -102,3 +102,30 @@ architecture/ambiguity/inconsistency review batch:
   is not a `:summary nil` error outcome and must not emit the error-style line.
 - Deliverable is stdout text only: returned outcome map `:summary` stays `nil`.
 - Acceptance now requires README.md + AGENTS.md CLI output-contract doc updates.
+
+## Implementation pass (all slices)
+
+- Added `write-error-summary!` in `src/scry/cli.clj` (next to `write-summary!`).
+  Wording: `No tests run — scry CLI error outcome: <outcome-kind>\n` to
+  `(:out boundary)`. Deliberately not a 0/0 green run.
+- Call sites (each invocation flows through exactly one site):
+  - `run-cli` catch → `write-error-summary!` with computed `error-outcome-kind`
+    (covers `:scry.cli/runner-error`; argument errors are raised before
+    `run-cli` so this branch is runner-error in practice).
+  - `run-with-boundary` argument-error catch (`-X`) → emits before throwing
+    `non-zero-exception`.
+  - `main-outcome` argument-error catch (`-m`).
+- `:summary` stays `nil` in all error outcome maps (stdout-text-only change).
+- Tests updated: existing runner-error tests previously asserting empty stdout
+  (`scry.cli-test`) now assert the minimal summary line; `main-outcome`
+  argument-error test asserts the line and `--help` now asserts the line is
+  absent. New `-X` argument-error test (single line + `:summary` nil). New
+  Kaocha-mode runner-error assertions in `scry.cli-kaocha-test`.
+- Docs: README.md and AGENTS.md CLI output-contract sections updated.
+
+### Verification (command line)
+- `clojure -M:test ... (ct/run-tests 'scry.cli-test)` → 45 tests, 394
+  assertions, 0 failures, 0 errors.
+- `clojure -M:test:kaocha ... (ct/run-tests 'scry.cli-kaocha-test)` → 11 tests,
+  74 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` → all formatted; `bb clj-kondo:lint` → 0 errors/warnings.

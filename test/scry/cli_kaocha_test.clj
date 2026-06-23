@@ -447,7 +447,15 @@
                outcome (run-cli-in project opts)]
            (is (= ["--no-such-kaocha-flag"] (:kaocha-argv opts)))
            (is (= 1 (:exit-code outcome)))
-           (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))))))))
+           (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+           ;; The otherwise-silent runner-error path emits a minimal,
+           ;; clearly-labelled summary on stdout (supplementary human output);
+           ;; the authoritative signals and the stderr diagnostic are unchanged.
+           (is (str/includes?
+                (:stdout outcome)
+                "No tests run — scry CLI error outcome: :scry.cli/runner-error"))
+           (is (str/includes? (:stderr outcome) "scry CLI error:"))
+           (is (nil? (:summary outcome)))))))))
 
 (deftest kaocha-cli-core-only-selectors-rejected-test
   ;; Core-only namespace/var/ns-pattern selectors are not Kaocha concepts; in

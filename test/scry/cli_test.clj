@@ -491,7 +491,8 @@
                                             :assertions []}]))}))]
           (is (= 1 (:exit-code outcome)))
           (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
-          (is (= "" (str out)))
+          (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+                 (str out)))
           (is (str/includes? (str err) "scry CLI error: Could not create"))
           (is (= false @runner-called?))
           (is (= nil (:result outcome)))
@@ -532,7 +533,8 @@
                                                   :assertions []}]))}))]
                 (is (= 1 (:exit-code outcome)))
                 (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
-                (is (= "" (str out)))
+                (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+                       (str out)))
                 (is (str/includes? (str err) "scry CLI error: Could not delete"))
                 (is (= false @runner-called?))
                 (is (= nil (:result outcome)))
@@ -1196,7 +1198,8 @@
                     (fn []
                       (throw (java.io.FileNotFoundException. "scry.kaocha")))})]
       (is (= 1 (:exit-code outcome)))
-      (is (= "" (:stdout outcome)))
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+             (:stdout outcome)))
       (is (= [] (result-files dir)))
       (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (:stderr outcome)
@@ -1213,7 +1216,8 @@
                     (fn []
                       (throw (IllegalStateException. "resolver boom")))})]
       (is (= 1 (:exit-code outcome)))
-      (is (= "" (:stdout outcome)))
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+             (:stdout outcome)))
       (is (= [] (result-files dir)))
       (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (:stderr outcome)
@@ -1230,7 +1234,8 @@
                        (#'cli/normalize-exec-opts {:runner :kaocha})
                        {:resolve-kaocha-runner (constantly resolved-runner)})]
           (is (= 1 (:exit-code outcome)))
-          (is (= "" (:stdout outcome)))
+          (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+                 (:stdout outcome)))
           (is (= [] (result-files dir)))
           (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
           (is (str/includes? (:stderr outcome)
@@ -1314,6 +1319,26 @@
         (is (= nil (:var result-data)))
         (is (= 'loader.demo (:ns result-data)))
         (is (str/includes? (str err) "loader.demo/suite-error-1")))))
+  (testing "argument errors emit a single minimal stdout summary on the -X path"
+    (let [out (string-writer)
+          err (string-writer)
+          thrown (try
+                   (#'cli/run-with-boundary
+                    {:runner :unknown}
+                    (test-boundary {:out out :err err}))
+                   nil
+                   (catch clojure.lang.ExceptionInfo e e))
+          stdout (str out)]
+      (is (some? thrown))
+      (is (= :scry.cli/argument-error
+             (:scry.cli/outcome-kind (ex-data thrown))))
+      ;; stdout carries exactly one minimal error-outcome summary line.
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/argument-error\n"
+             stdout))
+      (is (= 1 (count (filter #(= % "scry CLI error outcome")
+                              (re-seq #"scry CLI error outcome" stdout)))))
+      ;; returned outcome map keeps :summary nil (stdout-text-only change).
+      (is (nil? (:summary (ex-data thrown))))))
   (testing "argument errors use the structured non-zero -X contract"
     (let [thrown (try
                    (cli/run {:runner :unknown})
@@ -1341,12 +1366,14 @@
           err (string-writer)]
       (is (= 0 (#'cli/main-outcome ["--help"] (test-boundary {:out out :err err}))))
       (is (str/includes? (str out) "Usage:"))
+      (is (not (str/includes? (str out) "scry CLI error outcome")))
       (is (= "" (str err)))))
   (testing "argument errors print terse diagnostics and exit non-zero"
     (let [out (string-writer)
           err (string-writer)]
       (is (= 1 (#'cli/main-outcome ["--unknown"] (test-boundary {:out out :err err}))))
-      (is (= "" (str out)))
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/argument-error\n"
+             (str out)))
       (is (str/includes? (str err) "scry CLI argument error: Unknown option"))))
   (testing "test-running main path delegates to run-cli"
     (with-temp-dir [dir]

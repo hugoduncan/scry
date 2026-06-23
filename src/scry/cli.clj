@@ -524,6 +524,23 @@
   (.write out (summary-text summary))
   (.flush out))
 
+(defn- write-error-summary!
+  "Surface a minimal, explicit stdout summary for an error/exception CLI outcome
+   that produced no real run summary (`:summary nil`).
+
+   These outcomes — `:scry.cli/runner-error` (the `run-cli` catch path) and
+   `:scry.cli/argument-error` (the argument-error path) — otherwise leave stdout
+   silent, ending in-progress output with no closing line. This writes a single
+   clearly-labelled line naming `outcome-kind` so the run is never silent on
+   stdout. The wording is deliberately not a \"0 passed, 0 failed\" green run.
+
+   This is supplementary human-facing output only; the authoritative machine
+   signals (`:scry.cli/outcome-kind`, exit code, `.scry-results/*.edn`) and the
+   returned outcome map's `nil` `:summary` are unchanged."
+  [{:keys [out]} outcome-kind]
+  (.write out (str "No tests run — scry CLI error outcome: " outcome-kind "\n"))
+  (.flush out))
+
 (defn- write-seed!
   "Surface a runner-provided random seed (e.g. Kaocha's randomize seed, exposed
    as `:summary :seed`) on stdout after the summary so a failing order can be
@@ -747,6 +764,7 @@
        :error nil})
     (catch Throwable e
       (let [outcome-kind (error-outcome-kind e)]
+        (write-error-summary! boundary outcome-kind)
         (.write (:err boundary) (str "scry CLI error: " (.getMessage e) "\n"))
         (.flush (:err boundary))
         {:exit-code (exit-code outcome-kind)
@@ -789,8 +807,10 @@
         (throw (non-zero-exception "scry CLI run failed" outcome))))
     (catch clojure.lang.ExceptionInfo e
       (if (= :scry.cli/argument-error (:type (ex-data e)))
-        (throw (non-zero-exception "scry CLI argument error"
-                                   (argument-error-outcome e)))
+        (do
+          (write-error-summary! boundary :scry.cli/argument-error)
+          (throw (non-zero-exception "scry CLI argument error"
+                                     (argument-error-outcome e))))
         (throw e)))))
 
 (defn run
@@ -816,6 +836,7 @@
     (catch clojure.lang.ExceptionInfo e
       (if (= :scry.cli/argument-error (:type (ex-data e)))
         (do
+          (write-error-summary! boundary :scry.cli/argument-error)
           (.write (:err boundary) (str "scry CLI argument error: " (.getMessage e) "\n"))
           (.flush (:err boundary))
           1)

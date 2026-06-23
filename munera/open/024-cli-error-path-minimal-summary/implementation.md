@@ -193,3 +193,10 @@ architecture/ambiguity/inconsistency review batch:
   documenting the always-emitted minimal stdout summary on `:scry.cli/runner-error`
   and `:scry.cli/argument-error`, noted as supplementary human output (`:summary`
   stays `nil`; exit codes/outcome-kind/result files unchanged).
+
+## docs review session (review-task-docs)
+
+- added 0 steps: README.md, AGENTS.md, and CHANGELOG.md are accurate, mutually
+  consistent, and byte-aligned with the implemented wording; scope, `:summary`
+  nil, and unchanged authoritative signals are correctly documented. No
+  actionable findings.

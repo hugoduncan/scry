@@ -166,3 +166,11 @@ architecture/ambiguity/inconsistency review batch:
 - added 1 step: the core (non-Kaocha) runner-error case in
   `run-cli-no-tests-and-runner-errors-test` captures `out` but omits the
   minimal-stdout-summary assertion that every other runner-error case makes.
+
+## test-shaper review follow-ups (follow-up)
+
+- addressed 1 test-shaper review step: added the missing minimal-stdout-summary
+  assertion to the core `missing-runner-exception` runner-error case in
+  `run-cli-no-tests-and-runner-errors-test` (`(str out)` equals
+  "No tests run — scry CLI error outcome: :scry.cli/runner-error\n").
+- Verified: focused core CLI tests (45 tests / 394 assertions, 0 fail/err).

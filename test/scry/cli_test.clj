@@ -1187,6 +1187,8 @@
       (is (= 1 (:exit-code outcome)))
       (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (= [] (result-files dir)))
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+             (str out)))
       (is (str/includes? (str err) "scry CLI error:"))
       (is (instance? java.io.FileNotFoundException (-> outcome :error :exception)))))
   (with-temp-dir [dir]

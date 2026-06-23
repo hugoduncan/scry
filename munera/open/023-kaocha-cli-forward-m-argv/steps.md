@@ -126,6 +126,23 @@
       scatters top-level extras; `-m` forwards opaque `:kaocha-argv`, parsed in
       the adapter) so the reader is not misled.
 
+## Code-shaper review follow-up (2nd pass)
+
+- [ ] `parse-kaocha-argv` unconditionally `(dissoc options :config-file)`, but
+      `clojure.tools.cli` always populates `:config-file` (with the `"tests.edn"`
+      default *and* any explicitly forwarded `--config-file PATH`). So a user
+      forwarding `--runner kaocha --config-file ci-tests.edn` on `-m` has that
+      path silently discarded: `resolve-config` already picked the config from
+      defaults/`:config`/`tests.edn`, and the forwarded value never reaches it.
+      This silently diverges from the drop-in intent and contradicts plan.md
+      OQ1 ("Kaocha's own `--config-file` etc. simply forward"). Decide and
+      implement one of: (a) honor a forwarded `--config-file` by loading that
+      config before suite/extra resolution, or (b) explicitly reject/document a
+      forwarded `--config-file` in Kaocha mode (since scry owns `--config`/`--dir`)
+      rather than dropping it silently. Only the parser-injected *default* should
+      be dropped — distinguish it from an explicit value (e.g. compare against the
+      default or detect presence in argv). Add a test for the chosen behaviour.
+
 ## Test review follow-up (test-shaper)
 
 - [x] `kaocha-argv-forwarded-config-authoritative-test` proves the "explicit

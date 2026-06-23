@@ -248,3 +248,10 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   `normalize-kaocha-options` `collected` comment to describe current behaviour
   (`-m` forwards opaque `:kaocha-argv` parsed in the adapter; no `:kaocha-extra`
   pre-build) instead of the removed `--kaocha-opt`/`:kaocha-extra` path.
+
+## Code-shaper review (2nd pass)
+
+- added 1 step: `parse-kaocha-argv` unconditionally drops `:config-file`, so an
+  explicitly forwarded `--config-file PATH` is silently swallowed — diverges
+  from the drop-in intent and plan.md OQ1's "Kaocha's own `--config-file`
+  simply forward".

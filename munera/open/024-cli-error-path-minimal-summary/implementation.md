@@ -28,6 +28,13 @@
   doc-contract alignment is already covered by the existing architectural
   design-step and the design Acceptance.
 
+## design-review session (ambiguity turn)
+
+- no new ambiguity review feedback. Prior ambiguity findings (usage/`--help`
+  scope, stdout-only vs returned `:summary` key) are already resolved in
+  design.md. Remaining latitude (exact minimal-summary wording) is adequately
+  bounded by Acceptance ("clearly-labelled", "not look like a 0/0 green run").
+
 ## Notes for the design-step follow-up task
 
 - Principle: error-path stdout output is supplementary human output only; keep

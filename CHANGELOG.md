@@ -7,6 +7,7 @@
 - Stopped Kaocha framework-level stray stdout (the randomize plugin's raw `Randomized with --seed N` print) from leaking into scry's clean stdout, and instead surface the seed as structured `:summary :seed` metadata; the CLI prints a clean `Randomized with --seed N` line after the summary on failing Kaocha runs.
 - Made `scry.cli --help` sensitive to an explicit `--runner`: core mode shows only core selector options, Kaocha mode shows only Kaocha options and suite positionals, and an absent or unrecognized runner shows the combined, mode-annotated help.
 - Added a generated quickdoc API reference at `doc/API.md`, plus `bb api-docs` / `bb api-docs --check` maintainer commands for reproducible regeneration.
+- Made the CLI always write a minimal, clearly-labelled stdout summary line (e.g. `No tests run — scry CLI error outcome: :scry.cli/runner-error`) on `:scry.cli/runner-error` and `:scry.cli/argument-error` outcomes, so the run is never silent on stdout. This is supplementary human output only: `:summary` stays `nil`, and exit codes, `:scry.cli/outcome-kind`, and `.scry-results/*.edn` outputs are unchanged.
 
 ## [0.1.28] - 2026-06-04
 

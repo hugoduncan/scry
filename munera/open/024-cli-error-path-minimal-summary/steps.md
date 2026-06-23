@@ -57,7 +57,7 @@
 
 ## docs review follow-ups
 
-- [ ] Add a `CHANGELOG.md` `## Unreleased` entry for this user-visible change:
+- [x] Add a `CHANGELOG.md` `## Unreleased` entry for this user-visible change:
       the CLI now always writes a minimal, clearly-labelled stdout summary line
       (e.g. `No tests run — scry CLI error outcome: :scry.cli/runner-error`) on
       `:scry.cli/runner-error` and `:scry.cli/argument-error` outcomes so the

@@ -186,3 +186,10 @@ architecture/ambiguity/inconsistency review batch:
 - added 1 step: CHANGELOG.md `Unreleased` omits an entry for this user-visible
   stdout-summary change though README.md/AGENTS.md document it. README and
   AGENTS doc updates are accurate and consistent with the implemented wording.
+
+## docs review follow-up execution
+
+- addressed 1 review step: added the `CHANGELOG.md` `## Unreleased` entry
+  documenting the always-emitted minimal stdout summary on `:scry.cli/runner-error`
+  and `:scry.cli/argument-error`, noted as supplementary human output (`:summary`
+  stays `nil`; exit codes/outcome-kind/result files unchanged).

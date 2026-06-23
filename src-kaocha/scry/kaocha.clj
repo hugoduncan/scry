@@ -111,13 +111,19 @@
       (update :kaocha/test-paths #(some->> % (absolutize-paths base-dir)))))
 
 (defn- absolutize-config-paths
-  [cfg]
-  (let [base-dir (.getParentFile (tests-edn-file))]
-    (update cfg :kaocha/tests #(mapv (partial absolutize-suite-paths base-dir) %))))
+  [base-dir cfg]
+  (update cfg :kaocha/tests #(mapv (partial absolutize-suite-paths base-dir) %)))
+
+(defn- load-config-file
+  "Load a Kaocha config file and absolutize its suite paths relative to the
+   config file's own directory."
+  [file]
+  (let [file (.getAbsoluteFile (io/file file))]
+    (absolutize-config-paths (.getParentFile file) (config/load-config file))))
 
 (defn- load-tests-edn-config
   []
-  (absolutize-config-paths (config/load-config (tests-edn-file))))
+  (load-config-file (tests-edn-file)))
 
 (defn- build-fallback-config
   "Build a normalized synthetic kaocha config map from scry opts."
@@ -130,10 +136,32 @@
                       :kaocha/test-paths (absolutize-paths test-paths)
                       :kaocha/ns-patterns ns-patterns}]})))
 
+(defn- forwarded-config-file
+  "Detect an explicitly forwarded Kaocha `--config-file`/`-c` value in a raw
+   `-m` argv vector. `clojure.tools.cli` always injects the `tests.edn`
+   default for `:config-file`, so an explicitly forwarded value must be
+   detected from the raw argv rather than the parsed option. Returns the
+   explicit path string, or nil when none was forwarded."
+  [argv]
+  (loop [tokens (seq argv)]
+    (when-let [token (first tokens)]
+      (cond
+        (or (= token "--config-file") (= token "-c"))
+        (second tokens)
+
+        (str/starts-with? token "--config-file=")
+        (subs token (count "--config-file="))
+
+        (and (str/starts-with? token "-c") (> (count token) 2))
+        (subs token 2)
+
+        :else (recur (next tokens))))))
+
 (defn- resolve-config
-  [opts]
+  [opts cfg-file]
   (cond
     (contains? opts :config) (:config opts)
+    cfg-file (load-config-file cfg-file)
     (tests-edn-exists?) (load-tests-edn-config)
     :else (build-fallback-config opts)))
 
@@ -403,8 +431,11 @@
                          on conflict) and positional selectors are routed through
                          the same `:suite`/`:suites` resolution. Malformed Kaocha
                          options surface as a runner/load error rather than an
-                         argument error. This option is `-m`-only; the `-X` map
-                         path uses `:kaocha-extra`.
+                         argument error. A forwarded `--config-file`/`-c` value
+                         loads that Kaocha config (resolved `:config` still wins);
+                         only the parser-injected `tests.edn` default is dropped.
+                         This option is `-m`-only; the `-X` map path uses
+                         `:kaocha-extra`.
      :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
                          CLI's bounded pass-through (e.g. `:focus`). It is merged
                          into the resolved config's :kaocha/cli-options with the
@@ -437,8 +468,8 @@
    Returns the same scoped result model as `scry.core/run`."
   ([] (run {}))
   ([opts]
-   (let [base-cfg (resolve-config opts)
-         argv (:kaocha-argv opts)
+   (let [argv (:kaocha-argv opts)
+         base-cfg (resolve-config opts (forwarded-config-file argv))
          parsed-argv (when (seq argv) (parse-kaocha-argv base-cfg argv))
          selectors (concat (suite-selectors opts) (:suites parsed-argv))
          cfg (-> base-cfg

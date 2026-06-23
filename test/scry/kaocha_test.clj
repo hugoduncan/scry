@@ -533,6 +533,42 @@
             (set (map :var (:failures result))))
          "the failing suite's failing var is the resolved suite's"))))
 
+(deftest kaocha-argv-forwarded-config-file-loaded-test
+  ;; A forwarded `--config-file PATH` (a Kaocha-owned flag, not a scry-owned
+  ;; flag) must load that config rather than being silently dropped. The
+  ;; project has no tests.edn, so without honoring the forwarded value the run
+  ;; would fall back to the synthetic :unit config and not find the suite.
+  (when-kaocha-available
+   (with-temp-project [project]
+     (let [unit-ns (unique-ns "cfgfile" "unit-test")
+           config-file (write-temp-project-file
+                        project
+                        "ci-tests.edn"
+                        (str "#kaocha/v1\n"
+                             "{:tests [{:id :unit\n"
+                             "          :type :kaocha.type/clojure.test\n"
+                             "          :test-paths [\"test\"]\n"
+                             "          :ns-patterns [" (pr-str (exact-ns-pattern unit-ns)) "]}]}"))]
+       (write-suite-test-ns project unit-ns true)
+       (with-user-dir-and-ns-cleanup project [unit-ns]
+         (testing "forwarded --config-file loads the named config"
+           (let [result (kaocha-run {:kaocha-argv ["--config-file"
+                                                   (.getAbsolutePath config-file)]})]
+             (is (true? (:pass? result)))
+             (is (= 1 (get-in result [:summary :test])))
+             (is (= 1 (get-in result [:summary :pass])))))
+         (testing "explicit :config wins over a forwarded --config-file"
+           ;; Supply an explicit :config that selects no matching namespace; the
+           ;; forwarded --config-file must not override it.
+           (let [result (kaocha-run
+                         {:config (suite-config [:unit] "scry\\.fixtures\\.passing")
+                          :kaocha-argv ["--config-file" (.getAbsolutePath config-file)]
+                          :result-format {:suite {:top-level-keys [:summary :pass? :results]}}})]
+             (is (true? (:pass? result)))
+             (is (every? #(str/starts-with? (str (:var %)) "scry.fixtures.passing")
+                         (:results result))
+                 "explicit :config governed the run, not the forwarded --config-file"))))))))
+
 (deftest kaocha-extra-merge-config-authoritative-test
   ;; :kaocha-extra merges into the resolved config's :kaocha/cli-options with the
   ;; resolved config authoritative on conflict; non-conflicting keys still apply.

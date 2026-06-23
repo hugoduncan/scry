@@ -255,3 +255,19 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   explicitly forwarded `--config-file PATH` is silently swallowed — diverges
   from the drop-in intent and plan.md OQ1's "Kaocha's own `--config-file`
   simply forward".
+
+- addressed code-shaper 2nd-pass follow-up: honor a forwarded `--config-file`/`-c`
+  (option a). Added `forwarded-config-file` (detects an explicit value from raw
+  argv since `tools.cli` always injects the `tests.edn` default), threaded it
+  into `resolve-config` (explicit `:config` still wins, then forwarded
+  config-file, then tests.edn, then synthetic fallback). Generalized
+  `absolutize-config-paths`/added `load-config-file` so a forwarded config's
+  suite paths resolve relative to that file's own directory. Updated the `run`
+  `:kaocha-argv` docstring and regenerated `doc/API.md`.
+- added `kaocha-argv-forwarded-config-file-loaded-test`: forwarded
+  `--config-file` loads the named config (no tests.edn present), and explicit
+  `:config` wins over a forwarded `--config-file`.
+- verification: `clojure -M:test:kaocha` scry.kaocha-test (22 tests / 99 asserts,
+  0F/0E) and scry.cli-kaocha-test (11 tests / 71 asserts, 0F/0E);
+  `bb clj-kondo:lint` 0/0; `bb clj-fmt:check` clean; `bb api-docs --check` passes;
+  scry.api-docs-test (1 test / 65 asserts, 0F/0E).

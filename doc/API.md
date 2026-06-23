@@ -73,7 +73,7 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
 Main-style CLI usage is run through project aliases, for example `clojure -M:test -m scry.cli` and `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L785-L792">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L786-L793">Source</a></sub></p>
 
 -----
 # <a name="scry.core">scry.core</a>
@@ -275,8 +275,11 @@ Run kaocha tests in-process and return scry's inspectable result map.
                          on conflict) and positional selectors are routed through
                          the same `:suite`/`:suites` resolution. Malformed Kaocha
                          options surface as a runner/load error rather than an
-                         argument error. This option is `-m`-only; the `-X` map
-                         path uses `:kaocha-extra`.
+                         argument error. A forwarded `--config-file`/`-c` value
+                         loads that Kaocha config (resolved `:config` still wins);
+                         only the parser-injected `tests.edn` default is dropped.
+                         This option is `-m`-only; the `-X` map path uses
+                         `:kaocha-extra`.
      :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
                          CLI's bounded pass-through (e.g. `:focus`). It is merged
                          into the resolved config's :kaocha/cli-options with the
@@ -307,4 +310,4 @@ Run kaocha tests in-process and return scry's inspectable result map.
    print is suppressed.
 
    Returns the same scoped result model as [`scry.core/run`](#scry.core/run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L384-L465">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L412-L496">Source</a></sub></p>

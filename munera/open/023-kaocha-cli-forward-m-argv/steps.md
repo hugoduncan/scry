@@ -128,7 +128,7 @@
 
 ## Code-shaper review follow-up (2nd pass)
 
-- [ ] `parse-kaocha-argv` unconditionally `(dissoc options :config-file)`, but
+- [x] `parse-kaocha-argv` unconditionally `(dissoc options :config-file)`, but
       `clojure.tools.cli` always populates `:config-file` (with the `"tests.edn"`
       default *and* any explicitly forwarded `--config-file PATH`). So a user
       forwarding `--runner kaocha --config-file ci-tests.edn` on `-m` has that

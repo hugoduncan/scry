@@ -17,3 +17,19 @@
   path) which already calls `write-summary!`. So the design's claim that
   load-error is a silent thrown `:summary nil` outcome is factually wrong —
   only runner-error (and argument-error) actually hit the silent path.
+
+## Notes for the design-step follow-up task
+
+- Principle: error-path stdout output is supplementary human output only; keep
+  authoritative signals (`:scry.cli/outcome-kind`, exit code,
+  `.scry-results/*.edn`) and successful pass/fail summary text byte-stable.
+  Mirror the existing `write-failure-diagnostic!` pattern.
+- Key code: `src/scry/cli.clj` — silent paths are the `run-cli` `catch`
+  (runner-error) and `main-outcome`/`argument-error-outcome` (argument-error)
+  only. `write-summary!` (~line 522), `error-outcome-kind` (~654),
+  `classify-outcome` (~610), `run-cli` (~727), `main-outcome` (~804).
+- load-error already gets a stdout summary via the normal return path; do not
+  add duplicate output there (see inconsistency design-step).
+- Tests: `test/scry/cli_test.clj` (core) and `test/scry/cli_kaocha_test.clj`
+  (Kaocha-mode runner-error). Docs to update: `README.md` and `AGENTS.md`
+  CLI output-contract sections.

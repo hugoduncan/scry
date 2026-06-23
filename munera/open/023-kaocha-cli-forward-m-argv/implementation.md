@@ -235,3 +235,9 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
     positional `failing` resolves uniquely to `:other/failing`, so only that
     suite runs (pass? false, var-count 2, failing var = `equality-fails`).
   - Verified: `scry.kaocha-test` green (21 tests, 94 assertions, 0 failures).
+
+## Code-shaper review
+
+- added 1 step: stale `normalize-kaocha-options` comment still describes the
+  removed `-m` `--kaocha-opt` → `:kaocha-extra` pre-build instead of the new
+  `:kaocha-argv` forwarding.

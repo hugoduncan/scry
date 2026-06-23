@@ -115,6 +115,17 @@
       id) to lock in the claimed `select-suites` parity for the `:kaocha-argv`
       path.
 
+## Code-shaper review follow-up
+
+- [ ] Stale comment in `src/scry/cli.clj` `normalize-kaocha-options` (the
+      `collected` let-binding) still says "on `-m` the parser pre-builds a
+      `:kaocha-extra` map (which is in `scry-managed-keys`, so it is not
+      re-collected)". This task removed the `--kaocha-opt` branch, so the `-m`
+      Kaocha path no longer produces `:kaocha-extra`; it now forwards
+      `:kaocha-argv`. Update the comment to describe current behaviour (`-X`
+      scatters top-level extras; `-m` forwards opaque `:kaocha-argv`, parsed in
+      the adapter) so the reader is not misled.
+
 ## Test review follow-up (test-shaper)
 
 - [x] `kaocha-argv-forwarded-config-authoritative-test` proves the "explicit

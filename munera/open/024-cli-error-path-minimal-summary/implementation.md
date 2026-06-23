@@ -35,6 +35,14 @@
   design.md. Remaining latitude (exact minimal-summary wording) is adequately
   bounded by Acceptance ("clearly-labelled", "not look like a 0/0 green run").
 
+## design-review session (inconsistency turn)
+
+- no new inconsistency review feedback. Prior inconsistency finding (load-error
+  miscast as a silent thrown `:summary nil` outcome) is already corrected
+  throughout design.md. Re-verified internal consistency: in-scope error
+  outcomes, `:summary` stays `nil`, `--help`/usage exclusion, and the
+  README/AGENTS doc-update requirement are all stated consistently.
+
 ## Notes for the design-step follow-up task
 
 - Principle: error-path stdout output is supplementary human output only; keep

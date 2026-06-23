@@ -1335,8 +1335,6 @@
       ;; stdout carries exactly one minimal error-outcome summary line.
       (is (= "No tests run — scry CLI error outcome: :scry.cli/argument-error\n"
              stdout))
-      (is (= 1 (count (filter #(= % "scry CLI error outcome")
-                              (re-seq #"scry CLI error outcome" stdout)))))
       ;; returned outcome map keeps :summary nil (stdout-text-only change).
       (is (nil? (:summary (ex-data thrown))))))
   (testing "argument errors use the structured non-zero -X contract"

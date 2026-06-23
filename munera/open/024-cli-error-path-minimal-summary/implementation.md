@@ -150,3 +150,13 @@ architecture/ambiguity/inconsistency review batch:
 - added 2 steps: redundant -X non-duplication assertion in `cli_test.clj`, and
   inconsistent exact-vs-substring stdout-summary assertion style between
   `cli_test.clj` and `cli_kaocha_test.clj`.
+
+## test-shaper review follow-ups
+
+- addressed 2 test-shaper review steps: dropped the redundant non-duplication
+  filter assertion in `cli_test.clj` -X argument-error test; tightened the
+  Kaocha runner-error stdout-summary assertion in `cli_kaocha_test.clj` to
+  byte-stable `=` (malformed flag rejected pre-run; stdout is exactly the
+  summary line) with a justifying comment.
+- Verified: focused core CLI tests (45 tests / 393 assertions, 0 fail/err) and
+  focused Kaocha CLI tests (11 tests / 74 assertions, 0 fail/err) both green.

@@ -57,14 +57,14 @@
 
 ## test-shaper review follow-ups
 
-- [ ] In `test/scry/cli_test.clj` (-X argument-error test, ~line 1336–1339),
+- [x] In `test/scry/cli_test.clj` (-X argument-error test, ~line 1336–1339),
       drop or simplify the redundant non-duplication assertion. The preceding
       exact-equality assertion on the whole `stdout` string already proves the
       summary line appears exactly once; the follow-up
       `(is (= 1 (count (filter #(= % "scry CLI error outcome") (re-seq ...)))))`
       adds no signal (the `filter` is a no-op over a literal-matching regex) and
       obscures intent.
-- [ ] Align the Kaocha runner-error stdout-summary assertion in
+- [x] Align the Kaocha runner-error stdout-summary assertion in
       `test/scry/cli_kaocha_test.clj` (~line 456) with the core `cli_test.clj`
       style: core tests assert the minimal summary with exact `=` (byte-stable
       contract), while the Kaocha test only uses `str/includes?`. Use exact

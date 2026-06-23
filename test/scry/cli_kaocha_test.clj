@@ -451,9 +451,12 @@
            ;; The otherwise-silent runner-error path emits a minimal,
            ;; clearly-labelled summary on stdout (supplementary human output);
            ;; the authoritative signals and the stderr diagnostic are unchanged.
-           (is (str/includes?
-                (:stdout outcome)
-                "No tests run — scry CLI error outcome: :scry.cli/runner-error"))
+           ;; The malformed flag is rejected by Kaocha's parser before any test
+           ;; runs, so stdout carries exactly the minimal summary line and we
+           ;; assert it with byte-stable equality (matching the core
+           ;; cli_test.clj contract).
+           (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+                  (:stdout outcome)))
            (is (str/includes? (:stderr outcome) "scry CLI error:"))
            (is (nil? (:summary outcome)))))))))
 

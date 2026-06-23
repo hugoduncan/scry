@@ -3,6 +3,9 @@
 ## Unreleased
 
 - Reworked the Kaocha CLI surface. **Breaking (`-m`):** suite selectors are now trailing positional arguments (`--runner kaocha unit [integration ...]`, collapsing to `:suite` or `:suites`) and the `--suite`/`-s`/`--suites` flags are removed; the `-X` `:suite`/`:suites` keys and the `scry.kaocha/run` adapter are unchanged. Added Kaocha option pass-through via the repeatable `-m --focus SYM` flag, the generic `-m --kaocha-opt KEY VALUE` flag, and any non-scry `-X` top-level key; forwarded options merge into the resolved config's `:kaocha/cli-options` (an explicit `:config` wins), `:focus` is coerced to Kaocha's keyword shape, and these options are rejected in core (`--runner clojure-test`) mode.
+- Improved Kaocha CLI failure diagnostics: a namespace that fails to load under `scry.cli --runner kaocha` now streams a `suite-error-1` progress label, and after the summary the CLI writes a `.scry-results/` pointer on stderr for any failure outcome plus, for load errors, the failing message and root-cause class/message inline. Outcome classification, exit codes, and result files are unchanged.
+- Stopped Kaocha framework-level stray stdout (the randomize plugin's raw `Randomized with --seed N` print) from leaking into scry's clean stdout, and instead surface the seed as structured `:summary :seed` metadata; the CLI prints a clean `Randomized with --seed N` line after the summary on failing Kaocha runs.
+- Made `scry.cli --help` sensitive to an explicit `--runner`: core mode shows only core selector options, Kaocha mode shows only Kaocha options and suite positionals, and an absent or unrecognized runner shows the combined, mode-annotated help.
 - Added a generated quickdoc API reference at `doc/API.md`, plus `bb api-docs` / `bb api-docs --check` maintainer commands for reproducible regeneration.
 
 ## [0.1.28] - 2026-06-04

@@ -216,6 +216,12 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   and CLI kaocha tests drive forwarding/malformed/core-only/focus/positional
   through the real CLI against temp projects.
 
+## Docs review
+
+- no new actionable issues; no follow-up steps added. README, CHANGELOG,
+  AGENTS.md, and `doc/API.md` are accurate and consistent with the forwarding
+  implementation and `:kaocha-argv` option; `bb api-docs --check` clean.
+
 ## Test review follow-up (test-shaper)
 
 - addressed 2 test-shaper steps: rewrote both `:kaocha-argv` tests to assert

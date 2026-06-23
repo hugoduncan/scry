@@ -271,3 +271,10 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   0F/0E) and scry.cli-kaocha-test (11 tests / 71 asserts, 0F/0E);
   `bb clj-kondo:lint` 0/0; `bb clj-fmt:check` clean; `bb api-docs --check` passes;
   scry.api-docs-test (1 test / 65 asserts, 0F/0E).
+
+## Code-shaper review (3rd pass)
+
+- added 1 step: `argv-runner` (first `--runner` wins) and `parse-main-args`
+  (last `--runner` wins) are two divergent runner resolutions over the same
+  argv, so a repeated `--runner` forwards/rejects under one runner but executes
+  under another.

@@ -143,6 +143,22 @@
       be dropped — distinguish it from an explicit value (e.g. compare against the
       default or detect presence in argv). Add a test for the chosen behaviour.
 
+## Code-shaper review follow-up (3rd pass)
+
+- [ ] The two-pass `-m` split introduced two independent resolutions of the
+      effective runner from the same argv: `argv-runner` returns the *first*
+      `--runner`/`-r` occurrence (deciding Kaocha-forward vs core-reject mode),
+      while `parse-main-args` `(assoc raw :runner value)` lets the *last*
+      occurrence win for the executed runner via `main-opts->exec-opts`. For a
+      repeated runner flag (e.g. `--runner kaocha --runner clojure-test foo`)
+      these disagree: tokens are forwarded/rejected under the first runner but
+      execution normalizes under the last, a single-source-of-truth/consistency
+      smell. Make runner resolution authoritative in one place (e.g. have
+      `parse-main-args` consume the resolved runner from the same rule
+      `argv-runner` uses, or reject a repeated `--runner` like the repeated
+      `--ns-pattern` guard already does) and add a test pinning the chosen
+      behaviour.
+
 ## Test review follow-up (test-shaper)
 
 - [x] `kaocha-argv-forwarded-config-authoritative-test` proves the "explicit

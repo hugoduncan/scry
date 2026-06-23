@@ -18,6 +18,16 @@
   load-error is a silent thrown `:summary nil` outcome is factually wrong —
   only runner-error (and argument-error) actually hit the silent path.
 
+## design-review session (architecture turn)
+
+- no new architectural review feedback. Re-reviewed against AGENTS.md (no
+  META.md/doc/architecture.md exist): change stays in `scry.cli` (core jar,
+  no new Kaocha load-time coupling), mirrors the supplementary
+  `write-failure-diagnostic!` pattern with authoritative signals unchanged,
+  keeps `:summary` nil and successful summary text byte-stable, and its
+  doc-contract alignment is already covered by the existing architectural
+  design-step and the design Acceptance.
+
 ## Notes for the design-step follow-up task
 
 - Principle: error-path stdout output is supplementary human output only; keep

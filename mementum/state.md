@@ -1,7 +1,5 @@
 # Mementum State
 
-Project: scry — in-process Clojure test runner for AI agents and REPL-driven development.
-
 ## Features
 
 - Scoped result formatting by invocation scope (suite / namespace / var).
@@ -30,5 +28,5 @@ Project: scry — in-process Clojure test runner for AI agents and REPL-driven d
 ## Conventions
 
 - `state.md` is a current-state snapshot, not a log. Task progress lives in Munera task artifacts; durable lessons live in `mementum/memories/` or `mementum/knowledge/`.
-- All prior tasks (001–020) are closed in `munera/closed/`.
+- All prior tasks are closed in `munera/closed/`.
 - CLI failure diagnostic: on a failing outcome `scry.cli` writes a stderr results-dir pointer; for load errors it adds the failing message + root cause inline. The Kaocha adapter fires a progress callback for suite-level load/compile errors (task 020).

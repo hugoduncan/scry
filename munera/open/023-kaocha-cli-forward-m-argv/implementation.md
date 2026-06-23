@@ -193,3 +193,10 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
     forwarded positional that resolves via unique-text fallback (not an exact
     id) through `parse-kaocha-argv`→`select-suites` (OQ3 parity).
   - Verified: `scry.cli-test` (45/386) and `scry.kaocha-test` (21/93) green.
+
+## Test review (2nd pass)
+
+- no new actionable issues; no follow-up steps added. Coverage spans adapter
+  unit tests and CLI end-to-end temp-project tests (forwarding, malformed
+  reclassification, core-only rejection, positional suites, focus filter);
+  real Kaocha, no mocks.

@@ -174,3 +174,9 @@ architecture/ambiguity/inconsistency review batch:
   `run-cli-no-tests-and-runner-errors-test` (`(str out)` equals
   "No tests run — scry CLI error outcome: :scry.cli/runner-error\n").
 - Verified: focused core CLI tests (45 tests / 394 assertions, 0 fail/err).
+
+## test-shaper review session (final)
+
+- added 0 steps: tests are byte-stable, consistent across core/Kaocha paths,
+  behavior-focused, and infra is injected via `test-boundary` (not mocked). No
+  new actionable findings.

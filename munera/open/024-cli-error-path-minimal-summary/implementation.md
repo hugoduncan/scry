@@ -180,3 +180,9 @@ architecture/ambiguity/inconsistency review batch:
 - added 0 steps: tests are byte-stable, consistent across core/Kaocha paths,
   behavior-focused, and infra is injected via `test-boundary` (not mocked). No
   new actionable findings.
+
+## docs review session
+
+- added 1 step: CHANGELOG.md `Unreleased` omits an entry for this user-visible
+  stdout-summary change though README.md/AGENTS.md document it. README and
+  AGENTS doc updates are accurate and consistent with the implemented wording.

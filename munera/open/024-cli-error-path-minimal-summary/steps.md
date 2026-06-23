@@ -55,6 +55,18 @@
       `clojure -M:test:kaocha -e "(require '[scry.cli-kaocha-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-kaocha-test)] (when-not (ct/successful? r) (System/exit 1)))"`
 - [x] Record commands and results in `implementation.md`.
 
+## docs review follow-ups
+
+- [ ] Add a `CHANGELOG.md` `## Unreleased` entry for this user-visible change:
+      the CLI now always writes a minimal, clearly-labelled stdout summary line
+      (e.g. `No tests run — scry CLI error outcome: :scry.cli/runner-error`) on
+      `:scry.cli/runner-error` and `:scry.cli/argument-error` outcomes so the
+      run is never silent on stdout. README.md and AGENTS.md already document
+      this contract, but the `Unreleased` section omits it while listing the
+      sibling Kaocha CLI / diagnostics / `--help` changes. Note it as
+      supplementary human output only (`:summary` stays `nil`; exit codes,
+      `:scry.cli/outcome-kind`, and `.scry-results/*.edn` unchanged).
+
 ## test-shaper review follow-ups
 
 - [x] In `test/scry/cli_test.clj` (-X argument-error test, ~line 1336–1339),

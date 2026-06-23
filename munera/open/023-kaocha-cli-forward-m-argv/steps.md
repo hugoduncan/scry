@@ -161,7 +161,7 @@
 
 ## Code-shaper review follow-up (4th pass)
 
-- [ ] `forwarded-config-file` (`src-kaocha/scry/kaocha.clj`) hand-rolls
+- [x] `forwarded-config-file` (`src-kaocha/scry/kaocha.clj`) hand-rolls
       `tools.cli` option-form parsing — it scans raw argv for `--config-file`,
       `-c`, `--config-file=PATH`, and `-cPATH` to extract the explicit value.
       This duplicates arity/option-form knowledge that Kaocha's own parser

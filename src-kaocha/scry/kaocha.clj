@@ -138,24 +138,22 @@
 
 (defn- forwarded-config-file
   "Detect an explicitly forwarded Kaocha `--config-file`/`-c` value in a raw
-   `-m` argv vector. `clojure.tools.cli` always injects the `tests.edn`
-   default for `:config-file`, so an explicitly forwarded value must be
-   detected from the raw argv rather than the parsed option. Returns the
-   explicit path string, or nil when none was forwarded."
+   `-m` argv vector. `--config-file`/`-c` lives in Kaocha's plugin-independent
+   base runner spec (with a `tests.edn` default), so option arity/forms are
+   resolved by Kaocha's own parser rather than re-implemented here. The parser
+   always injects the default, so a forwarded value is only treated as an
+   override when it differs from that default. Returns the explicit path string,
+   or nil when none was forwarded (or the default value was forwarded
+   explicitly, which is harmless to treat as no override)."
   [argv]
-  (loop [tokens (seq argv)]
-    (when-let [token (first tokens)]
-      (cond
-        (or (= token "--config-file") (= token "-c"))
-        (second tokens)
-
-        (str/starts-with? token "--config-file=")
-        (subs token (count "--config-file="))
-
-        (and (str/starts-with? token "-c") (> (count token) 2))
-        (subs token 2)
-
-        :else (recur (next tokens))))))
+  (when (seq argv)
+    (let [base @(requiring-resolve 'kaocha.runner/cli-options)
+          default (:config-file (:options (cli/parse-opts [] base)))
+          ;; Parse with the base spec only: unknown (plugin) options land in
+          ;; :errors but recognized base options like :config-file still parse.
+          forwarded (:config-file (:options (cli/parse-opts argv base)))]
+      (when (and forwarded (not= forwarded default))
+        forwarded))))
 
 (defn- resolve-config
   [opts cfg-file]

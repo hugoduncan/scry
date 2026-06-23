@@ -297,3 +297,19 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   to detect a forwarded `--config-file`, duplicating Kaocha's own arity
   knowledge (counter to the task intent) and scanning value/positional tokens;
   derive the explicit value from Kaocha's base-spec parse instead.
+
+## Code-shaper review follow-up (4th pass)
+
+- addressed 1 code-shaper review step: replaced the hand-rolled
+  `--config-file`/`-c` token scanner in `forwarded-config-file` with a
+  Kaocha-parser-derived detection. `--config-file`/`-c` is in Kaocha's
+  plugin-independent base spec (`kaocha.runner/cli-options`, default
+  `tests.edn`), so the explicit value is now derived by parsing the raw argv
+  against that base spec (unknown plugin options land in `:errors` but base
+  options still parse) and comparing `:config-file` against the base-spec
+  default; a forwarded default value is treated as no override. Removes the
+  duplicated option-form/arity knowledge and the latent `-c`-prefix
+  mis-match. The existing `kaocha-argv-forwarded-config-file-loaded-test`
+  remains valid (forwards an explicit non-default `--config-file`).
+- verification: `scry.kaocha-test` + `scry.cli-kaocha-test` (33 tests / 170
+  asserts, 0F/0E); `bb clj-kondo:lint` 0/0; `bb clj-fmt:check` clean.

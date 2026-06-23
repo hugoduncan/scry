@@ -171,3 +171,10 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   (adapter parsing, tests, and command-line verification outcomes recorded), so
   the second item's substantive requirement was satisfied; only the stale
   API-doc check needed correcting.
+
+## Test review
+
+- added 3 steps: untested `:kaocha-argv` `-X` leak-prevention (closed-set test
+  omits it), no end-to-end `:config`-authoritative-over-forwarded-`:kaocha-argv`
+  conflict test, and forwarded positional fuzzy (unique-text) suite resolution
+  not exercised.

@@ -307,4 +307,4 @@ Run kaocha tests in-process and return scry's inspectable result map.
    print is suppressed.
 
    Returns the same scoped result model as [`scry.core/run`](#scry.core/run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L372-L453">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L384-L465">Source</a></sub></p>

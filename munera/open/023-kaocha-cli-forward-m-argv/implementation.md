@@ -156,3 +156,13 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
 
 - added 2 follow-up steps: stale doc/API.md (`bb api-docs --check` fails on
   committed source line range) and missing Slice 2–5 / final-verification notes.
+
+## Implementation review follow-up
+
+- addressed 2 review steps: regenerated `doc/API.md` via `bb api-docs`
+  (updated `scry.kaocha/run` Source range L372-L453 → L384-L465);
+  `bb api-docs --check` now passes clean. Slice 2–5 / final-verification notes
+  were already present in the "Slice 3/4/5" and "Reviews" sections above
+  (adapter parsing, tests, and command-line verification outcomes recorded), so
+  the second item's substantive requirement was satisfied; only the stale
+  API-doc check needed correcting.

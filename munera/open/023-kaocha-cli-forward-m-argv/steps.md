@@ -81,12 +81,12 @@
 
 ## Implementation review follow-up
 
-- [ ] `doc/API.md` is stale: `bb api-docs --check` fails because the committed
+- [x] `doc/API.md` is stale: `bb api-docs --check` fails because the committed
       `scry.kaocha/run` Source line range (`kaocha.clj#L372-L453`) no longer
       matches the committed source (actual `L384-L465`). Regenerate with
       `bb api-docs`, verify `bb api-docs --check` passes, and commit — Slice 3
       and Slice 5's API-doc verification are not actually satisfied.
-- [ ] `implementation.md` only documents Slice 0 and Slice 1; Slices 2–5 have no
+- [x] `implementation.md` only documents Slice 0 and Slice 1; Slices 2–5 have no
       notes and Slice 5's "Record all commands and results" step is checked
       without any recorded final-verification commands/results. Append the
       adapter/test/docs implementation notes and the actual command-line

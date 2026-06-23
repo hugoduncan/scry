@@ -19,3 +19,18 @@
   Question 1)" cross-reference, not an unresolved contradiction. `:kaocha-argv`
   as a new `-m`-only `run` option is consistent with Scope-out (which names only
   `:suite`/`:suites`/`:config`) and Constraints (doc/API.md update).
+
+## Context for downstream slices
+
+- design-review session (architecture, ambiguity, inconsistency) added no
+  design-steps; design is ready for planning. OQ1-3 remain for planning to
+  resolve, not review findings.
+- Relevant source files: `src/scry/cli.clj` (`-m` parser
+  `parse-main-args`/`normalize-exec-opts`/`main-opts->exec-opts`, `--focus`/
+  `--kaocha-opt`/`:suite-values` branches, `usage-for`, `scry-managed-keys`);
+  `src-kaocha/scry/kaocha.clj` (`run`, `apply-kaocha-extra`, `select-suites`,
+  `config/apply-cli-args`, coercion). Adapter argv parsing (OQ2) belongs here.
+- Principle to hold: keep the core/adapter dependency boundary — `scry.cli` must
+  not require `scry.kaocha` at load time; core forwards `:kaocha-argv` as opaque
+  strings, all Kaocha parsing stays in `src-kaocha`.
+- No META.md or doc/architecture.md exist; AGENTS.md is the architecture source.

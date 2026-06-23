@@ -241,3 +241,10 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
 - added 1 step: stale `normalize-kaocha-options` comment still describes the
   removed `-m` `--kaocha-opt` → `:kaocha-extra` pre-build instead of the new
   `:kaocha-argv` forwarding.
+
+## Code-shaper review follow-up
+
+- addressed 1 code-shaper review step: updated the stale
+  `normalize-kaocha-options` `collected` comment to describe current behaviour
+  (`-m` forwards opaque `:kaocha-argv` parsed in the adapter; no `:kaocha-extra`
+  pre-build) instead of the removed `--kaocha-opt`/`:kaocha-extra` path.

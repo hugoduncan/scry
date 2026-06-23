@@ -293,8 +293,9 @@
                      (present? opts :kaocha-argv) (assoc :kaocha-argv (:kaocha-argv opts)))
         ;; Collect every top-level key outside the scry-managed set as raw
         ;; pass-through. On `-X` these are scattered top-level keys (e.g.
-        ;; `:focus`); on `-m` the parser pre-builds a `:kaocha-extra` map (which
-        ;; is in `scry-managed-keys`, so it is not re-collected). Collected
+        ;; `:focus`). On `-m` there is no `:kaocha-extra`: unknown Kaocha tokens
+        ;; are forwarded opaquely as `:kaocha-argv` (in `scry-managed-keys`, so
+        ;; never re-collected here) and parsed in the adapter. Collected
         ;; top-level extras win on conflict with a pre-existing `:kaocha-extra`.
         collected (into {} (remove (fn [[k _]] (contains? scry-managed-keys k)) opts))
         kaocha-extra (merge (:kaocha-extra opts) collected)]

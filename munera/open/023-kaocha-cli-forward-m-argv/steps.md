@@ -117,7 +117,7 @@
 
 ## Code-shaper review follow-up
 
-- [ ] Stale comment in `src/scry/cli.clj` `normalize-kaocha-options` (the
+- [x] Stale comment in `src/scry/cli.clj` `normalize-kaocha-options` (the
       `collected` let-binding) still says "on `-m` the parser pre-builds a
       `:kaocha-extra` map (which is in `scry-managed-keys`, so it is not
       re-collected)". This task removed the `--kaocha-opt` branch, so the `-m`

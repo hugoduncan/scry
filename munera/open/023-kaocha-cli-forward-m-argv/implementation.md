@@ -209,6 +209,13 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   observable end-to-end `run`/CLI outcome, so they can stay green if `run`'s
   composition regresses.
 
+## Test review (test-shaper, 2nd pass)
+
+- no new actionable issues; no follow-up steps added. Verified the rewritten
+  `:kaocha-argv` tests assert observable end-to-end outcomes via `kaocha-run`,
+  and CLI kaocha tests drive forwarding/malformed/core-only/focus/positional
+  through the real CLI against temp projects.
+
 ## Test review follow-up (test-shaper)
 
 - addressed 2 test-shaper steps: rewrote both `:kaocha-argv` tests to assert

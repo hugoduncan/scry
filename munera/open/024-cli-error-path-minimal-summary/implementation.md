@@ -11,3 +11,9 @@
   success-path scope, and stdout-text-only vs returned `:summary` map key).
   Code check confirmed `--help`/usage is a separate exit-0 path that already
   prints usage, distinct from the `:summary nil` error outcomes.
+- inconsistency review added 1 new design step. Verified in cli.clj that the
+  catch-path `error-outcome-kind` only yields argument-error/runner-error;
+  `:scry.cli/load-error` comes only from `classify-outcome` (normal return
+  path) which already calls `write-summary!`. So the design's claim that
+  load-error is a silent thrown `:summary nil` outcome is factually wrong —
+  only runner-error (and argument-error) actually hit the silent path.

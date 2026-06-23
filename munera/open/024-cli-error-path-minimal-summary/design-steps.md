@@ -31,3 +31,19 @@
       output. Acceptance speaks only of stdout text. State explicitly whether
       the returned `:summary` map key stays `nil` (stdout-only change) or must
       be populated for error outcomes.
+
+## Inconsistency review
+
+- [ ] Reconcile the design's premise about `:scry.cli/load-error` with the
+      code. design.md states (Intent) that load-error "arrives via a thrown
+      exception" and "produces no final summary on stdout", and lists it among
+      the `:summary nil` thrown outcomes. But in `cli.clj` the catch-path
+      `error-outcome-kind` only yields `:scry.cli/argument-error` or
+      `:scry.cli/runner-error` — never load-error. `:scry.cli/load-error` is
+      produced solely by `classify-outcome` on the normal return path, which
+      already calls `write-summary!` and so already emits a stdout summary (and
+      its stderr detail via `write-failure-diagnostic!`). The design's
+      motivation, Goal "Concretely" list, and first Acceptance bullet should be
+      corrected so load-error is not treated as a silent/thrown `:summary nil`
+      outcome; otherwise the implementer may add redundant/duplicate stdout
+      output for load-error or target the wrong path.

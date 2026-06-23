@@ -29,6 +29,12 @@
   into `:kaocha-argv` (Kaocha runner/load-error) is unresolved and affects
   outcome-kind classification and a Slice 4 test.
 
+- ambiguity review (2nd pass): no new ambiguity review feedback. Prior
+  namespace/var ambiguity is resolved in plan.md OQ1 and design-steps.md; OQ2
+  (argv parse entry point) remains an explicitly-captured spike-deferred known
+  unknown, and OQ3 (positional→`select-suites`) is resolved — no unintended
+  ambiguity.
+
 - inconsistency review: no new feedback. The plan/steps `--namespace`/`--var`
   owned-flag divergence is already captured by the ambiguity-review design step;
   other resolved points (owned set, positional→`select-suites` routing,

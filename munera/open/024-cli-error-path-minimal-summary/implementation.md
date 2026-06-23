@@ -62,6 +62,15 @@
   `run-with-boundary`) is adequately bounded by Acceptance and the steps' slash
   notation. Prior design-review ambiguity findings remain resolved.
 
+## plan-review session (inconsistency turn)
+
+- no inconsistency review feedback. design.md, plan.md, and steps.md are mutually
+  consistent on scope (runner-error + argument-error; load-error and `--help`
+  excluded; `:summary` stays nil; README/AGENTS doc updates). The completed `[x]`
+  architectural design-step's parenthetical still lists load-error/usage, but
+  it is stale historical text overridden by the corrected authoritative scope in
+  design.md Acceptance and plan/steps slice 4 — not actionable.
+
 ## Notes for the design-step follow-up task
 
 - Principle: error-path stdout output is supplementary human output only; keep

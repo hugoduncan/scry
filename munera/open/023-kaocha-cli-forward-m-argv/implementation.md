@@ -208,3 +208,17 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   `parse-kaocha-argv` + `apply-kaocha-extra`/`select-suites`) rather than an
   observable end-to-end `run`/CLI outcome, so they can stay green if `run`'s
   composition regresses.
+
+## Test review follow-up (test-shaper)
+
+- addressed 2 test-shaper steps: rewrote both `:kaocha-argv` tests to assert
+  observable end-to-end outcomes through `kaocha-run` instead of reconstructing
+  `run`'s private pipeline.
+  - `kaocha-argv-forwarded-config-authoritative-test`: config focuses
+    `pass-then-fail`, forwarded `--focus` targets `fail-then-error`; run executes
+    only `pass-then-fail` (var-count 1), proving `:config` governs the real run.
+  - `kaocha-argv-forwarded-positional-unique-text-fallback-test`: two-suite
+    config (`:my.suite/passing`, `:other/failing`); forwarded non-exact
+    positional `failing` resolves uniquely to `:other/failing`, so only that
+    suite runs (pass? false, var-count 2, failing var = `equality-fails`).
+  - Verified: `scry.kaocha-test` green (21 tests, 94 assertions, 0 failures).

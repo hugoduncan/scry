@@ -117,7 +117,7 @@
 
 ## Test review follow-up (test-shaper)
 
-- [ ] `kaocha-argv-forwarded-config-authoritative-test` proves the "explicit
+- [x] `kaocha-argv-forwarded-config-authoritative-test` proves the "explicit
       `:config` wins over a forwarded `:kaocha-argv` option" constraint only by
       hand-reconstructing `run`'s pipeline (calling private `parse-kaocha-argv`
       then `apply-kaocha-extra` directly), asserting an implementation
@@ -127,7 +127,7 @@
       already does) where a resolved `:config` cli-option and a conflicting
       forwarded `:kaocha-argv` option set the same key, asserting the `:config`
       value governs the actual run.
-- [ ] `kaocha-argv-forwarded-positional-unique-text-fallback-test` likewise
+- [x] `kaocha-argv-forwarded-positional-unique-text-fallback-test` likewise
       reconstructs the path by calling private `parse-kaocha-argv` then
       `select-suites` directly instead of routing through `run`. Prove the OQ3
       unique-text positional parity for the real `:kaocha-argv` path by asserting

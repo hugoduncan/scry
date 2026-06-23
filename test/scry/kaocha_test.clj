@@ -481,40 +481,57 @@
 
 (deftest kaocha-argv-forwarded-config-authoritative-test
   ;; The resolved :config is authoritative over an option set via forwarded
-  ;; :kaocha-argv, exercising the parsed-argv merge path (not just the -X
-  ;; :kaocha-extra path). This mirrors run's composition: parse the forwarded
-  ;; argv against the base config, then merge the parsed cli-options through
-  ;; apply-kaocha-extra (resolved config authoritative on conflict).
+  ;; :kaocha-argv, exercising the parsed-argv merge path end-to-end through run
+  ;; (not just the -X :kaocha-extra path). The config focuses one var and the
+  ;; forwarded -m argv focuses the other; the observable run outcome must reflect
+  ;; the config's focus, so the test breaks if run stops deferring to :config.
   (when-kaocha-available
-   (let [parse-kaocha-argv (kaocha-var 'parse-kaocha-argv)
-         apply-kaocha-extra (kaocha-var 'apply-kaocha-extra)
-         base-cfg {:kaocha/tests []
-                   :kaocha/cli-options {:focus [:keep/this]}}
-         parsed (parse-kaocha-argv base-cfg ["--focus" "override/ignored"])
-         result (apply-kaocha-extra base-cfg (:cli-options parsed))]
-     (is (= [:override/ignored] (:focus (:cli-options parsed)))
-         "forwarded argv parsed the conflicting option")
-     (is (= [:keep/this] (get-in result [:kaocha/cli-options :focus]))
-         "explicit config :focus wins over the forwarded :kaocha-argv option"))))
+   (let [cfg (assoc (suite-config [:unit] "scry\\.fixtures\\.mixed")
+                    :kaocha/cli-options {:focus [:scry.fixtures.mixed/pass-then-fail]})
+         result-format {:suite {:top-level-keys [:summary :pass? :results :failures]}}
+         executed (fn [result] (set (map :var (:results result))))
+         result (kaocha-run
+                 {:config cfg
+                  :kaocha-argv ["--focus" "scry.fixtures.mixed/fail-then-error"]
+                  :result-format result-format})]
+     (is (= #{'scry.fixtures.mixed/pass-then-fail} (executed result))
+         "explicit config :focus wins over the conflicting forwarded :kaocha-argv option")
+     (is (= 1 (get-in result [:summary :var-count]))
+         "only the config-focused var executed"))))
 
 (deftest kaocha-argv-forwarded-positional-unique-text-fallback-test
   ;; A forwarded -m positional suite selector that is not an exact configured id
-  ;; still resolves via the unique-text/name fallback through the same
-  ;; select-suites path used by :suite/:suites, locking in OQ3 parity for the
-  ;; :kaocha-argv path.
+  ;; still resolves via the unique-text/name fallback and routes through run's
+  ;; suite selection, so only the resolved suite executes. This locks in OQ3
+  ;; parity for the :kaocha-argv path end-to-end (the test breaks if run's
+  ;; positional threading regresses).
   (when-kaocha-available
-   (let [parse-kaocha-argv (kaocha-var 'parse-kaocha-argv)
-         select-suites (kaocha-var 'select-suites)
-         cfg {:kaocha/tests [{:kaocha.testable/id :my.suite/unit}
-                             {:kaocha.testable/id :other/integration}]}
-         parsed (parse-kaocha-argv cfg ["unit"])
-         result (select-suites cfg (:suites parsed))]
-     (is (= [:unit] (:suites parsed))
-         "positional parsed to a keyword that is not an exact configured id")
-     (is (= {:my.suite/unit nil
-             :other/integration true}
-            (suite-skip-map result))
-         "non-exact positional resolves via unique-text fallback to :my.suite/unit"))))
+   (let [fixtures-path (.getAbsolutePath (io/file "test" "scry" "fixtures"))
+         suite (fn [id ns-pattern]
+                 {:kaocha.testable/id id
+                  :kaocha.testable/type :kaocha.type/clojure.test
+                  :kaocha/source-paths []
+                  :kaocha/test-paths [fixtures-path]
+                  :kaocha/ns-patterns [ns-pattern]})
+         cfg (-> {:kaocha/tests [(suite :my.suite/passing "scry\\.fixtures\\.passing")
+                                 (suite :other/failing "scry\\.fixtures\\.failing")]
+                  :kaocha/reporter [:existing/reporter]
+                  :kaocha/color? true}
+                 normalize-config
+                 (dissoc :kaocha/plugins))
+         result-format {:suite {:top-level-keys [:summary :pass? :results :failures]}}
+         ;; "failing" is not an exact id but uniquely matches :other/failing by
+         ;; name, so only the failing suite runs.
+         result (kaocha-run {:config cfg
+                             :kaocha-argv ["failing"]
+                             :result-format result-format})]
+     (is (false? (:pass? result))
+         "non-exact positional resolved uniquely to :other/failing and ran the failing suite")
+     (is (= 2 (get-in result [:summary :var-count]))
+         "only the resolved failing suite's vars executed (passing suite skipped)")
+     (is (= #{'scry.fixtures.failing/equality-fails}
+            (set (map :var (:failures result))))
+         "the failing suite's failing var is the resolved suite's"))))
 
 (deftest kaocha-extra-merge-config-authoritative-test
   ;; :kaocha-extra merges into the resolved config's :kaocha/cli-options with the

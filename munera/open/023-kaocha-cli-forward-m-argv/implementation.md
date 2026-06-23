@@ -151,3 +151,8 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   not require `scry.kaocha` at load time; core forwards `:kaocha-argv` as opaque
   strings, all Kaocha parsing stays in `src-kaocha`.
 - No META.md or doc/architecture.md exist; AGENTS.md is the architecture source.
+
+## Implementation review
+
+- added 2 follow-up steps: stale doc/API.md (`bb api-docs --check` fails on
+  committed source line range) and missing Slice 2–5 / final-verification notes.

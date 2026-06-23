@@ -43,6 +43,15 @@
   outcomes, `:summary` stays `nil`, `--help`/usage exclusion, and the
   README/AGENTS doc-update requirement are all stated consistently.
 
+## design-review session outcome (net)
+
+- This design-review session (architecture + ambiguity + inconsistency turns)
+  added zero new design-steps. All existing design-steps are already resolved;
+  design.md is review-clean and ready for implementation. Principles, key code
+  paths, and project files for the implementation slice are already recorded in
+  the "Notes for the design-step follow-up task" section below — no new
+  follow-up work is outstanding from this review.
+
 ## Notes for the design-step follow-up task
 
 - Principle: error-path stdout output is supplementary human output only; keep

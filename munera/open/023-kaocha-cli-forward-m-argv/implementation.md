@@ -29,6 +29,11 @@
   into `:kaocha-argv` (Kaocha runner/load-error) is unresolved and affects
   outcome-kind classification and a Slice 4 test.
 
+- inconsistency review: no new feedback. The plan/steps `--namespace`/`--var`
+  owned-flag divergence is already captured by the ambiguity-review design step;
+  other resolved points (owned set, positional→`select-suites` routing,
+  `:kaocha-argv` `-m`-only, slice numbering) are cross-file consistent.
+
 ## Context for downstream slices
 
 - design-review session (architecture, ambiguity, inconsistency) added no

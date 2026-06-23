@@ -33,3 +33,19 @@
 - Tests: `test/scry/cli_test.clj` (core) and `test/scry/cli_kaocha_test.clj`
   (Kaocha-mode runner-error). Docs to update: `README.md` and `AGENTS.md`
   CLI output-contract sections.
+
+## Design-step follow-up resolution (all 4 batch items executed)
+
+Resolved the design's scope to be unambiguous and self-consistent after the
+architecture/ambiguity/inconsistency review batch:
+
+- In scope: minimal stdout summary for `:scry.cli/runner-error` (run-cli catch
+  path) and `:scry.cli/argument-error` (argument-error path) only.
+- Out of scope, corrected throughout design.md (Intent, Goal "Concretely",
+  Context, Acceptance): `:scry.cli/load-error` already emits a stdout summary
+  via the normal return path (`classify-outcome` → `write-summary!`); the catch
+  path never produces load-error. Do NOT add output for it — would duplicate.
+- Out of scope: `--help`/usage success path (exit 0, already prints usage); it
+  is not a `:summary nil` error outcome and must not emit the error-style line.
+- Deliverable is stdout text only: returned outcome map `:summary` stays `nil`.
+- Acceptance now requires README.md + AGENTS.md CLI output-contract doc updates.

@@ -15,9 +15,11 @@
 - [ ] Add a pre-pass over argv that resolves the effective runner
       (`--runner`/`-r`, else default) before per-token parsing.
 - [ ] In Kaocha mode, parse scry-owned flags only (`--runner`/`-r`,
-      `--help`/`-h`, `--result-format`, `--config`, `--dir`/`-d`,
-      `--namespace`/`--var` if still core-relevant) and collect all other tokens
-      in original order into `:kaocha-argv` (vector of strings).
+      `--help`/`-h`, `--result-format`, `--config`, `--dir`/`-d`) and collect all
+      other tokens in original order into `:kaocha-argv` (vector of strings).
+- [ ] In Kaocha mode, keep core-only selectors (`--namespace`/`--ns`, `--var`,
+      `--ns-pattern`) parsed-then-rejected with the existing clean
+      `:scry.cli/argument-error` (do NOT forward them into `:kaocha-argv`).
 - [ ] Keep core mode (`--runner clojure-test`) behaviour identical: unknown
       `--flags` still raise `:scry.cli/argument-error`.
 - [ ] Remove the `--focus` and `--kaocha-opt` branches in `parse-main-args`.
@@ -60,6 +62,9 @@
       (`--runner kaocha unit [integration ...]`), including fuzzy resolution.
 - [ ] CLI test: a malformed `-m` Kaocha option surfaces as
       `:scry.cli/runner-error` / `:scry.cli/load-error`, not argument-error.
+- [ ] CLI test: a core-only selector in Kaocha mode (`--runner kaocha
+      --namespace my.ns`, and likewise `--var`/`--ns-pattern`) still yields a
+      clean `:scry.cli/argument-error`, not a forward/runner-error.
 - [ ] Regression test: core mode unknown flag still yields
       `:scry.cli/argument-error`.
 - [ ] Confirm the `-X` path and programmatic adapter API behave exactly as

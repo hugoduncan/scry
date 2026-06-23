@@ -2,15 +2,10 @@
 
 ## Plan-review: ambiguity
 
-- [ ] Resolve the ambiguous handling of `--namespace`/`--var` in Kaocha `-m`
-      mode. plan.md OQ1 lists the scry-owned Kaocha-mode flag set without
-      `--namespace`/`--var` (implying they forward), but steps.md Slice 1 hedges
-      with "`--namespace`/`--var` if still core-relevant". Decide and record in
-      plan.md whether, in Kaocha mode, `--namespace`/`--var` are (a) still
-      consumed by scry and rejected with the existing clear `argument-error`
-      ("Core namespace, var ... not supported by Kaocha mode" via
-      `normalize-kaocha-options` `reject-keys core-only-keys`), or (b) forwarded
-      verbatim into `:kaocha-argv` and allowed to surface as a Kaocha
-      `runner-error`/`load-error`. State whether the existing `core-only-keys`
-      rejection is preserved or removed, and add a corresponding test
-      expectation in Slice 4.
+- [x] Resolve the ambiguous handling of `--namespace`/`--var` in Kaocha `-m`
+      mode. **Decided (a):** in Kaocha mode, `--namespace`/`--ns`, `--var`, and
+      `--ns-pattern` stay scry-owned and parsed-then-rejected with the existing
+      clean `:scry.cli/argument-error` (`normalize-kaocha-options` →
+      `reject-keys core-only-keys`); they are NOT forwarded into `:kaocha-argv`.
+      The Kaocha equivalent is `--focus`. Recorded in design.md OQ1 and plan.md
+      OQ1; Slice 1 no longer hedges and Slice 4 adds a rejection test.

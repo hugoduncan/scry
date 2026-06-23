@@ -52,6 +52,16 @@
   the "Notes for the design-step follow-up task" section below — no new
   follow-up work is outstanding from this review.
 
+## plan-review session (ambiguity turn)
+
+- no ambiguity review feedback. Plan/steps map cleanly to `cli.clj`: runner-error
+  via `run-cli` catch, argument-error via `main-outcome` (-m) and
+  `argument-error-outcome`/`run-with-boundary` (-X); traced flows confirm one
+  summary-writing site per invocation. Remaining latitude (exact wording; whether
+  to plumb `boundary` into `argument-error-outcome` vs write in
+  `run-with-boundary`) is adequately bounded by Acceptance and the steps' slash
+  notation. Prior design-review ambiguity findings remain resolved.
+
 ## Notes for the design-step follow-up task
 
 - Principle: error-path stdout output is supplementary human output only; keep

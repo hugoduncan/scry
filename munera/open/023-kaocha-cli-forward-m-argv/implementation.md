@@ -290,3 +290,10 @@ Confirmed the reusable parse path mirrors `kaocha.runner/-main*`:
   `:scry.cli/argument-error`.
 - verification: `scry.cli-test` (45 tests / 388 asserts, 0F/0E);
   `bb clj-kondo:lint` 0/0; `bb clj-fmt:check` clean.
+
+## Code-shaper review (4th pass)
+
+- added 1 step: `forwarded-config-file` hand-rolls tools.cli option-form parsing
+  to detect a forwarded `--config-file`, duplicating Kaocha's own arity
+  knowledge (counter to the task intent) and scanning value/positional tokens;
+  derive the explicit value from Kaocha's base-spec parse instead.

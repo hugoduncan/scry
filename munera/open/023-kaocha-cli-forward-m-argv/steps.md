@@ -159,6 +159,27 @@
       `--ns-pattern` guard already does) and add a test pinning the chosen
       behaviour.
 
+## Code-shaper review follow-up (4th pass)
+
+- [ ] `forwarded-config-file` (`src-kaocha/scry/kaocha.clj`) hand-rolls
+      `tools.cli` option-form parsing — it scans raw argv for `--config-file`,
+      `-c`, `--config-file=PATH`, and `-cPATH` to extract the explicit value.
+      This duplicates arity/option-form knowledge that Kaocha's own parser
+      already has, directly counter to this task's core intent ("Only Kaocha
+      knows its own option arities; scry never interprets Kaocha tokens"). It is
+      also a single-source-of-truth/consistency smell (two parallel parses of
+      the same argv) and a latent robustness issue (it matches a `-c…`-prefixed
+      token even when that token is another option's value or a positional).
+      `--config-file`/`-c` is in Kaocha's plugin-independent **base** spec
+      (`kaocha.runner/cli-options`, `:default "tests.edn"`), so the explicit
+      value can be derived from a parse via that base spec (or from
+      `parse-kaocha-argv`'s already-parsed `:config-file` compared against the
+      `"tests.edn"` default) instead of a hand-rolled token scan. Replace the
+      bespoke scanner with a Kaocha-parser-derived detection and adjust the
+      existing `kaocha-argv-forwarded-config-file-loaded-test` accordingly
+      (forwarding the default `tests.edn` value explicitly is harmless to treat
+      as "no override").
+
 ## Test review follow-up (test-shaper)
 
 - [x] `kaocha-argv-forwarded-config-authoritative-test` proves the "explicit

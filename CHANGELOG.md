@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.43] - 2026-06-24
+
 - **Breaking (`-m` Kaocha mode):** `scry.cli --runner kaocha` is now a drop-in for Kaocha's own CLI — scry consumes only its own flags and forwards everything else verbatim to Kaocha. Removed `-m --focus`, `--kaocha-opt`, and `--suite`/`-s`/`--suites`; use plain Kaocha flags/positionals instead. Malformed Kaocha options surface as runner/load errors rather than argument errors. `-X` `:suite`/`:suites`/`:kaocha-extra` API and core mode are unchanged; adapter gains a `-m`-only `:kaocha-argv` option.
 - Kaocha load failures now emit a `suite-error-1` progress label; CLI writes a `.scry-results/` stderr pointer for any failure and, for load errors, the failing message and root-cause class/message inline.
 - Kaocha's `Randomized with --seed N` stdout is captured and surfaced as structured `:summary :seed`; CLI prints it after the summary on failing runs.

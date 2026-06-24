@@ -214,7 +214,7 @@
                      (condp = (str/join " " args)
                        "git status --porcelain" {:exit 0 :out "" :err ""}
                        "sh -c command -v gh" {:exit 0 :out "/usr/bin/gh\n" :err ""}
-                       "gh auth status" {:exit 0 :out "Logged in\n" :err ""}
+                       "gh auth status --hostname github.com" {:exit 0 :out "Logged in\n" :err ""}
                        "git remote get-url origin" {:exit 0 :out "git@github.com:hugoduncan/scry.git\n" :err ""}
                        "git rev-parse HEAD" {:exit 0 :out (str sample-sha "\n") :err ""}
                        "git ls-remote origin" {:exit 0 :out (str sample-sha "\trefs/heads/master\n") :err ""}

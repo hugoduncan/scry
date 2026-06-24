@@ -4,7 +4,7 @@
 
 - Scoped result formatting by invocation scope (suite / namespace / var).
 - Nested in-process runner isolation via dynamically replaceable/disabled capture contexts.
-- CLI (`scry.cli`) with live progress, `.scry-results/` EDN files, structured `:scry.cli/outcome-kind` classification, and non-zero exit codes. `--help` is sensitive to an explicit `--runner` (general/core/Kaocha-specific usage), resolved before any runner loading.
+- CLI (`scry.cli`) with live progress, `.scry-results/` EDN files, structured `:scry.cli/outcome-kind` classification, and non-zero exit codes. Always emits a minimal stdout summary (`No tests run — scry CLI error outcome: <kind>`) on `:scry.cli/runner-error` and `:scry.cli/argument-error` so no outcome is silent on stdout. `--help` is sensitive to an explicit `--runner` (general/core/Kaocha-specific usage), resolved before any runner loading.
 - Optional Kaocha adapter (`scry.kaocha`) loaded dynamically; separate `org.hugoduncan/scry-kaocha` jar.
 - Quickdoc-generated `doc/API.md` with curated public surface; docs-only tooling dependency.
 - `tools.build` jar workflow: core-only jar + optional Kaocha adapter jar, versioned `0.1.<git-revcount>`.

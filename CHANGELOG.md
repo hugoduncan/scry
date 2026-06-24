@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed `cli/run` (`clojure -X`) crashing with an argument error when invoked with no `:exec-args` or key-value overrides; `clojure -X:alias` (alias supplies only `:exec-fn`) passes `nil` to the exec fn, which is now treated as an empty options map.
+
 ## [0.1.43] - 2026-06-24
 
 - **Breaking (`-m` Kaocha mode):** `scry.cli --runner kaocha` is now a drop-in for Kaocha's own CLI — scry consumes only its own flags and forwards everything else verbatim to Kaocha. Removed `-m --focus`, `--kaocha-opt`, and `--suite`/`-s`/`--suites`; use plain Kaocha flags/positionals instead. Malformed Kaocha options surface as runner/load errors rather than argument errors. `-X` `:suite`/`:suites`/`:kaocha-extra` API and core mode are unchanged; adapter gains a `-m`-only `:kaocha-argv` option.

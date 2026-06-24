@@ -1358,6 +1358,25 @@
                          "Unknown runner"))
       (is (= 1 (get-in (ex-data thrown) [:outcome :exit-code]))))))
 
+(deftest run-exec-nil-opts-test
+  ;; `clojure -X:alias` where the alias supplies only :exec-fn invokes the exec
+  ;; fn with nil (no :exec-args), so cli/run must coerce nil to {} and not
+  ;; reject it as an argument error.
+  ;;
+  ;; We stub run-with-boundary to capture the coerced opts and avoid triggering
+  ;; test discovery: calling cli/run nil with empty opts would discover and run
+  ;; the entire test suite via the JVM process CWD, making the test non-isolated.
+  (let [received-opts (atom :not-called)]
+    (with-redefs [cli/run-with-boundary
+                  (fn [opts _boundary]
+                    (reset! received-opts opts)
+                    {:exit-code 0
+                     :scry.cli/outcome-kind :scry.cli/pass
+                     :result nil :summary nil :result-files [] :error nil})]
+      (cli/run nil)
+      (is (= {} @received-opts)
+          "cli/run nil must coerce nil to {} before run-with-boundary"))))
+
 (deftest main-outcome-entry-point-test
   ;; Main-style invocation parsing, help, and argument errors can be verified
   ;; through main-outcome without calling System/exit.

@@ -53,7 +53,8 @@
   ;; internal namespaces, helper vars, or implementation-only arities.
   (let [markdown (api-docs/generated-markdown)
         committed-markdown (slurp api-docs/output-path)
-        cli-run-section (var-section markdown "scry.cli" "run")]
+        cli-run-section (var-section markdown "scry.cli" "run")
+        kaocha-run-section (var-section markdown "scry.kaocha" "run")]
     (testing "committed API docs match the source-controlled generator output"
       (is (= markdown committed-markdown)))
 
@@ -118,7 +119,14 @@
                         "optional `scry.kaocha` namespace"
                         "clojure -M:test:kaocha"])
       (is (= #{(var-anchor "scry.kaocha" "run")}
-             (var-anchors-in-namespace markdown "scry.kaocha"))))
+             (var-anchors-in-namespace markdown "scry.kaocha")))
+      (assert-includes kaocha-run-section
+                       [":kaocha-extra"
+                        "a map of raw Kaocha cli-options forwarded by the scry"
+                        ":kaocha/cli-options"
+                        "resolved :config authoritative on conflict"
+                        "collection becomes a vector of keywords"
+                        "a mistyped key surfaces as a runner or"]))
 
     (testing "generated docs omit implementation namespaces and CLI helper vars"
       (assert-omits markdown

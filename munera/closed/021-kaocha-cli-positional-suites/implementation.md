@@ -1,0 +1,610 @@
+# Implementation notes
+
+## Review
+
+### Plan review (plan-review session)
+
+- inconsistency review (plan + steps): added 1 design step — the docs slice
+  (plan step 6 / steps Slice 3) says "regenerate `doc/API.md` (`bb api-docs`)"
+  to reach the positional form, but that example is curated prose hardcoded in
+  `bb/scry/api_docs.clj`; regeneration re-emits it unchanged and the doc gates
+  (`bb api-docs --check`, `scry.api-docs-test`) won't flag the stale `--suite`
+  text. `bb/scry/api_docs.clj` must be edited. `SKILL.md:159` also has the stale
+  form but is outside the design's README/AGENTS/API doc scope.
+### Plan-review follow-up pass (batch baseline b8423b7) — complete
+
+- Batch segment: `4864a0c` (plan ambiguity, no feedback) → `cc0efe5` (plan
+  inconsistency, +1 item) → `f6bc12c` (note commit). Baseline = parent of oldest
+  segment commit = `b8423b7` (the plan.md/steps.md add). `git diff
+  b8423b7..HEAD -- steps.md` was empty; the one attributable unchecked item was
+  added to `design-steps.md` (where the plan-review profile records follow-ups),
+  under "## Plan-review follow-up (inconsistency review)".
+- Executed that single item: a planning-artifact correction (no code change yet,
+  Interpretation A frozen). Updated plan.md step 6, the Slice-order docs item,
+  and the Docs-drift risk to require editing the curated Kaocha `-m` example in
+  `bb/scry/api_docs.clj` (`intro` string) to the positional form *before*
+  regenerating `doc/API.md`, because regeneration re-emits the curated prose
+  unchanged and the doc gates (`bb api-docs --check`, `scry.api-docs-test`) do
+  not pin that example. Added a matching steps.md Slice 3 step ahead of the
+  regenerate step. `-X` example `:runner :kaocha :suite :unit` left unchanged;
+  `SKILL.md:159` flagged for maintainer, not in scope.
+- Confirmed against source: `bb/scry/api_docs.clj` line 72 carries the stale
+  `-m` form; line 68 the `-X` form. The implementer should edit only line 72.
+
+### Notes for the plan-review follow-up (docs-slice design-step)
+
+- This follow-up is a plan.md/steps.md docs-slice text correction, not a code or
+  scope change — keep Interpretation A frozen and do not widen the design's
+  README/AGENTS/API doc scope (so leave `SKILL.md` for the maintainer).
+- Exact source anchor: `bb/scry/api_docs.clj`, the `intro` string (~line 71-72),
+  literal `clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit`. Edit
+  that string to the positional form, then run `bb api-docs` to regenerate
+  `doc/API.md`. There is no runtime docstring carrying this example.
+- README/AGENTS anchors already enumerated in steps Slice 3 are accurate
+  (README lines 79, 143-144, 146; AGENTS line 128); only the API.md source was
+  unaccounted for. `-X` example `:runner :kaocha :suite :unit` in the same
+  `intro` string stays unchanged (adapter `-X` path is out of scope).
+
+### Notes for the plan-review inconsistency follow-up (`--config`-test design-step)
+
+- This follow-up is a plan.md step-5 wording correction only — no code, test, or
+  scope change (Interpretation A frozen). Do not start editing `cli_test.clj`
+  here; the actual test edit belongs to the implementation slice per steps.md
+  Slice 2.
+- steps.md Slice 2 is already correct (it keeps the combined test "only for
+  `--config`" and omits `--config` from its unchanged list) and is read-only
+  task context — fix plan.md to match steps.md, not the reverse.
+- Precise reconciliation: in plan.md step 5, remove `--config` from the "Keep
+  ... unchanged" clause; instead state that `--config` *coverage* is preserved
+  while the fused `cli_test.clj:232` "accepted Kaocha suites and config EDN
+  flags" test is split/edited to drop the removed `--suites` portion. Keep
+  `--focus` and `--kaocha-opt` as genuinely-unchanged tests.
+- Relevant non-task anchor: `test/scry/cli_test.clj:232` (the combined
+  `--suites`/`--config` EDN test); the removed `--suites`/`--suite`/`-s` flag
+  tests are at `cli_test.clj:220-236` and the mutual-exclusion test at
+  `cli_test.clj:275-276`.
+
+- inconsistency review (plan-review session, post-docs-slice-follow-up 00fffd1):
+  added 1 design step — plan.md step 5 lists `--config` among "tests unchanged",
+  but the only `--config` parse test (`cli_test.clj:232`) is fused with the
+  removed `--suites` flag and steps.md Slice 2 correctly directs editing it;
+  classified actionable because a literal reading of plan step 5 would leave the
+  broken combined `--suites "[:unit]"` assertion. Plan vs steps otherwise
+  consistent (slice order, core-mode argument-error framing, docs-slice
+  api_docs.clj mechanism, position-agnostic collapse). The "byte-for-byte what
+  the old flags produced" claim appears identically in design.md and plan.md
+  (vs the repeatable `--suite`/`-s` string path, not the removed `--suites` EDN
+  path) — same framing in both files, so not a cross-file inconsistency.
+
+- ambiguity review (plan-review session, post-docs-slice-follow-up 00fffd1): no
+  ambiguity review feedback — re-ran after the docs-slice edits; verified anchors
+  (api_docs.clj:72 `-m`/:68 `-X`, README 79/143/144/146, AGENTS 128, root
+  SKILL.md:159 out-of-scope) and the discrimination rule/collapse/core-mode
+  pathway are all accurate and unambiguous. Updated docs-slice text added no new
+  ambiguity.
+
+- ambiguity review (plan-review session, post --config-step follow-up 617b3ee):
+  no ambiguity review feedback — re-ran on current plan.md/steps.md after the
+  plan step 5 `--config`-wording edit. That edit is a precise clarification (no
+  new ambiguity). Re-verified discrimination rule, `:suite-values`
+  accumulator/count-based collapse, core-mode `kaocha-only-keys`/`reject-keys`
+  rejection, REPL-check return shapes (`:suite`/`:suites` survive
+  `normalize-kaocha-options`), test specs, and doc anchors (api_docs.clj:72
+  `-m`/:68 `-X`, README 79/143/144/146, AGENTS 128, root SKILL.md:159
+  out-of-scope) — all concrete and code-grounded.
+
+- inconsistency review (plan-review session, post --config-step follow-up
+  617b3ee): added 1 design step — the 617b3ee plan edit reconciled plan↔steps
+  but surfaced a design↔plan divergence: design.md Approach step 6 still says
+  keep the `--config` pass-through test "as-is", contradicting plan step 5 /
+  steps Slice 2 (the fused `--suites`/`--config` test must be split/edited).
+  Classified actionable by the same standard the plan-side `--config` finding
+  used (literal reading preserves the broken `--suites "[:unit]"` assertion).
+  Scoped to design.md Approach step 6 wording only — Constraints (l.91) and
+  Acceptance (l.104) speak of `--config` *behavior* (unchanged) and stay; no
+  scope change. Plan/steps otherwise consistent with design (scope, parser rule,
+  collapse, core-mode argument-error, docs-slice api_docs.clj mechanism).
+
+### Notes for the inconsistency follow-up (design.md step 6 `--config`-test design-step)
+
+- Design-artifact text edit only: no code/test change in the follow-up pass.
+  Interpretation A stays frozen. The actual `--config` test split/edit is
+  steps.md Slice 2 implementation work, not this follow-up.
+- Do not re-derive the corrected wording: mirror plan.md step 5, which already
+  carries the canonical phrasing (`--config` *coverage* preserved; fused
+  `--suites`/`--config` test split/edited to drop the `--suites` portion). Edit
+  design.md Approach step 6 (lines 65-66) to match; leave `--focus`/`--kaocha-opt`
+  as genuinely-unchanged tests.
+- Leave design.md Constraints (l.91) and Acceptance (l.104) untouched — they
+  speak of `--config` *behavior* (unchanged), which is correct and not the
+  inconsistency.
+
+### Plan-review follow-up pass (batch baseline 00fffd1) — complete
+
+- Batch segment: `9c26f06` (plan ambiguity, no feedback) → `84c2d66` (plan
+  inconsistency, +1 item) → `03fd13e` (note commit). Baseline = parent of oldest
+  segment commit `9c26f06` = `00fffd1` (the prior plan-follow-up completion).
+  `git diff 00fffd1..HEAD -- steps.md` was empty; the one attributable unchecked
+  item was added to `design-steps.md` (plan-review profile records follow-ups
+  there, as in the prior pass), under "## Plan-review follow-up (inconsistency
+  review)".
+- Executed that single item: a planning-artifact correction only (no code/test
+  change; Interpretation A frozen). Reworded plan.md step 5 to stop listing
+  `--config` among "tests unchanged" — `--config` *coverage* is preserved, but
+  its only parse test is the fused `cli_test.clj` "accepted Kaocha suites and
+  config EDN flags" case (also exercises the removed `--suites` flag), so it is
+  split/edited to drop the `--suites` portion (matching steps.md Slice 2). Kept
+  `--focus`/`--kaocha-opt` as genuinely-unchanged tests.
+- steps.md Slice 2 was already correct and consistent (read-only task context) —
+  no steps.md edit needed; plan.md was brought into agreement with it.
+- Confirmed anchor: `test/scry/cli_test.clj` ~line 232, `(testing "accepted
+  Kaocha suites and config EDN flags" ...)` fuses `--suites "[:unit]"` with
+  `--config "{:kaocha/tests []}"`. The implementer (Slice 2) must split/keep the
+  `--config` assertion while dropping the `--suites` assertion. No new
+  ambiguity/inconsistency introduced; all design-steps now checked, plan/steps
+  consistent — ready for implementation.
+
+- ambiguity review (plan + steps): no ambiguity review feedback — accumulator
+  (`:suite-values`), count-based collapse (single→`:suite`/multi→`:suites`),
+  positional-vs-token discrimination rule, dropped-vs-retained mutual-exclusion
+  (parse-time checks removed; `normalize-kaocha-options` `:suite`/`:suites`
+  check correctly retained for `-X` and unreachable from `-m` collapse), and
+  core-mode outcome-kind assertion are all unambiguous and code-grounded.
+
+### Design review (design phase)
+
+- architectural review (final design, post-inconsistency edits 4b197c2): no
+  actionable feedback — `-m`-only scope, `-X`/adapter and dynamic-load
+  boundaries, shared `normalize-exec-opts` funnel, and `:scry.cli/outcome-kind`
+  contract all preserved.
+- ambiguity review (final design, post-inconsistency edits 4b197c2): no
+  actionable feedback — discrimination rule, collapse semantics, flag value
+  consumption, and core-mode argument-error delta are all unambiguous; the
+  4b197c2 reframing introduced no new ambiguity.
+- inconsistency review (final design, post-4b197c2): no actionable feedback —
+  Goal/Approach/Constraints/Acceptance agree on position-agnostic selectors,
+  collapse semantics, core-mode argument-error outcome (Approach states outcome,
+  Constraints states mechanism — no contradiction), and `-X`/adapter/docs-sync
+  claims. 4b197c2 was the self-consistent inconsistency-driven reframing.
+
+### Design-review session complete — ready for planning
+
+- Fresh design-review session (architectural + ambiguity + inconsistency) added
+  0 new design-steps; all 4 existing design-steps remain checked. No pending
+  design edits — planning can proceed directly against the current design.md.
+- For the plan/implementation slice that addresses the (already-resolved)
+  design-steps: keep Interpretation A frozen (only the `-m` wrapper; `-X` path
+  and `scry.kaocha/run` adapter unchanged). Reuse the existing
+  `normalize-core-options` `reject-keys`/`kaocha-only-keys` path for core-mode
+  positional rejection rather than adding a parallel branch; assert outcome-kind
+  `:scry.cli/argument-error` (not the old "Unknown option" text) in any
+  core-mode positional test. Relevant files: `src/scry/cli.clj`
+  (`parse-main-args`, `main-opts->exec-opts`, `usage`, `normalize-core-options`,
+  `kaocha-only-keys`), `test/scry/cli_test.clj`, `test/scry/cli_kaocha_test.clj`
+  (`:kaocha` alias), plus `README.md`/`AGENTS.md`/`doc/API.md` for docs sync.
+- architectural review: no actionable feedback (design fits the parse → collapse
+  → normalize → execute pipeline, the frozen `-m`-only scope, the `-X`/adapter
+  boundary, and the `:scry.cli/outcome-kind` contract).
+- architectural re-review (post follow-up edits): still no actionable feedback;
+  the ambiguity/inconsistency design edits were text-only clarifications and did
+  not change the architecture or scope, so the sign-off holds for the revised
+  design.
+- ambiguity re-review (post follow-up edits): no actionable feedback; the
+  interleaving/positioning ambiguity was resolved by the prior follow-up (Open
+  Questions removed, position-agnostic discrimination rule now explicit in
+  Approach step 2 and Constraints).
+- ambiguity review: added 1 design step (resolve the Open Questions interleaving
+  rule into a definitive decision + explicit positional-vs-token discrimination
+  rule).
+- inconsistency re-review (post follow-up edits): added 1 design step — the
+  first Constraints bullet's "must not change except that ... are now an argument
+  error" clause contradicts its own corrected rationale (positionals were already
+  an argument error); the real delta is the rejection message/mechanism, not the
+  `:scry.cli/argument-error` outcome-kind.
+- inconsistency review: added 2 design steps (reconcile "trailing" wording in
+  Approach step 2 vs the position-agnostic Open Questions default; correct the
+  inaccurate "bare positionals previously unreachable in core mode" rationale —
+  they hit the parse-time `default` "Unknown option" branch).
+
+### Addressing the design-steps
+
+- All three added design-steps are design.md text edits only (no code change);
+  the interleaving decision is the one that must land before implementation so
+  the parser rule is unambiguous. Keep the maintainer-confirmed Interpretation A
+  scope frozen — these edits clarify/correct wording, they do not re-open scope.
+- Relevant non-task files: `src/scry/cli.clj` (`parse-main-args`,
+  `main-opts->exec-opts`, `normalize-exec-opts`, `normalize-core-options`,
+  `kaocha-only-keys`); CLI tests in `test/scry/cli_test.clj` and Kaocha CLI tests
+  `scry.cli-kaocha-test` (`:kaocha` alias); usage text lives in the `usage` def
+  at the top of `src/scry/cli.clj`.
+
+### Architecture context for implementation
+
+- Core-mode rejection of positionals (design step 3) is already covered by the
+  existing `normalize-core-options` `reject-keys` path: positionals collapse to
+  `:suite`/`:suites` in `main-opts->exec-opts`, and `:suite`/`:suites` are in
+  `kaocha-only-keys`, so core mode rejects them as `:scry.cli/argument-error`
+  ("Kaocha options require :runner :kaocha"). Prefer reusing this pathway over a
+  new positional-specific rejection branch to avoid a parallel validation path.
+- The parser `default` case in `parse-main-args` is currently "Unknown option".
+  The split should be: tokens starting with `-` stay unknown-option errors;
+  other tokens become positional suite selectors. This keeps the change local to
+  the hand-rolled loop and consistent with the existing architecture.
+
+### Design follow-up pass (batch baseline f4bdfd1)
+
+- Executed all 3 added design-steps; all were design.md text edits, no scope
+  change. Interpretation A scope unchanged.
+- Decision recorded in design.md: positional suite selectors are accepted
+  **position-agnostically** (any non-`-` token, regardless of position relative
+  to flags). Discrimination rule now lives in Approach step 2; an explicit
+  Constraints bullet restates position-agnostic acceptance. "Open Questions"
+  section removed (its sole item resolved).
+- Also reconciled a second "trailing" occurrence in the **Goal** (not just
+  Approach step 2) to "positional arguments" to avoid leaving an inconsistency
+  with the position-agnostic decision.
+- Constraints rationale corrected: bare positionals were reachable and rejected
+  at parse time (`parse-main-args` `default` "Unknown option" branch), not
+  unreachable; conclusion (must remain an error) preserved.
+
+### Notes for addressing the new inconsistency design-step (re-review baseline b1be97e)
+
+- The remaining open design-step is a design.md text edit only: no code change,
+  no scope change (Interpretation A frozen). Do not let the wording fix reopen
+  whether core-mode positionals should error — they must remain an error.
+- Principle to preserve when rewording: state the delta at the contract level.
+  Core-mode positionals are `:scry.cli/argument-error` before and after; only the
+  rejection message/path moves (parse-time "Unknown option" → normalize-time
+  "Kaocha options require :runner :kaocha" via `normalize-core-options`'s
+  `reject-keys` against `kaocha-only-keys`, because positionals collapse to
+  `:suite`/`:suites` in `main-opts->exec-opts`). Keep the Acceptance line
+  ("produces `:scry.cli/argument-error`") consistent with that framing.
+- When implementation lands, the new core-mode error message for a stray
+  positional will be the `kaocha-only-keys` message, not "Unknown option:";
+  any core-mode positional-rejection test should assert outcome-kind
+  `:scry.cli/argument-error` rather than pinning the old "Unknown option" text.
+
+### Design follow-up pass (re-review batch baseline 9d97241)
+
+- Executed the single inconsistency-re-review design-step (added in batch
+  8ea2529→64204da→b1be97e; `d38cba1` was a note commit). design.md text edit
+  only, no code/scope change (Interpretation A frozen).
+- Rewrote the first Constraints bullet to state the delta at the contract level:
+  core-mode positionals are `:scry.cli/argument-error` before and after; only the
+  rejection mechanism/message moves (parse-time "Unknown option" → normalize-time
+  `kaocha-only-keys`/`reject-keys` "Kaocha options require :runner :kaocha", since
+  positionals now collapse to `:suite`/`:suites`). Consistent with the Acceptance
+  line. No new ambiguity/inconsistency introduced.
+- All design-steps are now checked; design.md should be stable for plan creation.
+
+### Plan-review follow-up pass (batch baseline 617b3ee) — no in-scope work
+
+- Batch segment: `4228856` (plan ambiguity, no feedback) → `da5f24d` (plan
+  inconsistency, +1 item) → `77929c7` (note commit). Baseline = parent of oldest
+  segment commit `4228856` = `617b3ee` (the prior plan-follow-up completion).
+  `git diff 617b3ee..HEAD -- steps.md` is empty: this batch added no `steps.md`
+  checklist lines, so the plan-follow-up candidate work set (steps.md additions)
+  is empty.
+- ambiguity review (plan-review session, post-baseline 617b3ee batch, HEAD
+  8e3962d): no ambiguity review feedback — plan.md/steps.md unchanged since the
+  prior no-feedback ambiguity review (4228856); fresh read against
+  `src/scry/cli.clj` re-confirms the discrimination rule, `:suite-values`
+  accumulator/count-based collapse (lines 286-296), core-mode
+  `kaocha-only-keys`/`reject-keys` rejection (line 39), flag value consumption,
+  the split `--config` test handling, and doc anchors are all concrete and
+  code-grounded. The open design.md step-6 `--config` item is an inconsistency
+  for the design profile, not a plan/steps ambiguity.
+
+- inconsistency review (plan-review session, HEAD post-8e3962d): no new
+  inconsistency review feedback — plan.md/steps.md unchanged since the prior
+  inconsistency review (da5f24d). plan↔steps remain internally consistent (slice
+  order, parser rule, `:suite-values` collapse, core-mode argument-error framing,
+  docs-slice api_docs.clj mechanism, reconciled `--config` test handling). The
+  only residual cross-file divergence (design.md step-6 `--config` "as-is" vs
+  plan/steps) is already recorded as an unchecked design-step for the design
+  profile; not re-added (rule 3 no-duplicate).
+
+### Plan-review session close (HEAD post-8e3962d)
+
+- This plan-review session (ambiguity + inconsistency turns) added **no new
+  design-steps**. The sole outstanding item is the pre-existing unchecked
+  design.md step-6 `--config` design-step, which is a **design-profile** concern
+  (it needs a design.md Approach step-6 edit; out of plan-profile editable scope).
+  Its full follow-up guidance already lives above under "Notes for the
+  inconsistency follow-up (design.md step 6 `--config`-test design-step)" — mirror
+  plan.md step 5's canonical phrasing; do not touch design.md Constraints
+  (l.91)/Acceptance (l.104); keep Interpretation A frozen. No other principle or
+  path needs recording for this slice.
+
+- The single batch finding (`da5f24d`) was recorded in `design-steps.md` under
+  "## Plan-review follow-up (inconsistency review)" and requires editing
+  **design.md** Approach step 6 (lines 65-66): reword "keep `--config`
+  pass-through test as-is" to state `--config` *coverage* is preserved while its
+  fused `--suites`/`--config` test is split/edited (mirroring plan step 5 / steps
+  Slice 2). That is a **design.md** edit, which is read-only for the
+  plan-follow-up profile (editable set: plan.md/steps.md/implementation.md/
+  code/tests/docs). The prior pass's analogous item was executable only because
+  it reconciled within plan.md; this one cannot be resolved by any plan.md/
+  steps.md edit (plan/steps are already correct — design.md lags them).
+- Action: left the `design-steps.md` item **unchecked** and did not edit
+  design.md (out of plan-profile scope). It is a design-review-follow-up
+  concern; a design-profile pass should execute it. No plan.md/steps.md change
+  was warranted this pass; no new ambiguity/inconsistency introduced.
+
+### Implementation pass (all slices) — complete
+
+Slices 1-4 implemented in one pass; Interpretation A scope held (only the `-m`
+wrapper changed; `-X` map path and `scry.kaocha/run` adapter untouched).
+
+- **Parser (`src/scry/cli.clj`).** Removed the `("--suite" "-s")` and `"--suites"`
+  flag branches plus their mutual-exclusion checks. The `parse-main-args` loop
+  `default` case now: tokens starting with `-` → `:scry.cli/argument-error`
+  ("Unknown option: ..."); any other token → `(add-repeat raw :suite-values flag)`
+  (ordered positional selector). Collapse in `main-opts->exec-opts` is unchanged
+  (still keys on `:suite-values`: 1→`:suite`, many→`:suites`), so values reaching
+  the adapter are identical to the old flags. Core-mode rejection reuses the
+  existing `normalize-core-options` `reject-keys`/`kaocha-only-keys` path
+  (positionals collapse to `:suite`/`:suites` → "Kaocha options require :runner
+  :kaocha", still `:scry.cli/argument-error`) — no parallel branch added.
+- **Usage text.** Dropped `-s, --suite` / `--suites` lines; added a "Positional
+  arguments: [SUITE]... Kaocha suite selectors; Kaocha mode only" section.
+- **Tests.** `cli_test.clj`: replaced the repeated/short `--suite`/`-s` and the
+  fused `--suites`/`--config` parse tests with positional tests (single→`:suite`,
+  multi→`:suites`, interleaved-with-flags), a `--config`-only test, a core-mode
+  positional-rejection test (asserts `argument-error?`, not "Unknown option"
+  text), and removed the `--suite`/`--suites` mutual-exclusion parser-error
+  assertion. `--focus`/`--kaocha-opt` tests unchanged. `cli_kaocha_test.clj`:
+  added `kaocha-cli-positional-suite-run-test` driving the full
+  parse→collapse→normalize→`scry.kaocha/run` chain (single positional runs one
+  suite; two positionals run both, with the failing suite writing its result
+  file).
+- **Docs.** README lines 79/143/144, AGENTS line 128, and the curated `-m`
+  example in `bb/scry/api_docs.clj` moved to the positional form; `doc/API.md`
+  regenerated. `-X` `:suite`/`:suites` examples and adapter REPL `:suite`/`:suites`
+  prose left unchanged.
+- **Out of scope (flagged for maintainer).** Root `SKILL.md:159` still carries
+  the stale `--runner kaocha --suite unit` form. It lies outside the design's
+  README/AGENTS/API doc scope and was intentionally not edited.
+
+Verification (all green):
+- `clojure -M:test` `scry.cli-test`: 45 tests, 357 assertions, 0 fail/0 err.
+- `clojure -M:test:kaocha` `scry.cli-kaocha-test`: 8 tests, 57 assertions, 0/0.
+- `clojure -M:test:kaocha` `scry.kaocha-test` (task 002 selection): 15 tests,
+  75 assertions, 0/0.
+- `bb api-docs --check`: clean. `scry.api-docs-test`: 1 test, 65 assertions, 0/0.
+- `bb clj-fmt:check`: all formatted. `bb clj-kondo:lint`: 0 errors/0 warnings.
+- Real `-m` invocation in a temp Kaocha project (unit + integration suites):
+  `--runner kaocha unit` → 1 passed, exit 0; `--runner kaocha unit integration`
+  → 2 passed, exit 0; `--runner kaocha --suite unit` → "Unknown option: --suite",
+  exit 1 (confirming clean flag removal).
+
+### Implementation review pass — no actionable feedback
+
+- Reviewed code/tests/docs against design (Interpretation A). Confirmed
+  `-m`-only scope: `src-kaocha/` zero diff, `-X` path and `:suite-values`
+  collapse unchanged, core-mode rejection reuses the existing
+  `kaocha-only-keys`/`reject-keys` path (no parallel branch). Re-ran focused
+  core CLI (45/357, 0/0), Kaocha CLI (8/57, 0/0), and `bb api-docs --check`
+  (clean) — matching the recorded results. Added 0 follow-up steps.
+
+### Test-review pass
+
+- added 1 step: no automated regression test covers the removed
+  `--suite`/`-s`/`--suites` flags now erroring (design acceptance criterion);
+  only manually verified.
+
+### Test-review follow-up pass — complete
+
+- addressed 1 test-review follow-up step. Added a `testing` block
+  ("removed -m Kaocha suite flags now raise an unknown-option error") inside
+  `parse-main-args-test` in `test/scry/cli_test.clj`, asserting each of
+  `--runner kaocha --suite unit`, `... -s unit`, and `... --suites "[:unit]"`
+  raises `:scry.cli/argument-error` (via the existing `argument-error?` helper)
+  with an "Unknown option:" message — guarding the clean-removal acceptance
+  criterion against re-introducing these flags or a discrimination-rule
+  regression.
+- Verification: `clojure -M:test` `scry.cli-test` → 45 tests, 363 assertions,
+  0 fail/0 err (was 357; +6 from the new block). `bb clj-fmt:check` clean;
+  `bb clj-kondo:lint` 0 errors/0 warnings.
+
+### Test-review pass (post-follow-up, baselines baec880)
+
+- No new actionable feedback; added 0 steps. Re-ran `scry.cli-test` (45/363,
+  0/0) and `scry.cli-kaocha-test` (8/57, 0/0) green. Behaviour coverage complete
+  (positional→`:suite`/`:suites` parse + e2e, interleaving, core-mode rejection,
+  removed-flag regression now present, unchanged `-X`/`--focus`/`--kaocha-opt`/
+  `--config`); new tests are well-formed and use real fs/Kaocha via the
+  injectable boundary with no mocks/stubs.
+
+### Test-shaper review pass (HEAD 075cb68)
+
+- Added 0 steps; no actionable feedback. Re-confirmed green (`scry.cli-test`
+  45/363, `scry.cli-kaocha-test` 8/57). Test-shaper lens: positional behaviour
+  partition is complete and economical, the interleaving test doubles as the
+  guard that a `--focus` value is not mis-collected as a selector, `:suites`
+  order is locked, and the `-m` e2e chain is distinct from the `-X`-style
+  `kaocha-cli-suite-run-test`. Untested positional-before-first-flag sub-case is
+  not behaviourally distinct from the covered selector-before-a-flag case, so it
+  is incidental case-explosion, not new signal.
+
+### Docs-review pass
+
+- added 1 step: `CHANGELOG.md` Unreleased not updated for the user-visible `-m`
+  flag removal / positional-selector change (README/AGENTS/doc/API.md are all
+  consistent and complete). Slice 3 omitted CHANGELOG.
+
+### Docs-review follow-up execution
+
+- addressed 1 review step: added `CHANGELOG.md` Unreleased entry for the
+  breaking `-m` Kaocha positional-selector change and `--suite`/`-s`/`--suites`
+  removal; noted `-X` keys and `scry.kaocha/run` adapter unchanged. Pure docs
+  change; no code/test impact.
+
+### Docs-review pass (post-CHANGELOG)
+
+- added 0 steps; no new actionable feedback. README/AGENTS/doc/API.md positional
+  `-m` form, unchanged `-X :suite`/`:suites` examples, `usage` text, and the
+  CHANGELOG Unreleased entry are all consistent and complete. Only residual stale
+  reference is out-of-scope root `SKILL.md:159`, already flagged for the maintainer.
+
+### Code-shaper review pass
+
+- added 0 steps; no new actionable feedback. Code reads simple/consistent/robust
+  (discrimination rule single-responsibility, `:suite-values`/`add-repeat`
+  reuse, count-based collapse unchanged, core-mode rejection via existing
+  `kaocha-only-keys`/`reject-keys` funnel). Re-ran `scry.cli-test` (45/363, 0/0)
+  green. Residual `SKILL.md:159` stale `-m --suite` form is out-of-scope and
+  already flagged — not re-raised.
+
+### Ambiguity review (shared plan-review session, first turn)
+
+- no ambiguity review feedback. plan.md/steps.md re-read against current
+  `src/scry/cli.clj`: discrimination rule (`-`-prefix → unknown-option error
+  vs non-`-` → ordered `:suite-values` selector, l.363-365), count-based
+  collapse (1→`:suite`/many→`:suites`, l.288-296), core-mode rejection via
+  `kaocha-only-keys`/`reject-keys` (l.39), and the enumerated test/doc anchors
+  (fused `cli_test.clj:232` split, api_docs.clj curated `intro` edit-before-
+  regenerate) are all concrete and unambiguous. The open design.md step-6
+  `--config` item is a design-profile inconsistency, not a plan/steps ambiguity.
+
+### Inconsistency review (shared plan-review session, second turn)
+
+- no new inconsistency review feedback. plan↔steps remain internally consistent
+  (slice order, parser rule, `:suite-values` collapse, core-mode argument-error
+  framing, docs-slice api_docs.clj mechanism, reconciled `--config` test
+  handling). The sole cross-file divergence (design.md Approach step-6 `--config`
+  "as-is" at design.md:66 vs plan.md:57-61 / steps Slice 2) is already recorded
+  as the unchecked design-step at design-steps.md:64 — not re-added (rule 3
+  no-duplicate); it is a design-profile concern (design.md read-only for the
+  plan-review editable scope; plan/steps already correct).
+
+### Plan-review session close (shared session, both turns)
+
+- This plan-review session (ambiguity + inconsistency turns) added 0 new
+  design-steps. The only open work is the pre-existing design-step at
+  design-steps.md:64 (design.md Approach step-6 `--config` "as-is" wording).
+  Scope for whoever addresses it: a design.md:66 text edit only — plan.md and
+  steps.md were re-confirmed correct and consistent this session and need no
+  change; the code/test side is already done (fused `--suites`/`--config` test
+  split in `test/scry/cli_test.clj`). Full mechanics already recorded above
+  under "Notes for the inconsistency follow-up (design.md step 6 ...)" and
+  "Design-review session close — note for the remaining design-step": mirror
+  plan.md step 5 phrasing, leave design.md Constraints (l.91)/Acceptance
+  (l.104) untouched, keep Interpretation A frozen.
+
+### Architectural review (shared design-review session, first turn)
+
+- no architectural review feedback. Sole architecture sources are AGENTS.md
+  notes (`META.md`/`doc/architecture.md` do not exist). Design preserves the
+  dependency boundary (no load-time `scry.kaocha` require; Kaocha stays
+  dynamically loaded), confines the change to the `-m` parser, reuses the shared
+  parse→collapse→normalize→execute funnel and the `kaocha-only-keys`/`reject-keys`
+  core-mode rejection path (no parallel branch), and keeps the
+  `:scry.cli/outcome-kind` contract. `-m`-positional vs `-X`-keyword surface
+  divergence is the frozen Interpretation-A scope decision, not a misfit.
+
+### Ambiguity review (shared design-review session, second turn)
+
+- no ambiguity review feedback. design.md unchanged since the final design-phase
+  ambiguity sign-off; discrimination rule (`-`-prefix → unknown-option vs non-`-`
+  → ordered selector), single→`:suite`/multi→`:suites` collapse, position-agnostic
+  acceptance, and the core-mode contract-level delta (outcome stays
+  `:scry.cli/argument-error`; only rejection mechanism moves) are all concrete
+  and unambiguous. Acceptance criteria map directly to Approach/Constraints.
+
+### Inconsistency review (shared design-review session, third turn)
+
+- no new inconsistency review feedback. design.md internally consistent
+  (Goal/Context/Approach/Constraints/Acceptance agree on position-agnostic
+  selectors, collapse semantics, core-mode argument-error outcome vs mechanism,
+  `-X`/adapter-unchanged, docs sync). The residual design.md Approach step-6
+  `--config` "as-is" divergence is already recorded as an unchecked
+  design-step ("Plan-review follow-up (inconsistency review)", 3rd item) — not
+  re-added (rule 3 no-duplicate).
+
+### Design-review session close — note for the remaining design-step
+
+- This shared design-review session (architecture + ambiguity + inconsistency)
+  added **0 new design-steps**. The sole open design-step is the design.md
+  Approach step-6 `--config` "as-is" item.
+- Key fact for whoever addresses it: the **code side is already done** — the
+  implementation pass split the fused `--suites`/`--config` test in
+  `test/scry/cli_test.clj` (kept the `--config` assertion, dropped the removed
+  `--suites` portion). So this design-step is now a **stale design.md text-only
+  reconciliation with zero code/test impact**; do not re-open or redo test work.
+- Mechanics already enumerated above under "Notes for the inconsistency
+  follow-up (design.md step 6 `--config`-test design-step)": edit design.md
+  Approach step 6 (lines 65-66) to state `--config` *coverage* preserved while
+  the fused test is split; leave Constraints (l.91)/Acceptance (l.104) and
+  `--focus`/`--kaocha-opt` untouched; keep Interpretation A frozen.
+
+### Implementation review pass (independent) — no actionable feedback
+
+- added 0 steps. Independently verified code/tests/docs against design
+  (Interpretation A held): discrimination rule + `:suite-values` collapse +
+  core-mode reuse of `kaocha-only-keys`/`reject-keys` confirmed in source; parse
+  and e2e positional tests, core-mode rejection, and removed-flag regression all
+  present. Re-ran `scry.cli-test` (45/363, 0/0) and `scry.cli-kaocha-test`
+  (8/57, 0/0) green. README/AGENTS/api_docs.clj/doc/API.md/CHANGELOG consistent;
+  `-X` examples unchanged; out-of-scope `SKILL.md:159` correctly left flagged.
+
+### Test-shaper review pass (independent, HEAD 0fb83c1)
+
+- added 0 steps; no actionable feedback. Re-ran `scry.cli-test` (45/363, 0/0)
+  and `scry.cli-kaocha-test` (8/57, 0/0) green. Positional partition is complete
+  and economical (single→`:suite`, multi→`:suites`, interleaved-with-flags as the
+  `--focus`-not-mis-collected guard, core-mode rejection, removed-flag
+  regression); assertions are behaviour-focused (collapse values, exit codes,
+  stdout substrings, result files); core-mode rejection asserts only outcome-kind
+  (not the moved message); e2e uses real Kaocha via the injected boundary with
+  unique namespaces/temp dirs (deterministic, no mocks).
+
+### Test-review pass (independent, HEAD 9753507)
+
+- added 0 steps; no new actionable feedback. Independently confirmed all three
+  test-review criteria: tests well-formed (narrow, state-based); every design
+  acceptance behaviour covered (positional→`:suite`/`:suites` parse + e2e,
+  interleaving, core-mode rejection via full collapse→normalize path, removed-flag
+  regression, `-X`/`--focus`/`--kaocha-opt`/`--config` unchanged); e2e tests use
+  real fs + real Kaocha via the injected `test-boundary` with no mocks/stubs/redefs.
+
+### Final design-step reconciliation — complete
+
+- Executed the last open design-step (design-steps.md, "Plan-review follow-up
+  (inconsistency review)", 3rd item). design.md text-only edit, no code/test
+  impact (the fused `--suites`/`--config` test split was already done in the
+  implementation pass). Reworded design.md Approach step 6 to mirror plan.md
+  step 5: `--focus`/`--kaocha-opt` tests stay as-is; `--config` *coverage* is
+  preserved while its fused test is split/edited to drop the removed `--suites`
+  portion. Left Constraints (`--config` *behavior* unchanged) and Acceptance
+  untouched; Interpretation A frozen.
+- With this, all steps.md checklist items and all design-steps are checked;
+  code, tests, docs (README/AGENTS/doc/API.md/CHANGELOG), and all verification
+  (recorded above) are complete. Out-of-scope residual: root `SKILL.md:159`
+  stale `-m --suite` form, flagged for the maintainer.
+
+### Docs-review pass (independent)
+
+- added 1 step: stale, now-broken `--runner kaocha --suite unit` example in the
+  user-facing skill doc `SKILL.md:159` (prior passes only flagged it; no explicit
+  maintainer decision to ship a broken example is recorded). In-scope README /
+  AGENTS / doc/API.md / CHANGELOG / `usage` text are all consistent and complete.
+
+- addressed 1 docs-review follow-up step: edited `SKILL.md:159` Kaocha `-m`
+  example from `--runner kaocha --suite unit` to positional `--runner kaocha unit`
+  (adjacent `-X` `:suite :unit` line left unchanged).
+
+### Docs-review pass (independent, post-SKILL.md fix)
+
+- added 0 steps; no new actionable feedback. README/AGENTS/doc/API.md/`usage`
+  text all carry the positional `-m` form; `-X` `:suite`/`:suites` examples
+  unchanged; CHANGELOG Unreleased documents the breaking flag removal; the prior
+  stale `SKILL.md:159` example is now positional. No remaining stale
+  `--suite`/`-s`/`--suites` references outside the CHANGELOG removal note.
+
+### Code-shaper review pass (independent, HEAD c80a274)
+
+- added 0 steps; no actionable feedback. Discrimination rule, `:suite-values`
+  reuse, count-based collapse, and core-mode `kaocha-only-keys` reuse read
+  simple/consistent/robust. Pre-existing redundant `opts` let-binding in
+  `main-opts->exec-opts` is unchanged by this task and out of scope.

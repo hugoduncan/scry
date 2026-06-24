@@ -21,10 +21,6 @@ At the start of a session, read:
 
 1. `mementum/state.md` — current project memory.
 2. `munera/plan.md` — open task ordering, if any.
-3. This file.
-4. `README.md` for user-facing behavior.
-
-If working a Munera task, keep task notes in that task's `implementation.md` and update `steps.md` as work progresses.
 
 ## Test workflow: REPL during development, command line for final verification
 
@@ -126,12 +122,14 @@ clojure -M:test -m scry.cli --var my.project-test/specific-test
 clojure -X:test scry.cli/run :vars '[my.project-test/specific-test]'
 ```
 
-The CLI clears and recreates `.scry-results/` at run start, prints `.` to stdout for passing vars, prints failing/erroring/unknown names or synthetic suite-level labels to stderr, writes namespace-prefixed `.edn` files for failing/erroring vars, writes deterministic synthetic `.edn` files for failing/erroring entries without a concrete var, and exits non-zero for failures, errors, unknown status, synthetic load/suite errors, argument/runner errors, or zero executable tests. Structured CLI / `-X` outcomes include top-level `:scry.cli/outcome-kind` (`:scry.cli/pass`, `:scry.cli/argument-error`, `:scry.cli/runner-error`, `:scry.cli/load-error`, `:scry.cli/test-failure`, `:scry.cli/unknown-result`, or `:scry.cli/zero-tests`); agents should inspect that key and `.scry-results/*.edn` instead of parsing progress/stderr text. Kaocha CLI mode requires the optional adapter classpath:
+The CLI clears and recreates `.scry-results/` at run start, prints `.` to stdout for passing vars, prints failing/erroring/unknown names or synthetic suite-level labels to stderr, writes namespace-prefixed `.edn` files for failing/erroring vars, writes deterministic synthetic `.edn` files for failing/erroring entries without a concrete var, and exits non-zero for failures, errors, unknown status, synthetic load/suite errors, argument/runner errors, or zero executable tests. On a failing outcome (`:scry.cli/load-error`, `:scry.cli/test-failure`, or `:scry.cli/unknown-result`) the CLI also writes a short stderr diagnostic pointing at the results directory; for `:scry.cli/load-error` it additionally includes the failing entry's assertion message and its root-cause class/message so the load/suite failure is visible inline without opening the EDN file. This diagnostic is supplementary human output; the authoritative machine signals are unchanged. For error/exception outcomes that produce no normal run summary — `:scry.cli/runner-error` (the `run-cli` catch path, e.g. a malformed/unknown Kaocha option forwarded to Kaocha's parser) and `:scry.cli/argument-error` (the argument-error paths in both `-m` and `-X`) — the CLI additionally always writes a single minimal, clearly-labelled summary line to stdout (e.g. `No tests run — scry CLI error outcome: :scry.cli/runner-error`) so the run is never silent on stdout. That stdout line is supplementary human output only, deliberately not a "0 passed, 0 failed" green run; the returned outcome map's `:summary` stays `nil`, and exit codes, `:scry.cli/outcome-kind`, and `.scry-results/*.edn` are unchanged. `:scry.cli/load-error` already emits a stdout summary via the normal return path (no duplicate line is added), and the `--help`/usage success path does not emit the error-style line. Structured CLI / `-X` outcomes include top-level `:scry.cli/outcome-kind` (`:scry.cli/pass`, `:scry.cli/argument-error`, `:scry.cli/runner-error`, `:scry.cli/load-error`, `:scry.cli/test-failure`, `:scry.cli/unknown-result`, or `:scry.cli/zero-tests`); agents should inspect that key and `.scry-results/*.edn` instead of parsing progress/stderr text. Kaocha CLI mode requires the optional adapter classpath:
 
 ```sh
-clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
+clojure -M:test:kaocha -m scry.cli --runner kaocha unit
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
+
+In `-m` Kaocha mode, `scry.cli --runner kaocha` is a drop-in for Kaocha's own command line: scry consumes only its own flags (`--runner`/`-r`, `--help`/`-h`, `--result-format`, `--config`, `--dir`/`-d`) and forwards every other argument — Kaocha options (e.g. `--focus`, `--no-randomize`) and positional `[SUITE]...` selectors — verbatim to Kaocha's own CLI parser via the adapter's `:kaocha-argv` option. The scry-specific `-m --focus`/`--kaocha-opt` flags and the `-m` positional-suite collapse are gone. A malformed `-m` Kaocha option therefore surfaces as `:scry.cli/runner-error`/`:scry.cli/load-error`, not `:scry.cli/argument-error`; core-only `--namespace`/`--var`/`--ns-pattern` selectors stay rejected with a clean `:scry.cli/argument-error` in Kaocha mode. The `-X` path keeps using `:kaocha-extra` pass-through and core (`--runner clojure-test`) mode is unchanged.
 
 If you need raw API inspection from a one-off command, call `scry.core/run` explicitly:
 
@@ -299,3 +297,14 @@ Update `README.md` when changing user-facing behavior:
 Keep development instructions, test workflow guidance, agent workflow, repo conventions, and architectural constraints in `AGENTS.md`, not `README.md`.
 
 Update this file when changing agent workflow, repo conventions, important architectural constraints, or development/test commands.
+
+λ state_md(x).   ⟨project convention; mementum stays external/unchanged⟩
+  | state.md ≡ current_state_snapshot(features ∧ structure ∧ orientation)   ⟨bootloader⟩
+  | update(state.md) ≡ edit_in_place ∧ prune_stale   ⟨¬append_log⟩
+  | ¬contains(state.md, {task_pass_notes ∨ review_pass_log ∨ per_commit_history ∨ progress_entries})
+  | task_progress → munera_task_artifacts({implementation.md ∧ steps.md})   ⟨not state.md⟩
+  | durable_lesson → memories ∨ knowledge   ⟨not state.md⟩
+  | history(state.md) ≡ git   ⟨recover via git log, ¬accreted in-file⟩
+  | delegated_session(review ∨ implement ∨ plan) → ¬obligated(update(state.md))
+      ⟨write task_progress to task artifacts; touch state.md only on real feature/structure shift⟩
+  | size(state.md) → small ∧ scannable(≤ ~30s)   ⟨grows → prune, ¬accrete⟩

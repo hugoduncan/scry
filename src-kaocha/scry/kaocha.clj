@@ -9,9 +9,12 @@
    kaocha results the combined output is placed in :out and :err is empty."
   (:require
    [clojure.java.io :as io]
+   [clojure.string :as str]
    [clojure.test]
+   [clojure.tools.cli :as cli]
    [kaocha.api :as api]
    [kaocha.config :as config]
+   [kaocha.plugin :as plugin]
    [kaocha.type :as type]
    [scry.capture :as capture]))
 
@@ -108,13 +111,19 @@
       (update :kaocha/test-paths #(some->> % (absolutize-paths base-dir)))))
 
 (defn- absolutize-config-paths
-  [cfg]
-  (let [base-dir (.getParentFile (tests-edn-file))]
-    (update cfg :kaocha/tests #(mapv (partial absolutize-suite-paths base-dir) %))))
+  [base-dir cfg]
+  (update cfg :kaocha/tests #(mapv (partial absolutize-suite-paths base-dir) %)))
+
+(defn- load-config-file
+  "Load a Kaocha config file and absolutize its suite paths relative to the
+   config file's own directory."
+  [file]
+  (let [file (.getAbsoluteFile (io/file file))]
+    (absolutize-config-paths (.getParentFile file) (config/load-config file))))
 
 (defn- load-tests-edn-config
   []
-  (absolutize-config-paths (config/load-config (tests-edn-file))))
+  (load-config-file (tests-edn-file)))
 
 (defn- build-fallback-config
   "Build a normalized synthetic kaocha config map from scry opts."
@@ -127,10 +136,30 @@
                       :kaocha/test-paths (absolutize-paths test-paths)
                       :kaocha/ns-patterns ns-patterns}]})))
 
+(defn- forwarded-config-file
+  "Detect an explicitly forwarded Kaocha `--config-file`/`-c` value in a raw
+   `-m` argv vector. `--config-file`/`-c` lives in Kaocha's plugin-independent
+   base runner spec (with a `tests.edn` default), so option arity/forms are
+   resolved by Kaocha's own parser rather than re-implemented here. The parser
+   always injects the default, so a forwarded value is only treated as an
+   override when it differs from that default. Returns the explicit path string,
+   or nil when none was forwarded (or the default value was forwarded
+   explicitly, which is harmless to treat as no override)."
+  [argv]
+  (when (seq argv)
+    (let [base @(requiring-resolve 'kaocha.runner/cli-options)
+          default (:config-file (:options (cli/parse-opts [] base)))
+          ;; Parse with the base spec only: unknown (plugin) options land in
+          ;; :errors but recognized base options like :config-file still parse.
+          forwarded (:config-file (:options (cli/parse-opts argv base)))]
+      (when (and forwarded (not= forwarded default))
+        forwarded))))
+
 (defn- resolve-config
-  [opts]
+  [opts cfg-file]
   (cond
     (contains? opts :config) (:config opts)
+    cfg-file (load-config-file cfg-file)
     (tests-edn-exists?) (load-tests-edn-config)
     :else (build-fallback-config opts)))
 
@@ -140,19 +169,107 @@
     (:kaocha.plugin/id plugin)
     plugin))
 
-(defn- ensure-capture-output-plugin
-  [plugins]
+(defn- ensure-plugin
+  [plugins plugin-keyword]
   (let [plugins (vec plugins)]
     (cond-> plugins
-      (not (some #{:kaocha.plugin/capture-output} (map plugin-id plugins)))
-      (conj :kaocha.plugin/capture-output))))
+      (not (some #{plugin-keyword} (map plugin-id plugins)))
+      (conj plugin-keyword))))
+
+(defn- ensure-runtime-plugins
+  "Ensure the plugins scry relies on are present. The capture-output plugin
+   provides per-test output; the filter plugin translates forwarded
+   `:kaocha/cli-options` (e.g. `:focus`) into `:kaocha.filter/*` directives.
+   Synthetic fallback and bare explicit `:config` maps may omit Kaocha's default
+   plugin chain, so ensure both here."
+  [plugins]
+  (-> plugins
+      (ensure-plugin :kaocha.plugin/capture-output)
+      (ensure-plugin :kaocha.plugin/filter)))
 
 (defn- apply-runtime-defaults
   [cfg]
   (-> cfg
-      (update :kaocha/plugins ensure-capture-output-plugin)
+      (update :kaocha/plugins ensure-runtime-plugins)
       (assoc :kaocha/reporter []
              :kaocha/color? false)))
+
+(defn- ->focus-keyword
+  "Coerce a single raw `:focus` value to a keyword, mirroring the Kaocha filter
+   plugin's `--focus` parse semantics (a leading `:` on a string is stripped)."
+  [v]
+  (cond
+    (keyword? v) v
+    (symbol? v) (keyword v)
+    (string? v) (keyword (if (str/starts-with? v ":") (subs v 1) v))
+    :else (keyword (str v))))
+
+(defn- coerce-focus
+  "Coerce a raw `:focus` value (scalar or collection of string/symbol/keyword)
+   into a vector of keywords, the shape the filter plugin's cli-option parse
+   produces."
+  [focus]
+  (mapv ->focus-keyword
+        (if (and (sequential? focus) (not (string? focus)))
+          focus
+          [focus])))
+
+(defn- coerce-kaocha-extra
+  "Coerce known raw `:kaocha-extra` values to the types the Kaocha cli-options
+   layer expects. Unknown keys are forwarded as-is (the documented `-X`
+   mistyped-key trade-off)."
+  [extra]
+  (cond-> extra
+    (contains? extra :focus) (update :focus coerce-focus)))
+
+(defn- apply-kaocha-extra
+  "Merge raw forwarded `:kaocha-extra` into the resolved config's
+   `:kaocha/cli-options`, coercing known values first. Existing config
+   cli-options are authoritative on conflict (OQ2 merge-with-config-wins)."
+  [cfg extra]
+  (if (seq extra)
+    (update cfg :kaocha/cli-options
+            (fn [cli-options]
+              (merge (coerce-kaocha-extra extra) cli-options)))
+    cfg))
+
+(def ^:private default-cli-spec-plugins
+  "Kaocha's default plugin chain. Included when building the forwarded-argv
+   option spec so the standard Kaocha flag surface (e.g. `--focus`,
+   `--[no-]randomize`) is always parseable as a drop-in, even for synthetic
+   fallback configs that omit Kaocha's default plugins. A flag only takes effect
+   if its plugin is active during the run, but it should never fail to parse."
+  [:kaocha.plugin/randomize
+   :kaocha.plugin/filter
+   :kaocha.plugin/capture-output])
+
+(defn- kaocha-cli-option-spec
+  "Build the full `clojure.tools.cli` option spec for forwarded `-m` argv:
+   Kaocha's own base runner spec extended by the config's plugins (plus Kaocha's
+   default plugins) `:kaocha.hooks/cli-options`, mirroring `kaocha.runner/-main*`.
+   Using Kaocha's own spec is what makes scry a drop-in for Kaocha's CLI: arity
+   and parsing of every Kaocha option are decided by Kaocha, not re-implemented
+   here."
+  [cfg]
+  (let [base @(requiring-resolve 'kaocha.runner/cli-options)
+        plugin-chain (plugin/load-all (concat (:kaocha/plugins cfg)
+                                              default-cli-spec-plugins))]
+    (plugin/run-hook* plugin-chain :kaocha.hooks/cli-options base)))
+
+(defn- parse-kaocha-argv
+  "Parse a forwarded raw `-m` Kaocha argv vector with Kaocha's own CLI machinery.
+
+   Returns `{:cli-options <parsed options minus the :config-file default>
+             :suites <positional selectors coerced to keywords>}`. Throws
+   `ex-info` when Kaocha's parser reports option errors (the accepted `-m`
+   unknown-flag reclassification to a runner/load error)."
+  [cfg argv]
+  (let [{:keys [options arguments errors]} (cli/parse-opts argv (kaocha-cli-option-spec cfg))]
+    (when (seq errors)
+      (throw (ex-info (str "Invalid Kaocha CLI arguments: " (str/join "; " errors))
+                      {:kaocha-argv (vec argv) :errors errors})))
+    {:cli-options (dissoc options :config-file)
+     :suites (mapv (requiring-resolve 'kaocha.runner/parse-kw) arguments)}))
 
 (defn- event-var-symbol
   [event]
@@ -180,8 +297,17 @@
           (swap! counts update-in [var-symbol :fail] (fnil inc 0)))
 
         :error
-        (when-let [var-symbol @current-var]
-          (swap! counts update-in [var-symbol :error] (fnil inc 0)))
+        (if-let [var-symbol @current-var]
+          (swap! counts update-in [var-symbol :error] (fnil inc 0))
+          ;; A suite-level error with no enclosing test var (e.g. a namespace
+          ;; load/compile failure) emits :error between :kaocha/begin-suite and
+          ;; :kaocha/end-suite with no test-var events. Fire the callback
+          ;; immediately so the synthetic suite-level progress label is printed
+          ;; during the run instead of being silently collapsed to a count.
+          (callback {:var nil
+                     :ns nil
+                     :status :error
+                     :assertion-summary {:pass 0 :fail 0 :error 1}}))
 
         :end-test-var
         (let [var-symbol (event-var-symbol event)
@@ -200,6 +326,20 @@
   (cond-> cfg
     progress-callback
     (update :kaocha/reporter conj (progress-reporter progress-callback))))
+
+(defn- discarding-writer
+  "A writer that discards everything written to it, backed by a null output
+   stream so nothing accumulates in memory.
+
+   Used to bind `*out*`/`*err*` around `api/run` so Kaocha framework-level direct
+   prints (e.g. the randomize plugin's `post-run` \"Randomized with --seed N\"
+   line, which bypasses the reporter) do not leak onto scry's clean output
+   stream. scry's progress callback and CLI summary write to the boundary stream
+   objects, not these dynamic vars, and Kaocha's capture-output plugin rebinds
+   `*out*` per test, so neither is affected."
+  ^java.io.Writer []
+  (java.io.PrintWriter.
+   (java.io.OutputStreamWriter. (java.io.OutputStream/nullOutputStream))))
 
 (defn- valid-suites-collection?
   [suites]
@@ -279,6 +419,29 @@
      :ns-patterns        fallback namespace-name regex strings
      :result-format      suite-scope formatting overrides
      :progress-callback  optional function called after each completed test var
+     :kaocha-argv        a vector of raw `-m` CLI strings forwarded verbatim by
+                         the scry CLI in Kaocha mode (every token that is not a
+                         scry-owned flag: unknown `--flags`, their values, and
+                         positional suite names). They are parsed with Kaocha's
+                         own CLI machinery (its `tools.cli` spec plus active
+                         plugins' option hooks); parsed cli-options are merged
+                         like `:kaocha-extra` (resolved `:config` authoritative
+                         on conflict) and positional selectors are routed through
+                         the same `:suite`/`:suites` resolution. Malformed Kaocha
+                         options surface as a runner/load error rather than an
+                         argument error. A forwarded `--config-file`/`-c` value
+                         loads that Kaocha config (resolved `:config` still wins);
+                         only the parser-injected `tests.edn` default is dropped.
+                         This option is `-m`-only; the `-X` map path uses
+                         `:kaocha-extra`.
+     :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
+                         CLI's bounded pass-through (e.g. `:focus`). It is merged
+                         into the resolved config's :kaocha/cli-options with the
+                         resolved :config authoritative on conflict. Known values
+                         are coerced (`:focus` raw string/symbol/keyword scalar or
+                         collection becomes a vector of keywords); unknown keys are
+                         forwarded as-is, so a mistyped key surfaces as a runner or
+                         load error rather than an argument error.
 
    When :config is omitted, the current project's tests.edn is loaded if it
    exists; otherwise a synthetic :unit suite is built from :source-paths,
@@ -295,19 +458,37 @@
    plugin merges stdout and stderr, so combined output is placed in :out and
    :err is empty.
 
+   When Kaocha randomizes test order (its default), the randomize seed is
+   surfaced as `:seed` in the result `:summary` so a failing order can be
+   reproduced; the framework's own stray \"Randomized with --seed N\" stdout
+   print is suppressed.
+
    Returns the same scoped result model as `scry.core/run`."
   ([] (run {}))
   ([opts]
-   (let [cfg (-> opts
-                 resolve-config
-                 (select-suites (suite-selectors opts))
+   (let [argv (:kaocha-argv opts)
+         base-cfg (resolve-config opts (forwarded-config-file argv))
+         parsed-argv (when (seq argv) (parse-kaocha-argv base-cfg argv))
+         selectors (concat (suite-selectors opts) (:suites parsed-argv))
+         cfg (-> base-cfg
+                 (select-suites selectors)
                  apply-runtime-defaults
+                 (apply-kaocha-extra (:kaocha-extra opts))
+                 (apply-kaocha-extra (:cli-options parsed-argv))
                  (apply-progress-reporter (:progress-callback opts)))
          start (System/nanoTime)
          kaocha-result (capture/without-context
-                        (binding [clojure.test/*report-counters* (ref type/initial-counters)]
+                        (binding [clojure.test/*report-counters* (ref type/initial-counters)
+                                  *out* (discarding-writer)
+                                  *err* (discarding-writer)]
                           (api/run cfg)))
-         duration-ms (/ (- (System/nanoTime) start) 1e6)]
-     (result->scry kaocha-result {:duration-ms duration-ms
-                                  :scope :suite
-                                  :result-format (:result-format opts)}))))
+         duration-ms (/ (- (System/nanoTime) start) 1e6)
+         ;; Surface Kaocha's randomize seed (present only when randomization was
+         ;; active) as structured run metadata, replacing the framework's stray
+         ;; "Randomized with --seed N" stdout print that the *out* binding above
+         ;; suppresses.
+         seed (:kaocha.plugin.randomize/seed kaocha-result)]
+     (result->scry kaocha-result (cond-> {:duration-ms duration-ms
+                                          :scope :suite
+                                          :result-format (:result-format opts)}
+                                   (some? seed) (assoc :seed seed))))))

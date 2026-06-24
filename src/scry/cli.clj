@@ -7,21 +7,66 @@
    [scry.cli.results :as results]
    [scry.clojure-test :as clojure-test]))
 
-(def ^:private usage
-  (str "Usage:\n"
-       "  clojure -M:test -m scry.cli [options]\n"
-       "  clojure -X:test scry.cli/run :runner :clojure-test\n\n"
-       "Options:\n"
-       "  -r, --runner RUNNER             clojure-test (default) or kaocha\n"
-       "  -d, --dir DIR                   Test directory; repeatable\n"
-       "  -n, --namespace, --ns NS        Test namespace; repeatable, core mode only\n"
-       "  -v, --var VAR                   Fully-qualified test var; repeatable, core mode only\n"
-       "      --ns-pattern REGEX          Namespace regex, core mode only\n"
-       "      --result-format EDN         Result-format map\n"
-       "  -s, --suite SUITE               Kaocha suite; repeatable\n"
-       "      --suites EDN                Kaocha suites collection\n"
-       "      --config EDN                Kaocha config map\n"
-       "      --help                      Print this help"))
+(defn- usage-for
+  "Build CLI usage text for a help request.
+
+   With no runner (`nil`) the general help lists every option annotated by the
+   mode it applies to. With a specific runner keyword the help lists only that
+   runner's relevant options, without mode annotations, so `--help` is sensitive
+   to an explicitly supplied `--runner`."
+  [runner]
+  (str/join
+   "\n"
+   (case runner
+     :clojure-test
+     ["Usage:"
+      "  clojure -M:test -m scry.cli --runner clojure-test [options]"
+      "  clojure -X:test scry.cli/run :runner :clojure-test"
+      ""
+      "Options:"
+      "  -r, --runner RUNNER             clojure-test (default) or kaocha"
+      "  -d, --dir DIR                   Test directory; repeatable"
+      "  -n, --namespace, --ns NS        Test namespace; repeatable"
+      "  -v, --var VAR                   Fully-qualified test var; repeatable"
+      "      --ns-pattern REGEX          Namespace regex"
+      "      --result-format EDN         Result-format map"
+      "      --help                      Print this help"]
+
+     :kaocha
+     ["Usage:"
+      "  clojure -M:test:kaocha -m scry.cli --runner kaocha [scry options] [kaocha args]..."
+      "  clojure -X:test:kaocha scry.cli/run :runner :kaocha"
+      ""
+      "scry options:"
+      "  -r, --runner RUNNER             clojure-test (default) or kaocha"
+      "  -d, --dir DIR                   Test directory; repeatable"
+      "      --result-format EDN         Result-format map"
+      "      --config EDN                Kaocha config map"
+      "      --help                      Print this help"
+      ""
+      "All other arguments — Kaocha options (e.g. --focus SYM, --no-randomize)"
+      "and positional [SUITE]... selectors — are forwarded verbatim to Kaocha's"
+      "own CLI parser. See Kaocha's own --help for its full option surface."]
+
+     ["Usage:"
+      "  clojure -M:test -m scry.cli [options]"
+      "  clojure -X:test scry.cli/run :runner :clojure-test"
+      ""
+      "Options:"
+      "  -r, --runner RUNNER             clojure-test (default) or kaocha"
+      "  -d, --dir DIR                   Test directory; repeatable"
+      "  -n, --namespace, --ns NS        Test namespace; repeatable, core mode only"
+      "  -v, --var VAR                   Fully-qualified test var; repeatable, core mode only"
+      "      --ns-pattern REGEX          Namespace regex, core mode only"
+      "      --result-format EDN         Result-format map"
+      "      --config EDN                Kaocha config map"
+      "      --help                      Print this help"
+      ""
+      "Kaocha mode forwards all other arguments verbatim to Kaocha's own CLI"
+      "parser:"
+      "  [kaocha args]...                Kaocha options (e.g. --focus SYM,"
+      "                                  --no-randomize) and positional [SUITE]..."
+      "                                  selectors; Kaocha mode only"])))
 
 (def ^:private result-scopes [:suite :namespace :var])
 
@@ -36,6 +81,15 @@
 (def ^:private core-only-keys (into #{:namespaces :vars} ns-pattern-keys))
 (def ^:private kaocha-only-keys #{:suite :suites :config})
 (def ^:private kaocha-fallback-keys #{:source-paths :test-paths :ns-patterns})
+
+;; Keys owned by scry that must never be forwarded to Kaocha as pass-through
+;; (`:kaocha-extra`). Derived from the existing key sets so it stays in sync.
+;; `:kaocha-extra` itself is included: it is the forwarded payload container,
+;; not a key to collect, so the `-X` collection step must not re-collect an
+;; already-present `:kaocha-extra` map into a nested one.
+(def ^:private scry-managed-keys
+  (into #{:runner :result-format :progress-callback :kaocha-extra :kaocha-argv :dirs}
+        (concat core-only-keys kaocha-only-keys kaocha-fallback-keys)))
 
 (defn- argument-error
   [message data]
@@ -55,6 +109,15 @@
     (nil? x) []
     (sequential-but-not-string? x) (vec x)
     :else [x]))
+
+(defn- help-runner
+  "Lenient runner resolution for `--help` output.
+
+   Returns the canonical runner keyword for a recognized `--runner` value, or
+   `nil` for an absent or unrecognized runner so general help is shown rather
+   than failing a help request with an argument error."
+  [runner]
+  (some-> runner str/lower-case runner-aliases))
 
 (defn- normalize-runner
   [runner]
@@ -198,7 +261,7 @@
 
 (defn- normalize-core-options
   [opts normalized]
-  (reject-keys opts (into kaocha-only-keys kaocha-fallback-keys)
+  (reject-keys opts (conj (into kaocha-only-keys kaocha-fallback-keys) :kaocha-extra)
                "Kaocha options require :runner :kaocha")
   (cond-> normalized
     (present? opts :dirs) (assoc :dirs (normalize-dirs (:dirs opts)))
@@ -219,14 +282,25 @@
   (when (and (present? opts :dirs) (present? opts :config))
     (argument-error ":dirs cannot be combined with explicit Kaocha :config"
                     {:options [:dirs :config]}))
-  (cond-> normalized
-    (present? opts :suite) (assoc :suite (:suite opts))
-    (present? opts :suites) (assoc :suites (normalize-suites (:suites opts)))
-    (present? opts :config) (assoc :config (:config opts))
-    (present? opts :dirs) (assoc :test-paths (normalize-dirs (:dirs opts)))
-    (present? opts :source-paths) (assoc :source-paths (:source-paths opts))
-    (present? opts :test-paths) (assoc :test-paths (:test-paths opts))
-    (present? opts :ns-patterns) (assoc :ns-patterns (:ns-patterns opts))))
+  (let [normalized (cond-> normalized
+                     (present? opts :suite) (assoc :suite (:suite opts))
+                     (present? opts :suites) (assoc :suites (normalize-suites (:suites opts)))
+                     (present? opts :config) (assoc :config (:config opts))
+                     (present? opts :dirs) (assoc :test-paths (normalize-dirs (:dirs opts)))
+                     (present? opts :source-paths) (assoc :source-paths (:source-paths opts))
+                     (present? opts :test-paths) (assoc :test-paths (:test-paths opts))
+                     (present? opts :ns-patterns) (assoc :ns-patterns (:ns-patterns opts))
+                     (present? opts :kaocha-argv) (assoc :kaocha-argv (:kaocha-argv opts)))
+        ;; Collect every top-level key outside the scry-managed set as raw
+        ;; pass-through. On `-X` these are scattered top-level keys (e.g.
+        ;; `:focus`). On `-m` there is no `:kaocha-extra`: unknown Kaocha tokens
+        ;; are forwarded opaquely as `:kaocha-argv` (in `scry-managed-keys`, so
+        ;; never re-collected here) and parsed in the adapter. Collected
+        ;; top-level extras win on conflict with a pre-existing `:kaocha-extra`.
+        collected (into {} (remove (fn [[k _]] (contains? scry-managed-keys k)) opts))
+        kaocha-extra (merge (:kaocha-extra opts) collected)]
+    (cond-> normalized
+      (seq kaocha-extra) (assoc :kaocha-extra kaocha-extra))))
 
 (defn- normalize-exec-opts
   [opts]
@@ -267,7 +341,7 @@
   [raw]
   (let [suite-values (:suite-values raw)
         opts (-> raw
-                 (dissoc :suite-values :help? :ns-pattern-option)
+                 (dissoc :suite-values :help? :ns-pattern-option :runner-option)
                  (cond->
                   (= 1 (count suite-values))
                    (assoc :suite (first suite-values))
@@ -276,69 +350,99 @@
                    (assoc :suites (vec suite-values))))]
     opts))
 
-(defn- parse-main-args
+(defn- argv-runner
+  "Resolve the effective runner from raw `-m` argv before per-token parsing.
+
+   `--runner`/`-r` may appear anywhere in argv, so a pre-pass is needed to decide
+   whether unrecognized tokens are forwarded to Kaocha (`:kaocha`) or rejected as
+   unknown options (core mode). Uses the lenient `help-runner` mapping and falls
+   back to `:clojure-test` for an absent or unrecognized runner so the eventual
+   `normalize-runner` still raises the argument error for a bad runner value."
   [args]
-  (loop [remaining (seq args)
-         raw {}]
+  (loop [remaining (seq args)]
     (if-not remaining
-      (if (:help? raw)
-        {:help? true :usage usage}
-        (normalize-exec-opts (main-opts->exec-opts raw)))
+      :clojure-test
       (let [flag (first remaining)
             more (next remaining)]
-        (case flag
-          ("--help" "-h")
-          (recur more (assoc raw :help? true))
+        (if (contains? #{"--runner" "-r"} flag)
+          (or (help-runner (first more)) :clojure-test)
+          (recur more))))))
 
-          ("--runner" "-r")
-          (let [value (require-value more flag)]
-            (recur (next more) (assoc raw :runner value)))
+(defn- parse-main-args
+  [args]
+  (let [kaocha? (= :kaocha (argv-runner args))]
+    (loop [remaining (seq args)
+           raw {}]
+      (if-not remaining
+        (if (:help? raw)
+          {:help? true :usage (usage-for (help-runner (:runner raw)))}
+          (normalize-exec-opts (main-opts->exec-opts raw)))
+        (let [flag (first remaining)
+              more (next remaining)]
+          (case flag
+            ("--help" "-h")
+            (recur more (assoc raw :help? true))
 
-          ("--dir" "-d")
-          (let [value (require-value more flag)]
-            (recur (next more) (add-repeat raw :dirs value)))
+            ("--runner" "-r")
+            (let [value (require-value more flag)]
+              ;; Reject a repeated runner flag so the single argv-derived runner
+              ;; stays authoritative. `argv-runner` resolves the forward/reject
+              ;; mode from the first occurrence while `main-opts->exec-opts` would
+              ;; otherwise execute under the last; rejecting the repeat keeps both
+              ;; resolutions in agreement (mirrors the `--ns-pattern` guard).
+              (when (:runner raw)
+                (argument-error "Specify only one runner option"
+                                {:options [(:runner-option raw) flag]}))
+              (recur (next more) (assoc raw
+                                        :runner value
+                                        :runner-option flag)))
 
-          ("--namespace" "--ns" "-n")
-          (let [value (require-value more flag)]
-            (recur (next more) (add-repeat raw :namespaces value)))
+            ("--dir" "-d")
+            (let [value (require-value more flag)]
+              (recur (next more) (add-repeat raw :dirs value)))
 
-          ("--var" "-v")
-          (let [value (require-value more flag)]
-            (recur (next more) (add-repeat raw :vars value)))
+            ("--namespace" "--ns" "-n")
+            (let [value (require-value more flag)]
+              (recur (next more) (add-repeat raw :namespaces value)))
 
-          ("--ns-pattern" "--namespace-pattern" "--namespace-regex")
-          (let [value (require-value more flag)]
-            (when-let [previous (:ns-pattern-option raw)]
-              (argument-error "Specify only one namespace pattern option"
-                              {:options [previous flag]}))
-            (recur (next more) (assoc raw
-                                      :ns-pattern value
-                                      :ns-pattern-option flag)))
+            ("--var" "-v")
+            (let [value (require-value more flag)]
+              (recur (next more) (add-repeat raw :vars value)))
 
-          "--result-format"
-          (let [value (require-value more flag)]
-            (recur (next more)
-                   (assoc raw :result-format (read-edn-option value :result-format))))
+            ("--ns-pattern" "--namespace-pattern" "--namespace-regex")
+            (let [value (require-value more flag)]
+              (when-let [previous (:ns-pattern-option raw)]
+                (argument-error "Specify only one namespace pattern option"
+                                {:options [previous flag]}))
+              (recur (next more) (assoc raw
+                                        :ns-pattern value
+                                        :ns-pattern-option flag)))
 
-          ("--suite" "-s")
-          (let [value (require-value more flag)]
-            (when (:suites raw)
-              (argument-error "Specify either --suite or --suites, not both"
-                              {:options [:suite :suites]}))
-            (recur (next more) (add-repeat raw :suite-values value)))
+            "--result-format"
+            (let [value (require-value more flag)]
+              (recur (next more)
+                     (assoc raw :result-format (read-edn-option value :result-format))))
 
-          "--suites"
-          (let [value (require-value more flag)]
-            (when (seq (:suite-values raw))
-              (argument-error "Specify either --suite or --suites, not both"
-                              {:options [:suite :suites]}))
-            (recur (next more) (assoc raw :suites (read-edn-option value :suites))))
+            "--config"
+            (let [value (require-value more flag)]
+              (recur (next more) (assoc raw :config (read-edn-option value :config))))
 
-          "--config"
-          (let [value (require-value more flag)]
-            (recur (next more) (assoc raw :config (read-edn-option value :config))))
-
-          (argument-error (str "Unknown option: " flag) {:option flag}))))))
+          ;; Default branch: a token that is not a scry-owned flag.
+          ;;
+          ;; In Kaocha mode every such token — unknown `--flags`, their values,
+          ;; and positional suite names — is forwarded verbatim, in original
+          ;; order, as `:kaocha-argv` for Kaocha's own CLI parser. scry never
+          ;; interprets these tokens; only Kaocha knows their arities.
+          ;;
+          ;; In core mode a token starting with `-` is an unknown-option argument
+          ;; error; any other token is collected, in order, as a positional that
+          ;; `main-opts->exec-opts` collapses and `normalize-core-options`
+          ;; rejects, preserving today's behaviour.
+            (if kaocha?
+              (recur more (add-repeat raw :kaocha-argv flag))
+              (if (str/starts-with? flag "-")
+                (argument-error (str "Unknown option: " flag) {:option flag})
+                (recur more (add-repeat raw :suite-values flag))))))))))
 
 ;;; CLI execution
 
@@ -420,6 +524,78 @@
   (.write out (summary-text summary))
   (.flush out))
 
+(defn- write-error-summary!
+  "Surface a minimal, explicit stdout summary for an error/exception CLI outcome
+   that produced no real run summary (`:summary nil`).
+
+   These outcomes — `:scry.cli/runner-error` (the `run-cli` catch path) and
+   `:scry.cli/argument-error` (the argument-error path) — otherwise leave stdout
+   silent, ending in-progress output with no closing line. This writes a single
+   clearly-labelled line naming `outcome-kind` so the run is never silent on
+   stdout. The wording is deliberately not a \"0 passed, 0 failed\" green run.
+
+   This is supplementary human-facing output only; the authoritative machine
+   signals (`:scry.cli/outcome-kind`, exit code, `.scry-results/*.edn`) and the
+   returned outcome map's `nil` `:summary` are unchanged."
+  [{:keys [out]} outcome-kind]
+  (.write out (str "No tests run — scry CLI error outcome: " outcome-kind "\n"))
+  (.flush out))
+
+(defn- write-seed!
+  "Surface a runner-provided random seed (e.g. Kaocha's randomize seed, exposed
+   as `:summary :seed`) on stdout after the summary so a failing order can be
+   reproduced. Called only for failing outcomes, mirroring Kaocha's own
+   failure-only seed reporting."
+  [{:keys [out]} seed]
+  (.write out (str "Randomized with --seed " seed "\n"))
+  (.flush out))
+
+(defn- root-cause-throwable
+  [^Throwable t]
+  (loop [t t]
+    (if-let [cause (.getCause t)]
+      (recur cause)
+      t)))
+
+(defn- throwable-cause-text
+  [^Throwable t]
+  (let [root (root-cause-throwable t)]
+    (str (.getName (class root))
+         (when-let [message (.getMessage root)]
+           (str ": " message)))))
+
+(defn- assertion-cause-text
+  "Human root-cause text for a load-error assertion's `:actual`.
+
+   `:actual` is a live Throwable when produced directly by the Kaocha adapter,
+   or an edn-ified `Throwable->map` shape (with `:via`/`:cause`) when rehydrated.
+   Returns nil when no usable cause is present."
+  [{:keys [actual]}]
+  (cond
+    (instance? Throwable actual)
+    (throwable-cause-text actual)
+
+    (map? actual)
+    (let [root (last (:via actual))
+          klass (:type root)
+          message (or (:message root) (:cause actual))]
+      (when (or klass message)
+        (str (when klass (str klass))
+             (when (and klass message) ": ")
+             (when message (str message)))))
+
+    :else nil))
+
+(defn- load-error-detail
+  "One-line load-error detail: the failing assertion message plus its root-cause
+   class/message, derived from the synthetic entry's first assertion."
+  [entry]
+  (let [assertion (first (:assertions entry))
+        parts (remove str/blank? [(:message assertion)
+                                  (assertion-cause-text assertion)])]
+    (when (seq parts)
+      (str/join " — " parts))))
+
 (defn- positive-count?
   [m k]
   (pos? (long (or (get m k) 0))))
@@ -463,6 +639,34 @@
   (if (= :scry.cli/pass outcome-kind)
     0
     1))
+
+(def ^:private failure-outcome-kinds
+  #{:scry.cli/load-error :scry.cli/test-failure :scry.cli/unknown-result})
+
+(defn- results-dir-pointer
+  [dir result-files]
+  (let [n (count result-files)]
+    (str "See " (.getPath ^java.io.File dir) " for failure details"
+         (when (pos? n)
+           (str " (" n " file" (when (> n 1) "s") ")"))
+         ".\n")))
+
+(defn- write-failure-diagnostic!
+  "Surface a failing outcome on stderr without changing the stdout summary.
+
+   Writes a short pointer at the results directory for any failure outcome kind.
+   For a load error it first writes the failing entry's message and root-cause
+   class/message inline so the failure is visible without opening the EDN file.
+   Authoritative machine signals (outcome-kind, exit code, result files) are
+   unchanged."
+  [{:keys [err] :as _boundary} dir entries result-files outcome-kind]
+  (when (contains? failure-outcome-kinds outcome-kind)
+    (when (= :scry.cli/load-error outcome-kind)
+      (when-let [detail (some-> (first (filter load-error-entry? entries))
+                                load-error-detail)]
+        (.write err (str "Load error: " detail "\n"))))
+    (.write err (results-dir-pointer dir result-files))
+    (.flush err)))
 
 (defn- error-outcome-kind
   [^Throwable e]
@@ -548,6 +752,10 @@
           outcome-kind (classify-outcome entries summary)
           code (exit-code outcome-kind)]
       (write-summary! boundary summary)
+      (when-let [seed (and (contains? failure-outcome-kinds outcome-kind)
+                           (get-in result [:summary :seed]))]
+        (write-seed! boundary seed))
+      (write-failure-diagnostic! boundary dir entries result-files outcome-kind)
       {:exit-code code
        :scry.cli/outcome-kind outcome-kind
        :result result
@@ -556,6 +764,7 @@
        :error nil})
     (catch Throwable e
       (let [outcome-kind (error-outcome-kind e)]
+        (write-error-summary! boundary outcome-kind)
         (.write (:err boundary) (str "scry CLI error: " (.getMessage e) "\n"))
         (.flush (:err boundary))
         {:exit-code (exit-code outcome-kind)
@@ -598,8 +807,10 @@
         (throw (non-zero-exception "scry CLI run failed" outcome))))
     (catch clojure.lang.ExceptionInfo e
       (if (= :scry.cli/argument-error (:type (ex-data e)))
-        (throw (non-zero-exception "scry CLI argument error"
-                                   (argument-error-outcome e)))
+        (do
+          (write-error-summary! boundary :scry.cli/argument-error)
+          (throw (non-zero-exception "scry CLI argument error"
+                                     (argument-error-outcome e))))
         (throw e)))))
 
 (defn run
@@ -625,6 +836,7 @@
     (catch clojure.lang.ExceptionInfo e
       (if (= :scry.cli/argument-error (:type (ex-data e)))
         (do
+          (write-error-summary! boundary :scry.cli/argument-error)
           (.write (:err boundary) (str "scry CLI argument error: " (.getMessage e) "\n"))
           (.flush (:err boundary))
           1)

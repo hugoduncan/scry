@@ -76,7 +76,7 @@ Use the same version token/value for `org.hugoduncan/scry` and `org.hugoduncan/s
 Run Kaocha support by composing the aliases:
 
 ```sh
-clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
+clojure -M:test:kaocha -m scry.cli --runner kaocha unit
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
@@ -133,19 +133,33 @@ While tests run, the CLI prints one progress item per result: `.` to stdout for 
 
 At the start of every CLI run, `.scry-results/` in the current working directory is cleared and recreated. Failed and erroring vars write detailed namespace-prefixed EDN files such as `.scry-results/my.project-test__specific-test.edn`, including assertion details, stack traces for errors, and captured output. Passing runs may leave `.scry-results/` as an empty directory.
 
+On a failing run the CLI also writes a short stderr diagnostic pointing at the results directory. For a load/suite error (a namespace that fails to compile or require), it additionally prints the failing entry's message and its root-cause class/message, so the failure is visible inline without opening the EDN file. This is supplementary human output; `:scry.cli/outcome-kind` and `.scry-results/*.edn` remain the authoritative signals.
+
+For error/exception outcomes that produce no normal run summary — `:scry.cli/runner-error` (a runner that threw, e.g. a malformed/unknown Kaocha option forwarded to Kaocha's parser) and `:scry.cli/argument-error` (rejected arguments) — the CLI always writes a minimal, clearly-labelled summary line to stdout, e.g. `No tests run — scry CLI error outcome: :scry.cli/runner-error`, so the run is never silent on stdout. This is supplementary human output only and is deliberately not a "0 passed, 0 failed" green run; the returned outcome map's `:summary` stays `nil`, and exit codes, `:scry.cli/outcome-kind`, and `.scry-results/*.edn` are unchanged. The `:scry.cli/load-error` outcome already emits a stdout summary via the normal path, and the `--help`/usage path (which prints usage and exits `0`) does not emit this error-style line.
+
 The CLI exits `0` only when at least one concrete test var runs and all vars pass; every other case exits non-zero. Structured outcomes carry a machine-readable `:scry.cli/outcome-kind` that is authoritative for exit status. The `-X` entry point returns the outcome map on success and throws `ex-info` with structured data on non-zero outcomes. Inspect `:scry.cli/outcome-kind` and `.scry-results/*.edn` rather than parsing human stderr. See the [`scry.cli/run` API reference](doc/API.md#scry.cli/run) for the full set of outcome kinds and the thrown `ex-info` data.
 
 Kaocha CLI mode is available when the optional adapter is on the classpath:
 
 ```sh
-clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
-clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit --suite integration
+clojure -M:test:kaocha -m scry.cli --runner kaocha unit
+clojure -M:test:kaocha -m scry.cli --runner kaocha unit integration
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
+clojure -M:test:kaocha -m scry.cli --runner kaocha --focus my.ns/test-foo
+clojure -M:test:kaocha -m scry.cli --runner kaocha --no-randomize
+clojure -X:test:kaocha scry.cli/run :runner :kaocha :focus '"my.ns/test-foo"'
 ```
 
 Kaocha CLI mode accepts Kaocha suite/config options and fallback `:source-paths`, `:test-paths`, and `:ns-patterns` options. `--dir` / `:dirs` maps to fallback `:test-paths` when no explicit Kaocha `:config` is supplied. Core-only namespace, var, and `:ns-pattern` selectors are rejected in Kaocha mode. As with the adapter API, Kaocha-captured stdout/stderr are preserved as merged `:out` with empty `:err` in result files unless the adapter supplies separate streams.
 
-Use `clojure -M:test -m scry.cli --help` for supported main-style flags.
+Kaocha-specific options can be passed through to the underlying Kaocha runner:
+
+- On `-m`, `scry.cli --runner kaocha` is a drop-in for Kaocha's own command line. scry consumes only its own flags (`--runner`/`-r`, `--help`/`-h`, `--result-format`, `--config`, `--dir`/`-d`) and forwards every other argument — Kaocha options (e.g. `--focus my.ns/test-foo`, `--no-randomize`) and positional `[SUITE]...` selectors — verbatim to Kaocha's own CLI parser. Because Kaocha now parses these arguments, a malformed Kaocha option on `-m` surfaces as a Kaocha runner/load error rather than an argument error. Core-only `--namespace`/`--var`/`--ns-pattern` selectors are not Kaocha concepts and remain rejected with an argument error in Kaocha mode (use Kaocha's own `--focus my.ns` / `--focus my.ns/test-foo` instead).
+- On `-X`, any top-level key outside scry's own option set (for example `:focus "my.ns/test-foo"`) is forwarded as `:kaocha-extra` pass-through. Because `-X` has no unknown-key rejection, a mistyped `-X` key is forwarded and surfaces as a Kaocha runner/load error rather than an argument error.
+
+Forwarded options are merged into the resolved Kaocha config's `:kaocha/cli-options`, with an explicit `:config` authoritative on conflict, and forwarded positional suite selectors use the same exact-id-then-unique-text resolution as `:suite`/`:suites`. `:focus` values are coerced to the keyword shape Kaocha's filter plugin expects, so `--focus my.ns/test-foo` (`-m`) and `:focus "my.ns/test-foo"` (`-X`) both run only the focused test. Core mode (`--runner clojure-test`) is unaffected: unknown core flags are still rejected as argument errors.
+
+Use `clojure -M:test -m scry.cli --help` for supported main-style flags. `--help` is sensitive to an explicit `--runner`: `--runner clojure-test --help` shows only core selector options, `--runner kaocha --help` shows only Kaocha options and suite positionals, and `--help` with no (or an unrecognized) `--runner` shows the combined, mode-annotated help.
 
 ## `clojure.test` runner
 
@@ -167,7 +181,7 @@ Nested in-process test runs (including `scry.kaocha/run` and raw `clojure.test` 
 
 `scry/run` returns a map whose top level defaults to:
 
-- `:summary` — pass/fail/error and var counts plus duration.
+- `:summary` — pass/fail/error and var counts plus duration. Kaocha runs also include `:seed` (the randomize seed) so a failing order can be reproduced.
 - `:pass?` — overall boolean.
 - `:results` — the canonical formatted result entries.
 - `:failures` — a compatibility subset of the failing/erroring entries.

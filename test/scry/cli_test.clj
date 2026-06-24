@@ -127,6 +127,72 @@
     (is (argument-error?
          #(#'cli/normalize-exec-opts {:runner :kaocha :suites :unit})))))
 
+(deftest normalize-exec-opts-kaocha-pass-through-test
+  ;; -X map normalization forwards unrecognized top-level keys as raw
+  ;; `:kaocha-extra` pass-through instead of dropping them.
+  (testing "unknown top-level key collected into :kaocha-extra"
+    (let [opts (#'cli/normalize-exec-opts {:runner :kaocha
+                                           :focus "my.ns/test-foo"})]
+      (is (= {:focus "my.ns/test-foo"} (:kaocha-extra opts)))))
+  (testing "scry-managed keys never leak into :kaocha-extra"
+    (let [opts (#'cli/normalize-exec-opts {:runner :kaocha
+                                           :result-format {:suite {:top-level-keys [:summary]}}
+                                           :suite :unit
+                                           :dirs ["test"]
+                                           :focus "my.ns/test-foo"})]
+      (is (= {:focus "my.ns/test-foo"} (:kaocha-extra opts)))
+      (is (= :unit (:suite opts)))
+      (is (= ["test"] (:test-paths opts)))))
+  (testing "the full scry-managed closed set never leaks into :kaocha-extra"
+    ;; Exercise every scry-managed key reachable in Kaocha mode (excluding
+    ;; core-only selectors, which are rejected earlier, and :dirs, which
+    ;; conflicts with explicit :config) alongside a single unknown key. Each
+    ;; scry-managed key must route to its normalized destination or be
+    ;; excluded; only the unknown key may appear under :kaocha-extra. The most
+    ;; dangerous omission is :progress-callback (a function value) which would
+    ;; otherwise silently leak into :kaocha/cli-options if dropped from
+    ;; scry-managed-keys.
+    (let [config {:kaocha/tests []}
+          opts (#'cli/normalize-exec-opts {:runner :kaocha
+                                           :result-format {:suite {:top-level-keys [:summary]}}
+                                           :progress-callback (fn [_] nil)
+                                           :source-paths ["src"]
+                                           :ns-patterns ["foo.*"]
+                                           :config config
+                                           :suites ["unit"]
+                                           :kaocha-argv ["--focus" "my.ns/test-foo"]
+                                           :focus "my.ns/test-foo"})]
+      ;; Only the unknown key is forwarded as pass-through.
+      (is (= {:focus "my.ns/test-foo"} (:kaocha-extra opts)))
+      ;; :kaocha-argv is scry-managed: it routes to its own normalized
+      ;; destination and must never leak into :kaocha-extra (the -X path must
+      ;; not forward raw -m argv), guarding Slice 4's "no :kaocha-argv leakage
+      ;; into -X".
+      (is (= ["--focus" "my.ns/test-foo"] (:kaocha-argv opts)))
+      (is (not (contains? (:kaocha-extra opts) :kaocha-argv)))
+      ;; Each scry-managed key routes to its normalized destination ...
+      (is (= :kaocha (:runner opts)))
+      (is (contains? opts :result-format))
+      (is (= ["src"] (:source-paths opts)))
+      (is (= ["foo.*"] (:ns-patterns opts)))
+      (is (= config (:config opts)))
+      (is (= ["unit"] (:suites opts)))
+      ;; ... or is excluded entirely (:progress-callback is added later in the
+      ;; run pipeline, never by normalization).
+      (is (not (contains? opts :progress-callback)))))
+  (testing "pre-existing :kaocha-extra map survives and scattered extras merge in"
+    (let [opts (#'cli/normalize-exec-opts {:runner :kaocha
+                                           :kaocha-extra {:focus ["my.ns/test-foo"]}
+                                           :threads 4})]
+      (is (= {:focus ["my.ns/test-foo"] :threads 4} (:kaocha-extra opts)))))
+  (testing "no :kaocha-extra when no extra keys supplied"
+    (let [opts (#'cli/normalize-exec-opts {:runner :kaocha :suite :unit})]
+      (is (not (contains? opts :kaocha-extra)))))
+  (testing "Kaocha pass-through rejected in core mode"
+    (is (argument-error?
+         #(#'cli/normalize-exec-opts {:runner :clojure-test
+                                      :kaocha-extra {:focus ["x"]}})))))
+
 (deftest parse-main-args-test
   ;; -m string flags normalize to the same option map shape as -X options.
   (testing "accepted core flags"
@@ -158,38 +224,128 @@
     (let [opts (#'cli/parse-main-args ["--namespace-regex" "scry\\.fixtures\\..*"])]
       (is (= :clojure-test (:runner opts)))
       (is (instance? java.util.regex.Pattern (:ns-pattern opts)))))
-  (testing "accepted repeated Kaocha suite flags"
+  (testing "single positional suite selector forwards as :kaocha-argv"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
-                                       "--suite" "unit"
-                                       "--suite" "integration"])]
+                                       "unit"])]
       (is (= :kaocha (:runner opts)))
-      (is (= ["unit" "integration"] (:suites opts)))))
-  (testing "accepted Kaocha short suite flags"
-    (let [opts (#'cli/parse-main-args ["-r" "kaocha"
-                                       "-s" "unit"
-                                       "-s" "integration"])]
-      (is (= :kaocha (:runner opts)))
-      (is (= ["unit" "integration"] (:suites opts)))))
-  (testing "accepted Kaocha suites and config EDN flags"
+      (is (= ["unit"] (:kaocha-argv opts)))
+      (is (not (contains? opts :suite)))
+      (is (not (contains? opts :suites)))))
+  (testing "multiple positional suite selectors forward as :kaocha-argv"
     (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
-                                       "--suites" "[:unit]"
+                                       "unit" "integration"])]
+      (is (= :kaocha (:runner opts)))
+      (is (= ["unit" "integration"] (:kaocha-argv opts)))))
+  (testing "Kaocha options and positionals forward verbatim in original order"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "unit"
+                                       "--focus" "my.ns/test-foo"
+                                       "integration"])]
+      (is (= :kaocha (:runner opts)))
+      (is (= ["unit" "--focus" "my.ns/test-foo" "integration"]
+             (:kaocha-argv opts)))
+      (is (not (contains? opts :kaocha-extra)))))
+  (testing "accepted Kaocha config EDN flag stays scry-owned"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
                                        "--config" "{:kaocha/tests []}"])]
-      (is (= [:unit] (:suites opts)))
-      (is (= {:kaocha/tests []} (:config opts)))))
+      (is (= {:kaocha/tests []} (:config opts)))
+      (is (not (contains? opts :kaocha-argv)))))
+  (testing "former --focus flag now forwards as raw :kaocha-argv"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "--focus" "my.ns/test-foo"])]
+      (is (= :kaocha (:runner opts)))
+      (is (= ["--focus" "my.ns/test-foo"] (:kaocha-argv opts)))
+      (is (not (contains? opts :kaocha-extra)))))
+  (testing "repeated forwarded Kaocha options accumulate in order"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "--focus" "my.ns/test-foo"
+                                       "--focus" "my.ns/test-bar"])]
+      (is (= ["--focus" "my.ns/test-foo" "--focus" "my.ns/test-bar"]
+             (:kaocha-argv opts)))))
+  (testing "former --kaocha-opt and arbitrary flags forward as raw :kaocha-argv"
+    (let [opts (#'cli/parse-main-args ["--runner" "kaocha"
+                                       "--kaocha-opt" "foo" "bar"
+                                       "--no-randomize"])]
+      (is (= ["--kaocha-opt" "foo" "bar" "--no-randomize"]
+             (:kaocha-argv opts)))))
+  (testing "a repeated runner flag is rejected as an argument error"
+    ;; argv-runner resolves the forward/reject mode from the first occurrence
+    ;; while the executed runner would otherwise come from the last; rejecting
+    ;; a repeat keeps runner resolution authoritative and consistent.
+    (is (argument-error?
+         #(#'cli/parse-main-args ["--runner" "kaocha"
+                                  "--runner" "clojure-test" "foo"])))
+    (is (argument-error?
+         #(#'cli/parse-main-args ["-r" "kaocha" "-r" "kaocha"]))))
+  (testing "former scry-specific Kaocha flag is rejected in core mode"
+    (is (argument-error?
+         #(#'cli/parse-main-args ["--runner" "clojure-test"
+                                  "--focus" "my.ns/test-foo"]))))
+  (testing "positional suite selector rejected in core mode"
+    (is (argument-error?
+         #(#'cli/parse-main-args ["--runner" "clojure-test"
+                                  "foo"]))))
+  (testing "former -m Kaocha suite flags now forward to Kaocha verbatim"
+    ;; The removed --suite/-s/--suites flags are no longer scry concepts; in
+    ;; Kaocha mode they forward verbatim and Kaocha's own parser decides their
+    ;; fate (a runner/load error if unknown there), rather than scry rejecting
+    ;; them as argument errors.
+    (doseq [[args expected] [[["--runner" "kaocha" "--suite" "unit"]
+                              ["--suite" "unit"]]
+                             [["--runner" "kaocha" "-s" "unit"]
+                              ["-s" "unit"]]
+                             [["--runner" "kaocha" "--suites" "[:unit]"]
+                              ["--suites" "[:unit]"]]]]
+      (let [opts (#'cli/parse-main-args args)]
+        (is (= expected (:kaocha-argv opts))
+            (str "expected verbatim forwarding for " (pr-str args))))))
   (testing "help does not normalize or run"
     (let [parsed (#'cli/parse-main-args ["--help"])]
       (is (= true (:help? parsed)))
       (is (str/includes? (:usage parsed) "Usage:"))))
+  (testing "help with no runner lists both modes' options"
+    (let [usage (:usage (#'cli/parse-main-args ["--help"]))]
+      (is (str/includes? usage "core mode only"))
+      (is (str/includes? usage "Kaocha mode only"))
+      (is (str/includes? usage "--var"))
+      (is (str/includes? usage "--focus"))))
+  (testing "help is sensitive to an explicit core --runner"
+    (doseq [args [["--runner" "clojure-test" "--help"]
+                  ["--help" "--runner" "clojure-test"]
+                  ["--runner" "core" "--help"]]]
+      (let [usage (:usage (#'cli/parse-main-args args))]
+        (is (str/includes? usage "--var")
+            (str "expected core options for " (pr-str args)))
+        (is (not (str/includes? usage "--focus"))
+            (str "expected no Kaocha options for " (pr-str args)))
+        (is (not (str/includes? usage "mode only"))
+            (str "expected no mode annotations for " (pr-str args))))))
+  (testing "help is sensitive to an explicit Kaocha --runner"
+    (doseq [args [["--runner" "kaocha" "--help"]
+                  ["--help" "--runner" "kaocha"]]]
+      (let [usage (:usage (#'cli/parse-main-args args))]
+        (is (str/includes? usage "--focus")
+            (str "expected Kaocha options for " (pr-str args)))
+        (is (str/includes? usage "[SUITE]...")
+            (str "expected suite positional docs for " (pr-str args)))
+        (is (not (str/includes? usage "--var"))
+            (str "expected no core selector options for " (pr-str args)))
+        (is (not (str/includes? usage "mode only"))
+            (str "expected no mode annotations for " (pr-str args))))))
+  (testing "help with an unrecognized runner falls back to general help"
+    (let [usage (:usage (#'cli/parse-main-args ["--runner" "bogus" "--help"]))]
+      (is (str/includes? usage "core mode only"))
+      (is (str/includes? usage "Kaocha mode only"))))
   (testing "parser errors"
     (is (argument-error? #(#'cli/parse-main-args ["--unknown"])))
+    (is (argument-error? #(#'cli/parse-main-args ["--focus"])))
+    (is (argument-error? #(#'cli/parse-main-args ["--kaocha-opt" "foo"])))
     (is (argument-error? #(#'cli/parse-main-args ["--dir"])))
     (is (argument-error? #(#'cli/parse-main-args ["--result-format" "["])))
     (is (argument-error? #(#'cli/parse-main-args ["--ns-pattern" "a"
                                                   "--namespace-pattern" "b"])))
     (is (argument-error? #(#'cli/parse-main-args ["--namespace-pattern" "a"
-                                                  "--namespace-regex" "b"])))
-    (is (argument-error? #(#'cli/parse-main-args ["--suite" "unit"
-                                                  "--suites" "[:integration]"])))))
+                                                  "--namespace-regex" "b"])))))
 
 (defn- temp-dir
   []
@@ -335,7 +491,8 @@
                                             :assertions []}]))}))]
           (is (= 1 (:exit-code outcome)))
           (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
-          (is (= "" (str out)))
+          (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+                 (str out)))
           (is (str/includes? (str err) "scry CLI error: Could not create"))
           (is (= false @runner-called?))
           (is (= nil (:result outcome)))
@@ -376,7 +533,8 @@
                                                   :assertions []}]))}))]
                 (is (= 1 (:exit-code outcome)))
                 (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
-                (is (= "" (str out)))
+                (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+                       (str out)))
                 (is (str/includes? (str err) "scry CLI error: Could not delete"))
                 (is (= false @runner-called?))
                 (is (= nil (:result outcome)))
@@ -503,13 +661,60 @@
       (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 1 failed, 1 errored, 1 unknown\n"
              (:stdout outcome)))
-      (is (= "loader.demo/suite-error-1\nsuite-fail-1\nloader.demo/suite-unknown-1\n"
-             (:stderr outcome)))
+      ;; Live progress labels stream first, then the failure diagnostic. The
+      ;; outcome is a load error, so the diagnostic includes the assertion
+      ;; message and a pointer at the results directory.
+      (is (str/starts-with?
+           (:stderr outcome)
+           "loader.demo/suite-error-1\nsuite-fail-1\nloader.demo/suite-unknown-1\n"))
+      (is (str/includes? (:stderr outcome) "Load error: could not load tests"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["loader.demo__suite-error-1.edn" "suite-fail-1.edn"] files))
       (is (= nil (:var error-data)))
       (is (= 'loader.demo (:ns error-data)))
       (is (= :error (:status error-data)))
       (is (= :fail (:status fail-data))))))
+
+(deftest run-cli-load-error-stderr-diagnostic-test
+  ;; A load/suite error surfaces an inline stderr diagnostic: the failing
+  ;; assertion message plus its root-cause class/message, and a pointer at the
+  ;; results directory. stdout still receives only the terse summary, the exit
+  ;; code/outcome-kind are unchanged, and the synthetic result file is written.
+  (with-temp-dir [dir]
+    (let [root-cause (RuntimeException.
+                      "Unable to resolve symbol: this-does-not-exist in this context")
+          load-failure (ex-info "compile failed" {} root-cause)
+          synthetic-error {:var nil
+                           :ns nil
+                           :status :error
+                           :assertion-summary {:pass 0 :fail 0 :error 1}
+                           :assertions [{:type :error
+                                         :message "Failed loading tests:"
+                                         :expected nil
+                                         :actual load-failure}]
+                           :out ""
+                           :err ""}
+          outcome (run-cli-in dir
+                              (#'cli/normalize-exec-opts {})
+                              {:run-clojure-test
+                               (fn [opts]
+                                 ((:progress-callback opts) synthetic-error)
+                                 (runner-result [synthetic-error]))})
+          stdout (:stdout outcome)
+          stderr (:stderr outcome)]
+      (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
+      ;; stdout is the terse summary only (no diagnostic leakage).
+      (is (= "Assertions: 0 passed, 0 failed, 1 errored\nTests: 0 passed, 0 failed, 1 errored\n"
+             stdout))
+      ;; stderr carries the inline cause and a pointer at the results dir.
+      (is (str/includes? stderr "Load error: Failed loading tests:"))
+      (is (str/includes? stderr "java.lang.RuntimeException"))
+      (is (str/includes? stderr
+                         "Unable to resolve symbol: this-does-not-exist in this context"))
+      (is (str/includes? stderr (.getPath (io/file (.getPath dir) ".scry-results"))))
+      (is (str/includes? stderr "for failure details"))
+      (is (= ["suite-error-1.edn"] (result-files dir))))))
 
 (deftest run-cli-failing-run-test
   ;; A failing CLI run prints unqualified failing names to stderr, writes
@@ -526,7 +731,8 @@
       (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
       (is (= ".Assertions: 1 passed, 1 failed, 0 errored\nTests: 1 passed, 1 failed, 0 errored\n"
              (:stdout outcome)))
-      (is (= "equality-fails\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "equality-fails\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.failing__equality-fails.edn"] files))
       (is (= ['scry.fixtures.failing/equality-fails]
              (map :var (filter #(= :fail (:status %)) (:canonical-results (:result outcome))))))
@@ -549,7 +755,8 @@
           error-data (edn/read-string (slurp error-file))
           assertion (first (:assertions error-data))]
       (is (= 1 (:exit-code outcome)))
-      (is (= "throws-exception\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "throws-exception\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.erroring__throws-exception.edn"] (result-files dir)))
       (is (= 'scry.fixtures.erroring/throws-exception (:var error-data)))
       (is (= :error (:status error-data)))
@@ -573,7 +780,8 @@
       (is (= 1 (:exit-code outcome)))
       (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 0 failed, 1 errored\n"
              (:stdout outcome)))
-      (is (= "fail-then-error\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "fail-then-error\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.mixed__fail-then-error.edn"] (result-files dir)))
       (is (= {:assertions {:pass 0 :fail 1 :error 1}
               :tests {:pass 0 :fail 0 :error 1 :unknown 0}
@@ -597,7 +805,8 @@
           failure-data (edn/read-string (slurp failure-file))
           assertion (first (:assertions failure-data))]
       (is (= 1 (:exit-code outcome)))
-      (is (= "arbitrary-object-fails\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "arbitrary-object-fails\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.arbitrary__arbitrary-object-fails.edn"] (result-files dir)))
       (is (= 'scry.fixtures.arbitrary/arbitrary-object-fails (:var failure-data)))
       (is (= :fail (:status failure-data)))
@@ -622,7 +831,8 @@
           failure-file (io/file dir ".scry-results" "scry.fixtures.output__noisy-and-fails.edn")
           failure-data (edn/read-string (slurp failure-file))]
       (is (= 1 (:exit-code outcome)))
-      (is (= "noisy-and-fails\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "noisy-and-fails\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= #{:summary :pass? :canonical-results}
              (set (keys (:result outcome)))))
       (is (not (contains? (:result outcome) :results)))
@@ -643,7 +853,8 @@
                                    {:vars ['scry.fixtures.colliding-a/same-name
                                            'scry.fixtures.colliding-b/same-name]}))]
       (is (= 1 (:exit-code outcome)))
-      (is (= "same-name\nsame-name\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "same-name\nsame-name\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= ["scry.fixtures.colliding-a__same-name.edn"
               "scry.fixtures.colliding-b__same-name.edn"]
              (result-files dir))))))
@@ -681,7 +892,8 @@
       (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
       (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
              (:stdout outcome)))
-      (is (= "no-assertions\n" (:stderr outcome)))
+      (is (str/starts-with? (:stderr outcome) "no-assertions\n"))
+      (is (str/includes? (:stderr outcome) "for failure details"))
       (is (= [] (result-files dir)))
       (is (= {:assertions {:pass 0 :fail 0 :error 0}
               :tests {:pass 0 :fail 0 :error 0 :unknown 1}
@@ -776,8 +988,8 @@
         (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
         (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
                (:stdout outcome)))
-        (is (= "loader.demo/suite-unknown-1\n"
-               (:stderr outcome)))
+        (is (str/starts-with? (:stderr outcome) "loader.demo/suite-unknown-1\n"))
+        (is (str/includes? (:stderr outcome) "for failure details"))
         (is (= [] (result-files dir)))
         (is (= {:pass 0 :fail 0 :error 0 :unknown 1}
                (get-in outcome [:summary :tests])))
@@ -841,7 +1053,10 @@
         (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
         (is (= "Assertions: 0 passed, 1 failed, 1 errored\nTests: 0 passed, 0 failed, 0 errored\n"
                (:stdout outcome)))
-        (is (= "" (:stderr outcome)))
+        ;; No concrete entries, so only the failure-diagnostic pointer reaches
+        ;; stderr for this aggregate test-failure.
+        (is (str/starts-with? (:stderr outcome) "See "))
+        (is (str/includes? (:stderr outcome) "for failure details"))
         (is (= {:assertions {:pass 0 :fail 1 :error 1}
                 :tests {:pass 0 :fail 0 :error 0 :unknown 0}
                 :var-count 0}
@@ -930,7 +1145,10 @@
           (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
           (is (= ".Assertions: 3 passed, 2 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"
                  (:stdout outcome)))
-          (is (= "" (:stderr outcome)))
+          ;; Run-level fixture failures have no per-var entry, so only the
+          ;; failure-diagnostic pointer reaches stderr.
+          (is (str/starts-with? (:stderr outcome) "See "))
+          (is (str/includes? (:stderr outcome) "for failure details"))
           (is (= [] (result-files dir)))
           (is (false? (get-in outcome [:result :pass?])))
           (is (= {:assertions {:pass 3 :fail 2 :error 0}
@@ -969,6 +1187,8 @@
       (is (= 1 (:exit-code outcome)))
       (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (= [] (result-files dir)))
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+             (str out)))
       (is (str/includes? (str err) "scry CLI error:"))
       (is (instance? java.io.FileNotFoundException (-> outcome :error :exception)))))
   (with-temp-dir [dir]
@@ -980,7 +1200,8 @@
                     (fn []
                       (throw (java.io.FileNotFoundException. "scry.kaocha")))})]
       (is (= 1 (:exit-code outcome)))
-      (is (= "" (:stdout outcome)))
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+             (:stdout outcome)))
       (is (= [] (result-files dir)))
       (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (:stderr outcome)
@@ -997,7 +1218,8 @@
                     (fn []
                       (throw (IllegalStateException. "resolver boom")))})]
       (is (= 1 (:exit-code outcome)))
-      (is (= "" (:stdout outcome)))
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+             (:stdout outcome)))
       (is (= [] (result-files dir)))
       (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
       (is (str/includes? (:stderr outcome)
@@ -1014,7 +1236,8 @@
                        (#'cli/normalize-exec-opts {:runner :kaocha})
                        {:resolve-kaocha-runner (constantly resolved-runner)})]
           (is (= 1 (:exit-code outcome)))
-          (is (= "" (:stdout outcome)))
+          (is (= "No tests run — scry CLI error outcome: :scry.cli/runner-error\n"
+                 (:stdout outcome)))
           (is (= [] (result-files dir)))
           (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
           (is (str/includes? (:stderr outcome)
@@ -1098,6 +1321,24 @@
         (is (= nil (:var result-data)))
         (is (= 'loader.demo (:ns result-data)))
         (is (str/includes? (str err) "loader.demo/suite-error-1")))))
+  (testing "argument errors emit a single minimal stdout summary on the -X path"
+    (let [out (string-writer)
+          err (string-writer)
+          thrown (try
+                   (#'cli/run-with-boundary
+                    {:runner :unknown}
+                    (test-boundary {:out out :err err}))
+                   nil
+                   (catch clojure.lang.ExceptionInfo e e))
+          stdout (str out)]
+      (is (some? thrown))
+      (is (= :scry.cli/argument-error
+             (:scry.cli/outcome-kind (ex-data thrown))))
+      ;; stdout carries exactly one minimal error-outcome summary line.
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/argument-error\n"
+             stdout))
+      ;; returned outcome map keeps :summary nil (stdout-text-only change).
+      (is (nil? (:summary (ex-data thrown))))))
   (testing "argument errors use the structured non-zero -X contract"
     (let [thrown (try
                    (cli/run {:runner :unknown})
@@ -1125,12 +1366,14 @@
           err (string-writer)]
       (is (= 0 (#'cli/main-outcome ["--help"] (test-boundary {:out out :err err}))))
       (is (str/includes? (str out) "Usage:"))
+      (is (not (str/includes? (str out) "scry CLI error outcome")))
       (is (= "" (str err)))))
   (testing "argument errors print terse diagnostics and exit non-zero"
     (let [out (string-writer)
           err (string-writer)]
       (is (= 1 (#'cli/main-outcome ["--unknown"] (test-boundary {:out out :err err}))))
-      (is (= "" (str out)))
+      (is (= "No tests run — scry CLI error outcome: :scry.cli/argument-error\n"
+             (str out)))
       (is (str/includes? (str err) "scry CLI argument error: Unknown option"))))
   (testing "test-running main path delegates to run-cli"
     (with-temp-dir [dir]

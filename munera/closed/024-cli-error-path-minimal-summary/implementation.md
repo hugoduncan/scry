@@ -1,0 +1,202 @@
+# Implementation notes
+
+- architectural review added 1 new design step (doc-contract alignment for the
+  new error-path stdout summary). Design is otherwise a clean architectural fit:
+  it mirrors the existing `write-failure-diagnostic!` "supplementary human
+  output, authoritative signals unchanged" pattern, stays within `scry.cli`
+  (core jar, no new Kaocha load-time coupling), and preserves the successful
+  `:summary` shape. No `META.md`/`doc/architecture.md` exist; AGENTS.md is the
+  authoritative architecture source.
+- ambiguity review added 2 new design steps (the "usage paths" vs `--help`
+  success-path scope, and stdout-text-only vs returned `:summary` map key).
+  Code check confirmed `--help`/usage is a separate exit-0 path that already
+  prints usage, distinct from the `:summary nil` error outcomes.
+- inconsistency review added 1 new design step. Verified in cli.clj that the
+  catch-path `error-outcome-kind` only yields argument-error/runner-error;
+  `:scry.cli/load-error` comes only from `classify-outcome` (normal return
+  path) which already calls `write-summary!`. So the design's claim that
+  load-error is a silent thrown `:summary nil` outcome is factually wrong —
+  only runner-error (and argument-error) actually hit the silent path.
+
+## design-review session (architecture turn)
+
+- no new architectural review feedback. Re-reviewed against AGENTS.md (no
+  META.md/doc/architecture.md exist): change stays in `scry.cli` (core jar,
+  no new Kaocha load-time coupling), mirrors the supplementary
+  `write-failure-diagnostic!` pattern with authoritative signals unchanged,
+  keeps `:summary` nil and successful summary text byte-stable, and its
+  doc-contract alignment is already covered by the existing architectural
+  design-step and the design Acceptance.
+
+## design-review session (ambiguity turn)
+
+- no new ambiguity review feedback. Prior ambiguity findings (usage/`--help`
+  scope, stdout-only vs returned `:summary` key) are already resolved in
+  design.md. Remaining latitude (exact minimal-summary wording) is adequately
+  bounded by Acceptance ("clearly-labelled", "not look like a 0/0 green run").
+
+## design-review session (inconsistency turn)
+
+- no new inconsistency review feedback. Prior inconsistency finding (load-error
+  miscast as a silent thrown `:summary nil` outcome) is already corrected
+  throughout design.md. Re-verified internal consistency: in-scope error
+  outcomes, `:summary` stays `nil`, `--help`/usage exclusion, and the
+  README/AGENTS doc-update requirement are all stated consistently.
+
+## design-review session outcome (net)
+
+- This design-review session (architecture + ambiguity + inconsistency turns)
+  added zero new design-steps. All existing design-steps are already resolved;
+  design.md is review-clean and ready for implementation. Principles, key code
+  paths, and project files for the implementation slice are already recorded in
+  the "Notes for the design-step follow-up task" section below — no new
+  follow-up work is outstanding from this review.
+
+## plan-review session (ambiguity turn)
+
+- no ambiguity review feedback. Plan/steps map cleanly to `cli.clj`: runner-error
+  via `run-cli` catch, argument-error via `main-outcome` (-m) and
+  `argument-error-outcome`/`run-with-boundary` (-X); traced flows confirm one
+  summary-writing site per invocation. Remaining latitude (exact wording; whether
+  to plumb `boundary` into `argument-error-outcome` vs write in
+  `run-with-boundary`) is adequately bounded by Acceptance and the steps' slash
+  notation. Prior design-review ambiguity findings remain resolved.
+
+## plan-review session (inconsistency turn)
+
+- no inconsistency review feedback. design.md, plan.md, and steps.md are mutually
+  consistent on scope (runner-error + argument-error; load-error and `--help`
+  excluded; `:summary` stays nil; README/AGENTS doc updates). The completed `[x]`
+  architectural design-step's parenthetical still lists load-error/usage, but
+  it is stale historical text overridden by the corrected authoritative scope in
+  design.md Acceptance and plan/steps slice 4 — not actionable.
+
+## Notes for the design-step follow-up task
+
+- Principle: error-path stdout output is supplementary human output only; keep
+  authoritative signals (`:scry.cli/outcome-kind`, exit code,
+  `.scry-results/*.edn`) and successful pass/fail summary text byte-stable.
+  Mirror the existing `write-failure-diagnostic!` pattern.
+- Key code: `src/scry/cli.clj` — silent paths are the `run-cli` `catch`
+  (runner-error) and `main-outcome`/`argument-error-outcome` (argument-error)
+  only. `write-summary!` (~line 522), `error-outcome-kind` (~654),
+  `classify-outcome` (~610), `run-cli` (~727), `main-outcome` (~804).
+- load-error already gets a stdout summary via the normal return path; do not
+  add duplicate output there (see inconsistency design-step).
+- Tests: `test/scry/cli_test.clj` (core) and `test/scry/cli_kaocha_test.clj`
+  (Kaocha-mode runner-error). Docs to update: `README.md` and `AGENTS.md`
+  CLI output-contract sections.
+
+## Design-step follow-up resolution (all 4 batch items executed)
+
+Resolved the design's scope to be unambiguous and self-consistent after the
+architecture/ambiguity/inconsistency review batch:
+
+- In scope: minimal stdout summary for `:scry.cli/runner-error` (run-cli catch
+  path) and `:scry.cli/argument-error` (argument-error path) only.
+- Out of scope, corrected throughout design.md (Intent, Goal "Concretely",
+  Context, Acceptance): `:scry.cli/load-error` already emits a stdout summary
+  via the normal return path (`classify-outcome` → `write-summary!`); the catch
+  path never produces load-error. Do NOT add output for it — would duplicate.
+- Out of scope: `--help`/usage success path (exit 0, already prints usage); it
+  is not a `:summary nil` error outcome and must not emit the error-style line.
+- Deliverable is stdout text only: returned outcome map `:summary` stays `nil`.
+- Acceptance now requires README.md + AGENTS.md CLI output-contract doc updates.
+
+## Implementation pass (all slices)
+
+- Added `write-error-summary!` in `src/scry/cli.clj` (next to `write-summary!`).
+  Wording: `No tests run — scry CLI error outcome: <outcome-kind>\n` to
+  `(:out boundary)`. Deliberately not a 0/0 green run.
+- Call sites (each invocation flows through exactly one site):
+  - `run-cli` catch → `write-error-summary!` with computed `error-outcome-kind`
+    (covers `:scry.cli/runner-error`; argument errors are raised before
+    `run-cli` so this branch is runner-error in practice).
+  - `run-with-boundary` argument-error catch (`-X`) → emits before throwing
+    `non-zero-exception`.
+  - `main-outcome` argument-error catch (`-m`).
+- `:summary` stays `nil` in all error outcome maps (stdout-text-only change).
+- Tests updated: existing runner-error tests previously asserting empty stdout
+  (`scry.cli-test`) now assert the minimal summary line; `main-outcome`
+  argument-error test asserts the line and `--help` now asserts the line is
+  absent. New `-X` argument-error test (single line + `:summary` nil). New
+  Kaocha-mode runner-error assertions in `scry.cli-kaocha-test`.
+- Docs: README.md and AGENTS.md CLI output-contract sections updated.
+
+### Verification (command line)
+- `clojure -M:test ... (ct/run-tests 'scry.cli-test)` → 45 tests, 394
+  assertions, 0 failures, 0 errors.
+- `clojure -M:test:kaocha ... (ct/run-tests 'scry.cli-kaocha-test)` → 11 tests,
+  74 assertions, 0 failures, 0 errors.
+- `bb clj-fmt:check` → all formatted; `bb clj-kondo:lint` → 0 errors/warnings.
+
+## implementation-review session
+
+- reviewed implementation against design/plan: faithful, tests green (cli-test
+  394 assertions, cli-kaocha-test 74 assertions), docs updated. No actionable
+  findings; 0 follow-up steps added.
+
+## test-review session
+
+- added 0 steps: test suite is well-formed and covers every design behaviour
+  (runner-error/argument-error -m & -X stdout summary, single-line non-duplication,
+  `:summary` nil, `--help`/load-error/success regression guards, Kaocha-mode
+  runner-error with stderr diagnostic present). Infra deps are injected via
+  `test-boundary` (`:out`/`:err`/`:run-clojure-test`/`:resolve-kaocha-runner`),
+  not mocked. No actionable findings.
+
+## test-shaper review session
+
+- added 2 steps: redundant -X non-duplication assertion in `cli_test.clj`, and
+  inconsistent exact-vs-substring stdout-summary assertion style between
+  `cli_test.clj` and `cli_kaocha_test.clj`.
+
+## test-shaper review follow-ups
+
+- addressed 2 test-shaper review steps: dropped the redundant non-duplication
+  filter assertion in `cli_test.clj` -X argument-error test; tightened the
+  Kaocha runner-error stdout-summary assertion in `cli_kaocha_test.clj` to
+  byte-stable `=` (malformed flag rejected pre-run; stdout is exactly the
+  summary line) with a justifying comment.
+- Verified: focused core CLI tests (45 tests / 393 assertions, 0 fail/err) and
+  focused Kaocha CLI tests (11 tests / 74 assertions, 0 fail/err) both green.
+
+## test-shaper review session (follow-up)
+
+- added 1 step: the core (non-Kaocha) runner-error case in
+  `run-cli-no-tests-and-runner-errors-test` captures `out` but omits the
+  minimal-stdout-summary assertion that every other runner-error case makes.
+
+## test-shaper review follow-ups (follow-up)
+
+- addressed 1 test-shaper review step: added the missing minimal-stdout-summary
+  assertion to the core `missing-runner-exception` runner-error case in
+  `run-cli-no-tests-and-runner-errors-test` (`(str out)` equals
+  "No tests run — scry CLI error outcome: :scry.cli/runner-error\n").
+- Verified: focused core CLI tests (45 tests / 394 assertions, 0 fail/err).
+
+## test-shaper review session (final)
+
+- added 0 steps: tests are byte-stable, consistent across core/Kaocha paths,
+  behavior-focused, and infra is injected via `test-boundary` (not mocked). No
+  new actionable findings.
+
+## docs review session
+
+- added 1 step: CHANGELOG.md `Unreleased` omits an entry for this user-visible
+  stdout-summary change though README.md/AGENTS.md document it. README and
+  AGENTS doc updates are accurate and consistent with the implemented wording.
+
+## docs review follow-up execution
+
+- addressed 1 review step: added the `CHANGELOG.md` `## Unreleased` entry
+  documenting the always-emitted minimal stdout summary on `:scry.cli/runner-error`
+  and `:scry.cli/argument-error`, noted as supplementary human output (`:summary`
+  stays `nil`; exit codes/outcome-kind/result files unchanged).
+
+## docs review session (review-task-docs)
+
+- added 0 steps: README.md, AGENTS.md, and CHANGELOG.md are accurate, mutually
+  consistent, and byte-aligned with the implemented wording; scope, `:summary`
+  nil, and unchanged authoritative signals are correctly documented. No
+  actionable findings.

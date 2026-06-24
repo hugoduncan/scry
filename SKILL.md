@@ -156,7 +156,7 @@ Do not scrape progress text for details. For `-m` runs, use the process exit cod
 Optional Kaocha CLI mode requires the optional adapter on the classpath:
 
 ```sh
-clojure -M:test:kaocha -m scry.cli --runner kaocha --suite unit
+clojure -M:test:kaocha -m scry.cli --runner kaocha unit
 clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 

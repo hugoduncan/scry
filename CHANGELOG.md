@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.45] - 2026-06-24
+
 - Fixed `cli/run` (`clojure -X`) crashing with an argument error when invoked with no `:exec-args` or key-value overrides; `clojure -X:alias` (alias supplies only `:exec-fn`) passes `nil` to the exec fn, which is now treated as an empty options map.
 
 ## [0.1.43] - 2026-06-24

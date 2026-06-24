@@ -818,9 +818,13 @@
 
    Normalizes EDN options, runs the shared CLI implementation, and returns the
    successful outcome. Throws ex-info with structured outcome data when the CLI
-   run is non-zero so `clojure -X` exits non-zero without calling System/exit."
+   run is non-zero so `clojure -X` exits non-zero without calling System/exit.
+
+   `clojure -X` invokes the exec fn with `nil` when no `:exec-args`/key-value
+   overrides are supplied, so a bare `clojure -X:alias` (alias sets only
+   `:exec-fn`) arrives here as `nil`; treat that as an empty options map."
   [opts]
-  (run-with-boundary opts (default-boundary)))
+  (run-with-boundary (or opts {}) (default-boundary)))
 
 (defn- main-outcome
   [args boundary]

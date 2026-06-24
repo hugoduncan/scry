@@ -1358,6 +1358,20 @@
                          "Unknown runner"))
       (is (= 1 (get-in (ex-data thrown) [:outcome :exit-code]))))))
 
+(deftest run-exec-nil-opts-test
+  ;; `clojure -X:alias` where the alias supplies only :exec-fn invokes the exec
+  ;; fn with nil (no :exec-args), so cli/run must treat nil as an empty options
+  ;; map rather than raising an argument error.
+  (with-temp-dir [dir]
+    (let [out (string-writer)
+          err (string-writer)
+          boundary (test-boundary {:cwd (.getPath dir) :out out :err err})]
+      (with-redefs [cli/default-boundary (fn [] boundary)]
+        (let [outcome (cli/run nil)]
+          (is (= 0 (:exit-code outcome)))
+          (is (not= :scry.cli/argument-error
+                    (:scry.cli/outcome-kind outcome))))))))
+
 (deftest main-outcome-entry-point-test
   ;; Main-style invocation parsing, help, and argument errors can be verified
   ;; through main-outcome without calling System/exit.

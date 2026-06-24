@@ -325,7 +325,7 @@
   [command-fn]
   (run-command! command-fn ["sh" "-c" "command -v gh"]
                 "GitHub CLI is unavailable; install gh and authenticate before dispatching a release dry run")
-  (run-command! command-fn ["gh" "auth" "status"]
+  (run-command! command-fn ["gh" "auth" "status" "--hostname" "github.com"]
                 "GitHub CLI is not authenticated; run gh auth login before dispatching a release dry run")
   true)
 

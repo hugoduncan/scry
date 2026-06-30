@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.48] - 2026-06-30
+
 - Fixed the `scry.cli` runner collapsing an entire run into `:scry.cli/runner-error` (with an empty diagnostic, no summary, and no `.scry-results`) when a test emitted output or activity from threads scry's per-test capture does not own (e.g. native/JNI background threads or direct `System.err` writes). Output routing is now contained and thread-safe, per-var Throwables are contained as errors so the run still completes with a normal pass/fail summary, and any genuine runner-level error now carries a non-empty message plus the underlying exception.
 
 ## [0.1.45] - 2026-06-24

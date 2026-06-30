@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed the `scry.cli` runner collapsing an entire run into `:scry.cli/runner-error` (with an empty diagnostic, no summary, and no `.scry-results`) when a test emitted output or activity from threads scry's per-test capture does not own (e.g. native/JNI background threads or direct `System.err` writes). Output routing is now contained and thread-safe, per-var Throwables are contained as errors so the run still completes with a normal pass/fail summary, and any genuine runner-level error now carries a non-empty message plus the underlying exception.
+
 ## [0.1.45] - 2026-06-24
 
 - Fixed `cli/run` (`clojure -X`) crashing with an argument error when invoked with no `:exec-args` or key-value overrides; `clojure -X:alias` (alias supplies only `:exec-fn`) passes `nil` to the exec fn, which is now treated as an empty options map.

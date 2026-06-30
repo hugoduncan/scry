@@ -169,16 +169,27 @@
        (fn []
          (doseq [v ns-vars]
            (when (:test (meta v))
-             (capture/with-output-owner
-               context
-               v
-               (fn []
-                 (each-fixture-fn
-                  (fn []
-                    (binding [*owned-test-var-invocation* v]
-                      (test/test-var v))))))
+             ;; A Throwable escaping a var's execution (e.g. an Error, or a
+             ;; failure in fixture/report/output handling triggered by
+             ;; non-owned native/background activity) must not abort the whole
+             ;; run. Contain it as a synthetic error for this var so the run
+             ;; still completes with a normal summary; clojure.test itself
+             ;; already reports ordinary in-test exceptions as :error.
+             (try
+               (capture/with-output-owner
+                 context
+                 v
+                 (fn []
+                   (each-fixture-fn
+                    (fn []
+                      (binding [*owned-test-var-invocation* v]
+                        (test/test-var v))))))
+               (catch Throwable t
+                 (capture/record-uncaught-error! context v t)))
              (when-let [entry (and progress-callback
-                                   (capture/var-result context v))]
+                                   (try
+                                     (capture/var-result context v)
+                                     (catch Throwable _ nil)))]
                (capture/without-context
                 (progress-callback entry))))))))))
 

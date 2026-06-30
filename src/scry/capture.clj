@@ -192,24 +192,26 @@
 
 ;;; Output routing
 
-(defn- append-to-state!
-  [state stream-key text]
-  (swap! state
-         (fn [s]
-           (let [owner (when-not (ignored-frame-active? s)
-                         (:output-owner s))
-                 entry? (and owner (contains? (:vars s) owner))
-                 s' (cond
-                      entry? s
-                      owner (ensure-provisional-entry s owner)
-                      :else s)
-                 ^StringBuilder buffer (cond
-                                         entry? (get-in s' [:vars owner stream-key])
-                                         owner (get-in s' [:provisional owner stream-key])
-                                         :else (get-in s' [:orphan stream-key]))]
-             (.append buffer ^String text)
-             s')))
-  nil)
+(defn- resolve-buffer
+  "Resolve the StringBuilder that `text` for `stream-key` should append to,
+   ensuring any required provisional entry exists. The actual append happens
+   separately under a lock so output arriving from threads scry does not own
+   (background/native/JNI threads that convey scry's *out*/*err* binding) can
+   never corrupt buffer state or abort the run."
+  ^StringBuilder [state stream-key]
+  (let [s (swap! state
+                 (fn [s]
+                   (let [owner (when-not (ignored-frame-active? s)
+                                 (:output-owner s))]
+                     (if (and owner (not (contains? (:vars s) owner)))
+                       (ensure-provisional-entry s owner)
+                       s))))
+        owner (when-not (ignored-frame-active? s)
+                (:output-owner s))]
+    (cond
+      (and owner (contains? (:vars s) owner)) (get-in s [:vars owner stream-key])
+      owner (get-in s [:provisional owner stream-key])
+      :else (get-in s [:orphan stream-key]))))
 
 (defn- write-fallback!
   [^Writer fallback x]
@@ -220,11 +222,29 @@
       (integer? x) (.write fallback (int x))
       :else (.write fallback (str x)))))
 
+(defn- append-to-state!
+  [state stream-key text]
+  (when-let [^StringBuilder buffer (resolve-buffer state stream-key)]
+    ;; Lock on the buffer so concurrent writers (including non-owned
+    ;; background/native threads that convey scry's *out*/*err* binding) cannot
+    ;; corrupt the StringBuilder.
+    (locking buffer
+      (.append buffer ^String text)))
+  nil)
+
 (defn- route-text!
   [context fallback-writer stream-key text]
-  (if context
-    (append-to-state! (context-state context) stream-key text)
-    (write-fallback! fallback-writer text)))
+  ;; Output routing must never abort a run. A misbehaving or racing writer
+  ;; (e.g. native/JNI output or a background thread) is contained here and
+  ;; falls back to the underlying writer rather than propagating.
+  (try
+    (if context
+      (append-to-state! (context-state context) stream-key text)
+      (write-fallback! fallback-writer text))
+    (catch Throwable _
+      (try
+        (write-fallback! fallback-writer text)
+        (catch Throwable _ nil)))))
 
 (defn- dynamic-routing-context
   []
@@ -410,6 +430,23 @@
   ([state-or-context]
    (fn [m]
      (handle-report! (compatibility-context state-or-context) m))))
+
+(defn record-uncaught-error!
+  "Record `throwable` as a synthetic :error assertion event for Var `v`.
+
+   Used by the runner to contain a Throwable that escaped a var's execution
+   (or its result/progress handling) so the var is reported as errored and the
+   overall run still completes with a normal summary instead of aborting."
+  [state-or-context v ^Throwable throwable]
+  (when-let [context (->context state-or-context)]
+    (let [report-map {:type :error
+                      :message "Uncaught error during test execution"
+                      :expected nil
+                      :actual throwable}]
+      (handle-report! context {:type :begin-test-var :var v})
+      (handle-report! context report-map)
+      (handle-report! context {:type :end-test-var :var v})))
+  nil)
 
 ;;; Result formatting
 

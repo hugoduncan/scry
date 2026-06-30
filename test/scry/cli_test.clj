@@ -6,7 +6,9 @@
    [clojure.test :refer [deftest is testing]]
    [scry.cli :as cli]
    [scry.cli.results :as cli-results]
+   [scry.clojure-test :as clojure-test]
    [scry.fixtures.arbitrary]
+   [scry.fixtures.background-output]
    [scry.fixtures.asserting-fixtures]
    [scry.fixtures.colliding-a]
    [scry.fixtures.colliding-b]
@@ -744,6 +746,42 @@
              (:contexts (first (:assertions failure-data)))))
       (is (contains? failure-data :out))
       (is (contains? failure-data :err)))))
+
+(deftest run-cli-background-output-does-not-abort-run-test
+  ;; Regression: a failing namespace whose tests emit output from a non-owned
+  ;; background thread (mirroring the downstream native/JNI case) must still
+  ;; complete with a normal failing summary, not collapse the whole run into
+  ;; :scry.cli/runner-error with an empty diagnostic.
+  (with-temp-dir [dir]
+    (let [outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts
+                    {:namespaces ['scry.fixtures.background-output]}))
+          statuses (->> (:canonical-results (:result outcome))
+                        (map (juxt :var :status))
+                        (into {}))]
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (not= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+      (is (= 1 (:exit-code outcome)))
+      (is (some? (:summary outcome)))
+      (is (= :pass
+             (statuses 'scry.fixtures.background-output/passing-with-unowned-background-output)))
+      (is (= :fail
+             (statuses 'scry.fixtures.background-output/failing-with-unowned-background-output))))))
+
+(deftest run-cli-runner-error-diagnostic-is-non-empty-test
+  ;; A genuine runner-level error must surface a non-empty diagnostic carrying
+  ;; the underlying exception, even when the Throwable's own message is blank.
+  (with-temp-dir [dir]
+    (with-redefs [clojure-test/run (fn [& _]
+                                     (throw (Exception.)))]
+      (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
+                                     {:namespaces ['scry.fixtures.passing]}))]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (seq (get-in outcome [:error :message])))
+        (is (instance? Throwable (get-in outcome [:error :exception])))
+        (is (str/includes? (:stderr outcome) "scry CLI error: "))
+        (is (not (str/includes? (:stderr outcome) "scry CLI error: \n")))))))
 
 (deftest run-cli-error-result-files-are-readable-edn-test
   ;; Error result files sanitize raw Throwables so clojure.edn/read-string can

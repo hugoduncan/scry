@@ -675,6 +675,26 @@
     :scry.cli/runner-error :scry.cli/runner-error
     :scry.cli/runner-error))
 
+(defn- error-diagnostic-message
+  "Return a non-empty, debuggable message for a runner-level Throwable.
+
+   Some Throwables (e.g. low-level JVM errors) carry a nil/blank message; never
+   surface an empty diagnostic. Falls back to the exception class name and, when
+   available, the root cause's class/message."
+  [^Throwable e]
+  (let [msg (.getMessage e)
+        root (loop [^Throwable t e]
+               (if-let [cause (.getCause t)]
+                 (recur cause)
+                 t))
+        base (if (str/blank? msg)
+               (str "Unexpected " (.getName (class e)) " during scry CLI run")
+               msg)]
+    (if (and (not (identical? root e))
+             (not (str/blank? (.getMessage root))))
+      (str base " (root cause: " (.getName (class root)) ": " (.getMessage root) ")")
+      base)))
+
 (def ^:private canonical-entry-statuses #{:pass :fail :error :unknown})
 
 (defn- valid-canonical-entry?
@@ -763,16 +783,17 @@
        :result-files result-files
        :error nil})
     (catch Throwable e
-      (let [outcome-kind (error-outcome-kind e)]
+      (let [outcome-kind (error-outcome-kind e)
+            message (error-diagnostic-message e)]
         (write-error-summary! boundary outcome-kind)
-        (.write (:err boundary) (str "scry CLI error: " (.getMessage e) "\n"))
+        (.write (:err boundary) (str "scry CLI error: " message "\n"))
         (.flush (:err boundary))
         {:exit-code (exit-code outcome-kind)
          :scry.cli/outcome-kind outcome-kind
          :result nil
          :summary nil
          :result-files []
-         :error {:message (.getMessage e)
+         :error {:message message
                  :data (ex-data e)
                  :exception e}}))))
 

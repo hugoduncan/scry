@@ -63,3 +63,5 @@
 - test review: added 1 step to be addressed.
 
 - 2026-07-07 test-review follow-up slice: addressed 1 immediately preceding review step. Added focused diagnostic-write-failure coverage for a synthetic unknown-result outcome, proving the fallback preserves `:scry.cli/unknown-result`, attaches bounded `:scry.cli/diagnostic-error`, leaves result files empty, and still emits unknown-result stderr label plus result-directory pointer semantics. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (64 tests, 519 assertions) and `clojure -M:test -m scry.cli` (120 tests, 817 assertions).
+
+- test review: added 1 step to be addressed.

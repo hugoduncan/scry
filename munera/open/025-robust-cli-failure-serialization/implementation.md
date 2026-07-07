@@ -102,3 +102,5 @@
 - test-shaper review: added 2 steps to be addressed.
 
 - 2026-07-07 test-shaper follow-up slice: addressed 2 immediately preceding review steps. Added hostile Throwable accessor sanitizer regressions and bounded placeholder handling for throwing Throwable accessors. Reworked collection truncation to detect max-seq-length overflow during a single iterator pass and added a one-shot Iterable regression. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (76 tests, 602 assertions) and `clojure -M:test -m scry.cli` (129 tests, 900 assertions).
+
+- test-shaper review: added 1 step to be addressed.

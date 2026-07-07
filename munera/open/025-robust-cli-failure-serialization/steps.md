@@ -88,3 +88,5 @@
 - [x] Add a direct sanitizer test for Throwable `ex-data` depth limiting using a configured small `:max-ex-data-depth`, asserting nested ex-data is truncated independently of the outer data depth.
 - [x] Add direct sanitizer tests proving `:max-seq-length` truncation emits an explicit bounded/truncation sentinel for each supported collection shape (sequential, vector, set, map/Java Map, array, Iterable), not only silently dropping excess values.
 - [x] Add direct Throwable normalization tests that assert the documented frame field shape for `:at` and `:trace` entries, so result-file EDN locks the intended bounded frame representation rather than an accidental map/vector mismatch.
+- [ ] Add a direct sanitizer regression for a cyclic Throwable cause chain, proving controlled Throwable normalization emits a cycle placeholder instead of recursing or truncating only by incidental depth.
+- [ ] Add sanitizer coverage for collection truncation sentinel collisions, especially maps/sets that already contain `{:scry/truncated :max-seq-length}`, so tests lock whether the explicit sentinel remains observable when user data equals the sentinel value.

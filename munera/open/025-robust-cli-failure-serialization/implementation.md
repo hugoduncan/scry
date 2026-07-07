@@ -75,3 +75,5 @@
 - test review: added 2 steps to be addressed.
 
 - 2026-07-07 test-review follow-up slice: addressed 2 immediately preceding review steps. Collection sanitizer `:max-seq-length` truncation now emits explicit `{:scry/truncated :max-seq-length}` sentinels for sequential/vector/set/map/Java Map/array/Iterable shapes, with direct coverage for each supported collection family. Added direct Throwable normalization coverage locking the documented frame map shape for `:at` and `:trace`. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (69 tests, 561 assertions) and `clojure -M:test -m scry.cli` (124 tests, 859 assertions).
+
+- test review: added 2 new steps to be addressed.

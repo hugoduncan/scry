@@ -234,6 +234,17 @@
    :file (.getFileName frame)
    :line (.getLineNumber frame)})
 
+(defn- throwable-access
+  [^Throwable t f opts]
+  (try
+    (f t)
+    (catch Throwable e
+      (non-edn-placeholder e opts))))
+
+(defn- throwable-access-failed?
+  [value]
+  (and (map? value) (contains? value :scry/non-edn-class)))
+
 (defn- throwable-data*
   [^Throwable t opts depth]
   (if (>= depth (:max-throwable-depth opts))
@@ -245,16 +256,32 @@
           (.put seen t true)
           (try
             (let [ex-data-value (when (instance? clojure.lang.IExceptionInfo t)
-                                  (ex-data t))
+                                  (throwable-access t ex-data opts))
                   ex-opts (assoc opts :max-depth (:max-ex-data-depth opts))
-                  trace (take (:max-stack-frames opts) (.getStackTrace t))
-                  suppressed (take (:max-suppressed opts) (.getSuppressed t))]
+                  message (throwable-access t #(.getMessage %) opts)
+                  stack-trace (throwable-access t #(.getStackTrace %) opts)
+                  cause (throwable-access t #(.getCause %) opts)
+                  suppressed-values (throwable-access t #(.getSuppressed %) opts)
+                  trace (when-not (throwable-access-failed? stack-trace)
+                          (take (:max-stack-frames opts) stack-trace))
+                  suppressed (when-not (throwable-access-failed? suppressed-values)
+                               (take (:max-suppressed opts) suppressed-values))]
               (cond-> {:type (symbol (class-name t))
-                       :message (some-> (.getMessage t) (bounded-string opts))
-                       :at (some-> (first (.getStackTrace t)) stack-frame-data)
-                       :trace (mapv stack-frame-data trace)}
-                ex-data-value (assoc :data (edn-readable-data* ex-data-value ex-opts 0))
-                (.getCause t) (assoc :cause (throwable-data* (.getCause t) opts (inc depth)))
+                       :message (if (throwable-access-failed? message)
+                                  message
+                                  (some-> message (bounded-string opts)))
+                       :at (if (throwable-access-failed? stack-trace)
+                             stack-trace
+                             (some-> (first stack-trace) stack-frame-data))
+                       :trace (if (throwable-access-failed? stack-trace)
+                                stack-trace
+                                (mapv stack-frame-data trace))}
+                ex-data-value (assoc :data (if (throwable-access-failed? ex-data-value)
+                                             ex-data-value
+                                             (edn-readable-data* ex-data-value ex-opts 0)))
+                (and cause (throwable-access-failed? cause)) (assoc :cause cause)
+                (and cause (not (throwable-access-failed? cause))) (assoc :cause (throwable-data* cause opts (inc depth)))
+                (and suppressed-values (throwable-access-failed? suppressed-values)) (assoc :suppressed suppressed-values)
                 (seq suppressed) (assoc :suppressed (mapv #(throwable-data* % opts (inc depth))
                                                           suppressed))))
             (finally
@@ -280,25 +307,28 @@
   [(edn-readable-data* k opts (inc depth))
    (edn-readable-data* v opts (inc depth))])
 
-(defn- limited
+(defn- limited-with-truncation
   [coll opts]
-  (take (:max-seq-length opts) coll))
-
-(defn- truncated-seq?
-  [coll opts]
-  (boolean (seq (drop (:max-seq-length opts) coll))))
+  (let [limit (:max-seq-length opts)
+        it (clojure.lang.RT/iter coll)]
+    (loop [n 0
+           values []]
+      (if (and (< n limit) (.hasNext it))
+        (recur (inc n) (conj values (.next it)))
+        {:values values
+         :truncated? (.hasNext it)}))))
 
 (defn- append-truncation-sentinel
-  [xs coll opts]
-  (let [sentinel (truncated :max-seq-length)]
-    (if (truncated-seq? coll opts)
-      (concat xs [sentinel])
-      xs)))
+  [xs truncated?]
+  (if truncated?
+    (concat xs [(truncated :max-seq-length)])
+    xs))
 
 (defn- limited-map-entries
   [value opts depth]
-  (let [entries (map (partial map-entry-data opts depth) (limited value opts))]
-    (if (truncated-seq? value opts)
+  (let [{:keys [values truncated?]} (limited-with-truncation value opts)
+        entries (map (partial map-entry-data opts depth) values)]
+    (if truncated?
       (concat entries [[(truncated :max-seq-length)
                         (truncated :max-seq-length)]])
       entries)))
@@ -329,43 +359,38 @@
 
       (vector? value)
       (with-identity value opts
-        #(vec (append-truncation-sentinel
-               (map (fn [x] (edn-readable-data* x opts (inc depth)))
-                    (limited value opts))
-               value
-               opts)))
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (vec (append-truncation-sentinel
+                 (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                 truncated?))))
 
       (set? value)
       (with-identity value opts
-        #(into #{} (append-truncation-sentinel
-                    (map (fn [x] (edn-readable-data* x opts (inc depth)))
-                         (limited value opts))
-                    value
-                    opts)))
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (into #{} (append-truncation-sentinel
+                      (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                      truncated?))))
 
       (seq? value)
       (with-identity value opts
-        #(doall (append-truncation-sentinel
-                 (map (fn [x] (edn-readable-data* x opts (inc depth)))
-                      (limited value opts))
-                 value
-                 opts)))
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (doall (append-truncation-sentinel
+                   (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                   truncated?))))
 
       (.isArray (class value))
       (with-identity value opts
-        #(vec (append-truncation-sentinel
-               (map (fn [x] (edn-readable-data* x opts (inc depth)))
-                    (limited value opts))
-               value
-               opts)))
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (vec (append-truncation-sentinel
+                 (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                 truncated?))))
 
       (instance? Iterable value)
       (with-identity value opts
-        #(vec (append-truncation-sentinel
-               (map (fn [x] (edn-readable-data* x opts (inc depth)))
-                    (limited value opts))
-               value
-               opts)))
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (vec (append-truncation-sentinel
+                 (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                 truncated?))))
 
       :else
       (non-edn-placeholder value opts))))

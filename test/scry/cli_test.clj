@@ -1061,7 +1061,46 @@
                     (java.util.Collections/singleton entry)))
           sanitized (cli-results/edn-readable-data value {:max-string-length 80})]
       (is (str/includes? (:scry/non-edn-class sanitized) "proxy"))
-      (is (string? (:str sanitized))))))
+      (is (string? (:str sanitized)))))
+  (testing "one-shot Iterable is traversed once while detecting truncation"
+    (let [used? (atom false)
+          value (proxy [Iterable] []
+                  (iterator []
+                    (if (compare-and-set! used? false true)
+                      (.iterator [0 1 2])
+                      (throw (RuntimeException. "iterator reused")))))
+          sanitized (cli-results/edn-readable-data value {:max-seq-length 2})]
+      (is (= [0 1 {:scry/truncated :max-seq-length}] sanitized)))))
+
+(deftest edn-readable-data-hostile-throwable-boundaries-test
+  ;; Hostile Throwable accessors are represented as bounded placeholders inside
+  ;; the controlled Throwable shape instead of escaping to diagnostic fallback.
+  (testing "message, cause, and stack-trace accessors throwing"
+    (let [value (proxy [RuntimeException] ["outer"]
+                  (getMessage []
+                    (throw (RuntimeException. "message exploded")))
+                  (getCause []
+                    (throw (RuntimeException. "cause exploded")))
+                  (getStackTrace []
+                    (throw (RuntimeException. "stack exploded"))))
+          sanitized (cli-results/edn-readable-data value {:max-string-length 80})]
+      (is (str/includes? (str (:type sanitized)) "proxy"))
+      (is (= "java.lang.RuntimeException"
+             (get-in sanitized [:message :scry/non-edn-class])))
+      (is (= "java.lang.RuntimeException"
+             (get-in sanitized [:cause :scry/non-edn-class])))
+      (is (= "java.lang.RuntimeException"
+             (get-in sanitized [:trace :scry/non-edn-class])))
+      (is (= "java.lang.RuntimeException"
+             (get-in sanitized [:at :scry/non-edn-class])))))
+  (testing "ex-data access throwing"
+    (let [value (proxy [RuntimeException clojure.lang.IExceptionInfo] ["outer"]
+                  (getData []
+                    (throw (RuntimeException. "data exploded"))))
+          sanitized (cli-results/edn-readable-data value {:max-string-length 80})]
+      (is (= "java.lang.RuntimeException"
+             (get-in sanitized [:data :scry/non-edn-class])))
+      (is (str/includes? (get-in sanitized [:data :str]) "data exploded")))))
 
 (deftest run-cli-pathological-failures-keep-test-outcome-test
   ;; Pathological cyclic assertion and Throwable data must not turn a test

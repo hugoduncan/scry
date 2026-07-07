@@ -37,3 +37,5 @@
 - implementation review: added 1 step to be addressed.
 
 - 2026-07-07 review follow-up slice: addressed 1 immediately preceding implementation-review step. `assertion-cause-text` now bounds map-shaped `:actual` root-cause extraction without unbounded `(last (:via actual))`, tolerates cyclic/infinite or hostile/non-sequential `:via`, and bounds the formatted map-shaped cause text. Added regression coverage where result-file writing fails while the first failing assertion has a pathological map-shaped `:actual`. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (57 tests, 463 assertions).
+
+- implementation review: added 2 steps to be addressed.

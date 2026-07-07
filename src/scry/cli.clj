@@ -456,7 +456,8 @@
    :err *err*
    :cwd (System/getProperty "user.dir")
    :run-clojure-test clojure-test/run
-   :resolve-kaocha-runner default-resolve-kaocha-runner})
+   :resolve-kaocha-runner default-resolve-kaocha-runner
+   :write-result-files results/write-result-files!})
 
 (defn- assertion-counts
   [entries]
@@ -550,19 +551,85 @@
   (.write out (str "Randomized with --seed " seed "\n"))
   (.flush out))
 
+(defn- diagnostic-max-string-length
+  []
+  (:max-string-length results/default-sanitizer-limits))
+
+(defn- diagnostic-max-cause-depth
+  []
+  (:max-throwable-depth results/default-sanitizer-limits))
+
+(defn- hostile-safe-string
+  [x]
+  (try
+    (str x)
+    (catch Throwable e
+      (str "<unprintable " (.getName (class x)) ": " (.getName (class e)) ">"))))
+
+(defn- bounded-diagnostic-string
+  [s]
+  (when s
+    (let [s (hostile-safe-string s)
+          max-length (diagnostic-max-string-length)]
+      (if (and max-length (> (count s) max-length))
+        (str (subs s 0 max-length) "…" (pr-str {:scry/truncated :max-string-length}))
+        s))))
+
+(defn- safe-throwable-message
+  [^Throwable t]
+  (try
+    (.getMessage t)
+    (catch Throwable e
+      (str "<unavailable message: " (.getName (class e)) ">"))))
+
+(defn- safe-throwable-cause
+  [^Throwable t]
+  (try
+    (.getCause t)
+    (catch Throwable _
+      nil)))
+
 (defn- root-cause-throwable
   [^Throwable t]
-  (loop [t t]
-    (if-let [cause (.getCause t)]
-      (recur cause)
-      t)))
+  (loop [current t
+         depth 0
+         seen (java.util.IdentityHashMap.)]
+    (cond
+      (nil? current)
+      nil
+
+      (or (>= depth (diagnostic-max-cause-depth))
+          (.containsKey seen current))
+      current
+
+      :else
+      (do
+        (.put seen current true)
+        (if-let [cause (safe-throwable-cause current)]
+          (recur cause (inc depth) seen)
+          current)))))
 
 (defn- throwable-cause-text
   [^Throwable t]
-  (let [root (root-cause-throwable t)]
-    (str (.getName (class root))
-         (when-let [message (.getMessage root)]
-           (str ": " message)))))
+  (when-let [root (root-cause-throwable t)]
+    (bounded-diagnostic-string
+     (str (.getName (class root))
+          (when-let [message (bounded-diagnostic-string (safe-throwable-message root))]
+            (str ": " message))))))
+
+(defn- bounded-last-sequential
+  [xs]
+  (when (sequential? xs)
+    (try
+      (loop [remaining xs
+             n 0
+             last-value nil]
+        (if (or (>= n (diagnostic-max-cause-depth))
+                (empty? remaining))
+          last-value
+          (recur (rest remaining) (inc n) (first remaining))))
+      (catch Throwable _
+        nil))))
 
 (defn- assertion-cause-text
   "Human root-cause text for a load-error assertion's `:actual`.
@@ -576,13 +643,14 @@
     (throwable-cause-text actual)
 
     (map? actual)
-    (let [root (last (:via actual))
+    (let [root (bounded-last-sequential (:via actual))
           klass (:type root)
           message (or (:message root) (:cause actual))]
       (when (or klass message)
-        (str (when klass (str klass))
-             (when (and klass message) ": ")
-             (when message (str message)))))
+        (bounded-diagnostic-string
+         (str (when klass (bounded-diagnostic-string klass))
+              (when (and klass message) ": ")
+              (when message (bounded-diagnostic-string message))))))
 
     :else nil))
 
@@ -591,7 +659,7 @@
    class/message, derived from the synthetic entry's first assertion."
   [entry]
   (let [assertion (first (:assertions entry))
-        parts (remove str/blank? [(:message assertion)
+        parts (remove str/blank? [(bounded-diagnostic-string (:message assertion))
                                   (assertion-cause-text assertion)])]
     (when (seq parts)
       (str/join " — " parts))))
@@ -668,6 +736,46 @@
     (.write err (results-dir-pointer dir result-files))
     (.flush err)))
 
+(declare error-diagnostic-message)
+
+(defn- diagnostic-error
+  [^Throwable e entries]
+  (let [root (root-cause-throwable e)
+        failing (filter results/failure-entry? entries)
+        first-entry (first failing)
+        first-assertion (first (:assertions first-entry))]
+    (cond-> {:phase :result-file-writing
+             :message (bounded-diagnostic-string (error-diagnostic-message e))
+             :type (symbol (.getName (class e)))
+             :root-type (symbol (.getName (class root)))
+             :root-message (bounded-diagnostic-string
+                            (or (safe-throwable-message root) (.getName (class root))))
+             :failed-entry-count (count failing)}
+      (results/concrete-var-symbol? (:var first-entry))
+      (assoc :first-failing-var (:var first-entry))
+
+      first-assertion
+      (assoc :first-root-cause (bounded-diagnostic-string
+                                (or (assertion-cause-text first-assertion)
+                                    (:message first-assertion)))))))
+
+(defn- write-result-files-diagnostic!
+  [{:keys [err write-result-files]} dir entries]
+  (try
+    {:result-files ((or write-result-files results/write-result-files!) dir entries)}
+    (catch Throwable e
+      (let [diagnostic (diagnostic-error e entries)]
+        (.write err (str "Failure diagnostics failed while serializing "
+                         (:failed-entry-count diagnostic)
+                         " failing entries.\n"))
+        (when-let [var (:first-failing-var diagnostic)]
+          (.write err (str "First failing var: " var "\n")))
+        (when-let [cause (:first-root-cause diagnostic)]
+          (.write err (str "First root cause: " cause "\n")))
+        (.flush err)
+        {:result-files []
+         :diagnostic-error diagnostic}))))
+
 (defn- error-outcome-kind
   [^Throwable e]
   (case (:type (ex-data e))
@@ -682,18 +790,19 @@
    surface an empty diagnostic. Falls back to the exception class name and, when
    available, the root cause's class/message."
   [^Throwable e]
-  (let [msg (.getMessage e)
-        root (loop [^Throwable t e]
-               (if-let [cause (.getCause t)]
-                 (recur cause)
-                 t))
+  (let [msg (safe-throwable-message e)
+        root (root-cause-throwable e)
+        root-message (when root (safe-throwable-message root))
         base (if (str/blank? msg)
                (str "Unexpected " (.getName (class e)) " during scry CLI run")
-               msg)]
-    (if (and (not (identical? root e))
-             (not (str/blank? (.getMessage root))))
-      (str base " (root cause: " (.getName (class root)) ": " (.getMessage root) ")")
-      base)))
+               (bounded-diagnostic-string msg))]
+    (bounded-diagnostic-string
+     (if (and root
+              (not (identical? root e))
+              (not (str/blank? root-message)))
+       (str base " (root cause: " (.getName (class root)) ": "
+            (bounded-diagnostic-string root-message) ")")
+       base))))
 
 (def ^:private canonical-entry-statuses #{:pass :fail :error :unknown})
 
@@ -768,20 +877,21 @@
           result (run-normalized normalized-options boundary progress-callback)
           entries (canonical-result-entries result)
           summary (cli-summary result entries)
-          result-files (results/write-result-files! dir entries)
           outcome-kind (classify-outcome entries summary)
           code (exit-code outcome-kind)]
       (write-summary! boundary summary)
       (when-let [seed (and (contains? failure-outcome-kinds outcome-kind)
                            (get-in result [:summary :seed]))]
         (write-seed! boundary seed))
-      (write-failure-diagnostic! boundary dir entries result-files outcome-kind)
-      {:exit-code code
-       :scry.cli/outcome-kind outcome-kind
-       :result result
-       :summary summary
-       :result-files result-files
-       :error nil})
+      (let [{:keys [result-files diagnostic-error]} (write-result-files-diagnostic! boundary dir entries)]
+        (write-failure-diagnostic! boundary dir entries result-files outcome-kind)
+        (cond-> {:exit-code code
+                 :scry.cli/outcome-kind outcome-kind
+                 :result result
+                 :summary summary
+                 :result-files result-files
+                 :error nil}
+          diagnostic-error (assoc :scry.cli/diagnostic-error diagnostic-error))))
     (catch Throwable e
       (let [outcome-kind (error-outcome-kind e)
             message (error-diagnostic-message e)]
@@ -840,6 +950,15 @@
    Normalizes EDN options, runs the shared CLI implementation, and returns the
    successful outcome. Throws ex-info with structured outcome data when the CLI
    run is non-zero so `clojure -X` exits non-zero without calling System/exit.
+
+   Returned outcome data includes the test `:summary`, `:result-files`, and
+   `:scry.cli/outcome-kind` when a run reaches normal classification. If
+   post-run diagnostic/result-file writing fails, the test-derived outcome is
+   preserved, `:result-files` is empty, and bounded diagnostic metadata is
+   attached as top-level `:scry.cli/diagnostic-error`. The diagnostic map has
+   stable inspectable keys: `:phase`, `:message`, `:type`, `:root-type`,
+   `:root-message`, and `:failed-entry-count`; when derivable it also includes
+   `:first-failing-var` and `:first-root-cause`.
 
    `clojure -X` invokes the exec fn with `nil` when no `:exec-args`/key-value
    overrides are supplied, so a bare `clojure -X:alias` (alias sets only

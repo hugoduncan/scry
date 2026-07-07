@@ -1,7 +1,8 @@
 (ns scry.cli.results
   "Result-file naming, filesystem lifecycle, and EDN sanitization for the CLI."
   (:require
-   [clojure.java.io :as io]))
+   [clojure.java.io :as io]
+   [clojure.string :as str]))
 
 (defn results-dir
   "Return the .scry-results directory for an IO boundary map containing :cwd."
@@ -175,27 +176,46 @@
                                       :token token}))))
         assignments))))
 
-(declare edn-readable-data)
+(def default-sanitizer-limits
+  {:max-depth 20
+   :max-seq-length 100
+   :max-string-length 20000
+   :max-throwable-depth 8
+   :max-stack-frames 80
+   :max-suppressed 8
+   :max-ex-data-depth 8})
 
-(defn- throwable-stacktrace
-  [^Throwable t]
-  (let [sw (java.io.StringWriter.)]
-    (.printStackTrace t (java.io.PrintWriter. sw))
-    (str sw)))
+(defn- class-name
+  [value]
+  (.getName (class value)))
 
-(defn- throwable-data
-  [^Throwable t]
-  (cond-> {:type :throwable
-           :class (symbol (.getName (class t)))
-           :message (.getMessage t)
-           :stacktrace (throwable-stacktrace t)}
-    (ex-data t) (assoc :data (edn-readable-data (ex-data t)))
-    (.getCause t) (assoc :cause (throwable-data (.getCause t)))))
+(defn- truncated
+  [reason]
+  {:scry/truncated reason})
+
+(defn- cycle-placeholder
+  [value]
+  {:scry/cycle true :class (class-name value)})
+
+(defn- bounded-string
+  [s {:keys [max-string-length]}]
+  (if (and max-string-length (> (count s) max-string-length))
+    (str (subs s 0 max-string-length) "…" (pr-str (truncated :max-string-length)))
+    s))
+
+(defn- non-edn-placeholder
+  [value opts]
+  {:scry/non-edn-class (class-name value)
+   :str (bounded-string
+         (try
+           (str value)
+           (catch Throwable e
+             (str "#<str failed: " (class-name e) ">")))
+         opts)})
 
 (defn- edn-scalar?
   [value]
   (or (nil? value)
-      (string? value)
       (keyword? value)
       (symbol? value)
       (number? value)
@@ -205,67 +225,190 @@
       (uuid? value)
       (inst? value)))
 
-(defn- safe-pr-str
-  [value]
+(declare edn-readable-data*)
+
+(defn- stack-frame-data
+  [^StackTraceElement frame]
+  {:class (.getClassName frame)
+   :method (.getMethodName frame)
+   :file (.getFileName frame)
+   :line (.getLineNumber frame)})
+
+(defn- throwable-access
+  [^Throwable t f opts]
   (try
-    (pr-str value)
+    (f t)
     (catch Throwable e
-      (str "#<pr-str failed: " (.getName (class e))
-           (when-let [message (.getMessage e)]
-             (str " " message))
-           ">"))))
+      (non-edn-placeholder e opts))))
 
-(defn- object-data
+(defn- throwable-access-failed?
   [value]
-  {:type :object
-   :class (symbol (.getName (class value)))
-   :pr-str (safe-pr-str value)})
+  (and (map? value) (contains? value :scry/non-edn-class)))
 
-(defn- array-data
-  [value]
-  (mapv edn-readable-data value))
+(defn- throwable-data*
+  [^Throwable t opts depth]
+  (if (>= depth (:max-throwable-depth opts))
+    (truncated :throwable-cause-depth)
+    (let [seen (:throwable-seen opts)]
+      (if (.containsKey seen t)
+        (cycle-placeholder t)
+        (do
+          (.put seen t true)
+          (try
+            (let [ex-data-value (when (instance? clojure.lang.IExceptionInfo t)
+                                  (throwable-access t ex-data opts))
+                  ex-opts (assoc opts :max-depth (:max-ex-data-depth opts))
+                  message (throwable-access t #(.getMessage %) opts)
+                  stack-trace (throwable-access t #(.getStackTrace %) opts)
+                  cause (throwable-access t #(.getCause %) opts)
+                  suppressed-values (throwable-access t #(.getSuppressed %) opts)
+                  trace (when-not (throwable-access-failed? stack-trace)
+                          (take (:max-stack-frames opts) stack-trace))
+                  suppressed (when-not (throwable-access-failed? suppressed-values)
+                               (take (:max-suppressed opts) suppressed-values))]
+              (cond-> {:type (symbol (class-name t))
+                       :message (if (throwable-access-failed? message)
+                                  message
+                                  (some-> message (bounded-string opts)))
+                       :at (if (throwable-access-failed? stack-trace)
+                             stack-trace
+                             (some-> (first stack-trace) stack-frame-data))
+                       :trace (if (throwable-access-failed? stack-trace)
+                                stack-trace
+                                (mapv stack-frame-data trace))}
+                ex-data-value (assoc :data (if (throwable-access-failed? ex-data-value)
+                                             ex-data-value
+                                             (edn-readable-data* ex-data-value ex-opts 0)))
+                (and cause (throwable-access-failed? cause)) (assoc :cause cause)
+                (and cause (not (throwable-access-failed? cause))) (assoc :cause (throwable-data* cause opts (inc depth)))
+                (and suppressed-values (throwable-access-failed? suppressed-values)) (assoc :suppressed suppressed-values)
+                (seq suppressed) (assoc :suppressed (mapv #(throwable-data* % opts (inc depth))
+                                                          suppressed))))
+            (finally
+              (.remove seen t))))))))
+
+(defn- with-identity
+  [value opts f]
+  (let [seen (:seen opts)]
+    (if (.containsKey seen value)
+      (cycle-placeholder value)
+      (do
+        (.put seen value true)
+        (try
+          (try
+            (f)
+            (catch Throwable _
+              (non-edn-placeholder value opts)))
+          (finally
+            (.remove seen value)))))))
+
+(defn- map-entry-data
+  [opts depth [k v]]
+  [(edn-readable-data* k opts (inc depth))
+   (edn-readable-data* v opts (inc depth))])
+
+(defn- limited-with-truncation
+  [coll opts]
+  (let [limit (:max-seq-length opts)
+        it (clojure.lang.RT/iter coll)]
+    (loop [n 0
+           values []]
+      (if (and (< n limit) (.hasNext it))
+        (recur (inc n) (conj values (.next it)))
+        {:values values
+         :truncated? (.hasNext it)}))))
+
+(defn- append-truncation-sentinel
+  [xs truncated?]
+  (if truncated?
+    (concat xs [(truncated :max-seq-length)])
+    xs))
+
+(defn- limited-map-entries
+  [value opts depth]
+  (let [{:keys [values truncated?]} (limited-with-truncation value opts)
+        entries (map (partial map-entry-data opts depth) values)]
+    (if truncated?
+      (concat entries [[(truncated :max-seq-length)
+                        (truncated :max-seq-length)]])
+      entries)))
+
+(defn edn-readable-data*
+  [value opts depth]
+  (let [opts (merge default-sanitizer-limits opts)]
+    (cond
+      (> depth (:max-depth opts))
+      (truncated :max-depth)
+
+      (string? value)
+      (bounded-string value opts)
+
+      (edn-scalar? value)
+      value
+
+      (instance? Throwable value)
+      (throwable-data* value (update opts :throwable-seen #(or % (java.util.IdentityHashMap.))) 0)
+
+      (map? value)
+      (with-identity value opts
+        #(into {} (limited-map-entries value opts depth)))
+
+      (instance? java.util.Map value)
+      (with-identity value opts
+        #(into {} (limited-map-entries value opts depth)))
+
+      (vector? value)
+      (with-identity value opts
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (vec (append-truncation-sentinel
+                 (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                 truncated?))))
+
+      (set? value)
+      (with-identity value opts
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (into #{} (append-truncation-sentinel
+                      (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                      truncated?))))
+
+      (seq? value)
+      (with-identity value opts
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (doall (append-truncation-sentinel
+                   (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                   truncated?))))
+
+      (.isArray (class value))
+      (with-identity value opts
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (vec (append-truncation-sentinel
+                 (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                 truncated?))))
+
+      (instance? Iterable value)
+      (with-identity value opts
+        #(let [{:keys [values truncated?]} (limited-with-truncation value opts)]
+           (vec (append-truncation-sentinel
+                 (map (fn [x] (edn-readable-data* x opts (inc depth))) values)
+                 truncated?))))
+
+      :else
+      (non-edn-placeholder value opts))))
 
 (defn edn-readable-data
-  "Recursively coerce data into values readable by clojure.edn/read-string.
+  "Recursively coerce data into bounded values readable by clojure.edn/read-string.
 
-  EDN scalar leaves pass through. Throwables retain class/message/stacktrace,
-  common collection types recurse, arrays/iterables become vectors, and other
-  objects become maps with class and pr-str detail."
-  [value]
-  (cond
-    (edn-scalar? value)
-    value
-
-    (instance? Throwable value)
-    (throwable-data value)
-
-    (map? value)
-    (into {}
-          (map (fn [[k v]] [(edn-readable-data k) (edn-readable-data v)]))
-          value)
-
-    (instance? java.util.Map value)
-    (into {}
-          (map (fn [[k v]] [(edn-readable-data k) (edn-readable-data v)]))
-          value)
-
-    (vector? value)
-    (mapv edn-readable-data value)
-
-    (set? value)
-    (into #{} (map edn-readable-data) value)
-
-    (seq? value)
-    (doall (map edn-readable-data value))
-
-    (.isArray (class value))
-    (array-data value)
-
-    (instance? Iterable value)
-    (mapv edn-readable-data value)
-
-    :else
-    (object-data value)))
+  Accepts optional sanitizer limits such as `:max-depth`, `:max-seq-length`,
+  `:max-string-length`, and `:seen` (`java.util.IdentityHashMap`). Pathological
+  data is replaced with tagged placeholder maps."
+  ([value]
+   (edn-readable-data value {}))
+  ([value opts]
+   (edn-readable-data* value
+                       (merge default-sanitizer-limits
+                              {:seen (java.util.IdentityHashMap.)}
+                              opts)
+                       0)))
 
 (defn write-result-files!
   "Write readable EDN result files for failing/erroring canonical entries.

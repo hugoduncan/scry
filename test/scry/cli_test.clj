@@ -1009,14 +1009,14 @@
   ;; If user data already equals the explicit max-seq-length sentinel, the
   ;; sentinel remains observable after truncation for set and map shapes.
   (let [sentinel {:scry/truncated :max-seq-length}]
-    (testing "sets containing the sentinel still expose it after truncation"
+    (testing "sets containing the sentinel outside the retained prefix still expose it after truncation"
       (let [values (doto (java.util.LinkedHashSet.)
-                     (.add sentinel)
                      (.add 1)
-                     (.add 2))]
-        (is (some #(= sentinel %)
-                  (cli-results/edn-readable-data values
-                                                 {:max-seq-length 2})))))
+                     (.add 2)
+                     (.add sentinel))
+            sanitized (cli-results/edn-readable-data values {:max-seq-length 2})]
+        (is (= 3 (count sanitized)))
+        (is (some #(= sentinel %) sanitized))))
     (testing "maps containing the sentinel key still expose the sentinel entry after truncation"
       (is (= {sentinel sentinel
               :kept :value}

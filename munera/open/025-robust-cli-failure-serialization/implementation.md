@@ -81,3 +81,5 @@
 - 2026-07-07 test-review follow-up slice: addressed 2 immediately preceding review steps. Added direct sanitizer regressions for cyclic Throwable cause chains and collection truncation sentinel collisions for set/Iterable and map shapes containing `{:scry/truncated :max-seq-length}` as user data. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (71 tests, 566 assertions).
 
 - test review: added 1 step to be addressed.
+
+- 2026-07-07 test-review follow-up slice: addressed 1 immediately preceding review step. Strengthened the set truncation sentinel collision regression so the user-supplied sentinel is outside the retained prefix, proving the sanitizer appends its own explicit truncation sentinel for sets. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (71 tests, 567 assertions).

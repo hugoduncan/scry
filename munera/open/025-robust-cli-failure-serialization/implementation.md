@@ -29,3 +29,5 @@
 - implementation review: added 2 steps to be addressed.
 
 - 2026-07-07 review follow-up slice: addressed 2 immediately preceding implementation-review steps. Moved Throwable bounded-shape assertions back inside `edn-readable-data-bounds-pathological-values-test`; Throwable cycle tracking is now path-scoped via `finally` removal, with regression coverage for repeated shared Throwable identities in separate branches. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (56 tests, 448 assertions).
+
+- implementation review: added 2 steps to be addressed.

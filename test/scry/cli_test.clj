@@ -858,7 +858,7 @@
 (deftest edn-readable-data-bounds-pathological-values-test
   ;; Sanitizer output is bounded, readable EDN for cyclic data, long sequences,
   ;; deep structures, non-EDN objects, and Throwables with cyclic ex-data.
-  (testing "cycles, depth, sequence length, and arbitrary objects"
+  (testing "cycles, depth, sequence length, shared identities, and arbitrary objects"
     (let [m (java.util.HashMap.)]
       (.put m "self" m)
       (is (= {"self" {:scry/cycle true :class "java.util.HashMap"}}
@@ -867,21 +867,35 @@
            (cli-results/edn-readable-data (range 5) {:max-seq-length 2})))
     (is (= {:a {:b {{:scry/truncated :max-depth} {:scry/truncated :max-depth}}}}
            (cli-results/edn-readable-data {:a {:b {:c 1}}} {:max-depth 2})))
+    (let [shared (java.util.HashMap.)]
+      (.put shared "value" 1)
+      (is (= {"left" {"value" 1}
+              "right" {"value" 1}}
+             (cli-results/edn-readable-data {"left" shared
+                                             "right" shared}))))
     (is (= "java.lang.Object"
-           (:scry/non-edn-class (cli-results/edn-readable-data (Object.))))))
-  (testing "throwables use controlled bounded shape"
-    (let [data (java.util.IdentityHashMap.)
-          _ (.put data :self data)
-          cause (ex-info "root" {:cyclic data})
-          error (ex-info "boom" {} cause)
-          sanitized (cli-results/edn-readable-data error {:max-stack-frames 2})]
-      (is (= 'clojure.lang.ExceptionInfo (:type sanitized)))
-      (is (= "boom" (:message sanitized)))
-      (is (= 'clojure.lang.ExceptionInfo (get-in sanitized [:cause :type])))
-      (is (= "root" (get-in sanitized [:cause :message])))
-      (is (<= (count (:trace sanitized)) 2))
-      (is (= {:scry/cycle true :class "java.util.IdentityHashMap"}
-             (get-in sanitized [:cause :data :cyclic :self]))))))
+           (:scry/non-edn-class (cli-results/edn-readable-data (Object.)))))
+    (let [hostile-string (apply str (repeat 20 "x"))
+          hostile-object (proxy [Object] []
+                           (toString [] hostile-string))
+          sanitized (cli-results/edn-readable-data hostile-object
+                                                   {:max-string-length 5})]
+      (is (str/includes? (:scry/non-edn-class sanitized) "proxy"))
+      (is (str/starts-with? (:str sanitized) "xxxxx…"))
+      (is (str/includes? (:str sanitized) ":max-string-length")))))
+(testing "throwables use controlled bounded shape"
+  (let [data (java.util.IdentityHashMap.)
+        _ (.put data :self data)
+        cause (ex-info "root" {:cyclic data})
+        error (ex-info "boom" {} cause)
+        sanitized (cli-results/edn-readable-data error {:max-stack-frames 2})]
+    (is (= 'clojure.lang.ExceptionInfo (:type sanitized)))
+    (is (= "boom" (:message sanitized)))
+    (is (= 'clojure.lang.ExceptionInfo (get-in sanitized [:cause :type])))
+    (is (= "root" (get-in sanitized [:cause :message])))
+    (is (<= (count (:trace sanitized)) 2))
+    (is (= {:scry/cycle true :class "java.util.IdentityHashMap"}
+           (get-in sanitized [:cause :data :cyclic :self])))))
 
 (deftest run-cli-pathological-failures-keep-test-outcome-test
   ;; Pathological cyclic assertion and Throwable data must not turn a test

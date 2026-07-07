@@ -62,6 +62,6 @@
 
 ## Implementation review follow-ups
 
-- [ ] Change sanitizer cycle detection to be path-scoped, not globally sticky, so repeated shared object identities in separate branches are serialized normally while true recursive cycles still emit `{:scry/cycle true :class "..."}`.
-- [ ] Apply configured string bounding to `:scry/non-edn-class` placeholder `:str` values, including hostile or very large `toString` output.
-- [ ] Add regression tests for repeated shared object identities that are not cycles and for bounded non-EDN placeholder strings.
+- [x] Change sanitizer cycle detection to be path-scoped, not globally sticky, so repeated shared object identities in separate branches are serialized normally while true recursive cycles still emit `{:scry/cycle true :class "..."}`.
+- [x] Apply configured string bounding to `:scry/non-edn-class` placeholder `:str` values, including hostile or very large `toString` output.
+- [x] Add regression tests for repeated shared object identities that are not cycles and for bounded non-EDN placeholder strings.

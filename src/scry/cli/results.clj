@@ -197,19 +197,21 @@
   [value]
   {:scry/cycle true :class (class-name value)})
 
-(defn- non-edn-placeholder
-  [value]
-  {:scry/non-edn-class (class-name value)
-   :str (try
-          (str value)
-          (catch Throwable e
-            (str "#<str failed: " (class-name e) ">")))})
-
 (defn- bounded-string
   [s {:keys [max-string-length]}]
   (if (and max-string-length (> (count s) max-string-length))
     (str (subs s 0 max-string-length) "…" (pr-str (truncated :max-string-length)))
     s))
+
+(defn- non-edn-placeholder
+  [value opts]
+  {:scry/non-edn-class (class-name value)
+   :str (bounded-string
+         (try
+           (str value)
+           (catch Throwable e
+             (str "#<str failed: " (class-name e) ">")))
+         opts)})
 
 (defn- edn-scalar?
   [value]
@@ -262,7 +264,10 @@
       (cycle-placeholder value)
       (do
         (.put seen value true)
-        (f)))))
+        (try
+          (f)
+          (finally
+            (.remove seen value)))))))
 
 (defn- map-entry-data
   [opts depth [k v]]
@@ -318,7 +323,7 @@
         #(mapv (fn [x] (edn-readable-data* x opts (inc depth))) (limited value opts)))
 
       :else
-      (non-edn-placeholder value))))
+      (non-edn-placeholder value opts))))
 
 (defn edn-readable-data
   "Recursively coerce data into bounded values readable by clojure.edn/read-string.

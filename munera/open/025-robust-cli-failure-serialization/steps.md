@@ -90,3 +90,4 @@
 - [x] Add direct Throwable normalization tests that assert the documented frame field shape for `:at` and `:trace` entries, so result-file EDN locks the intended bounded frame representation rather than an accidental map/vector mismatch.
 - [x] Add a direct sanitizer regression for a cyclic Throwable cause chain, proving controlled Throwable normalization emits a cycle placeholder instead of recursing or truncating only by incidental depth.
 - [x] Add sanitizer coverage for collection truncation sentinel collisions, especially maps/sets that already contain `{:scry/truncated :max-seq-length}`, so tests lock whether the explicit sentinel remains observable when user data equals the sentinel value.
+- [ ] Strengthen the set truncation sentinel collision regression so the user-supplied sentinel value is outside the retained prefix; the current set case would still pass if truncation failed to append its own sentinel because the user sentinel is already retained.

@@ -78,3 +78,5 @@
 - [x] Add direct unit tests for Throwable cause-depth truncation using a configured small `:max-throwable-depth`, asserting the bounded sentinel shape instead of only incidental root-message preservation.
 - [x] Add direct unit tests for Throwable suppressed-exception count capping using a configured small `:max-suppressed`, asserting excess suppressed exceptions are omitted or otherwise bounded as intended.
 - [x] Add a focused CLI regression proving the normal summary is written before result-file serialization is attempted, e.g. by observing the stdout writer inside a forced `write-result-files!` failure boundary.
+- [ ] Replace or augment `with-redefs`-based result-file writer failure tests with an injectable diagnostic writer/file-writing failure boundary, so the diagnostic fallback tests do not depend on global stubbing.
+- [ ] Add a subprocess-level CLI regression for the pathological fixture namespace/vars that verifies the actual `-m scry.cli` entrypoint exits non-zero, prints the normal summary, preserves `:scry.cli/test-failure` in structured output/files where observable, and does not surface `StackOverflowError` as the primary failure.

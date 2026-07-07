@@ -45,3 +45,5 @@
 - test review: added 3 steps to be addressed.
 
 - 2026-07-07 test-review follow-up slice: addressed 3 immediately preceding test-review steps. Added direct sanitizer regressions for configured Throwable cause-depth truncation and suppressed-exception count capping, and strengthened the forced result-file write failure regression to prove the normal stdout summary is already written before result-file serialization is attempted. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (60 tests, 479 assertions).
+
+- test review: added 2 steps to be addressed.

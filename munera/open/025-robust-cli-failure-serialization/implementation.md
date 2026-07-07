@@ -106,3 +106,5 @@
 - test-shaper review: added 1 step to be addressed.
 
 - 2026-07-07 test-shaper follow-up slice: addressed 1 immediately preceding review step. Made CLI diagnostic fallback root-cause/message traversal tolerate hostile Throwable `getCause`/`getMessage` accessors and added focused diagnostic-write-failure coverage proving a hostile Throwable assertion `:actual` preserves `:scry.cli/test-failure` instead of becoming `:scry.cli/runner-error`. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (76 tests, 607 assertions) and `clojure -M:test -m scry.cli` (129 tests, 905 assertions).
+
+- test-shaper review: no new feedback.

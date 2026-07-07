@@ -595,6 +595,20 @@
           (when-let [message (bounded-diagnostic-string (.getMessage root))]
             (str ": " message))))))
 
+(defn- bounded-last-sequential
+  [xs]
+  (when (sequential? xs)
+    (try
+      (loop [remaining xs
+             n 0
+             last-value nil]
+        (if (or (>= n (diagnostic-max-cause-depth))
+                (empty? remaining))
+          last-value
+          (recur (rest remaining) (inc n) (first remaining))))
+      (catch Throwable _
+        nil))))
+
 (defn- assertion-cause-text
   "Human root-cause text for a load-error assertion's `:actual`.
 
@@ -607,13 +621,14 @@
     (throwable-cause-text actual)
 
     (map? actual)
-    (let [root (last (:via actual))
+    (let [root (bounded-last-sequential (:via actual))
           klass (:type root)
           message (or (:message root) (:cause actual))]
       (when (or klass message)
-        (str (when klass (str klass))
-             (when (and klass message) ": ")
-             (when message (str message)))))
+        (bounded-diagnostic-string
+         (str (when klass (str klass))
+              (when (and klass message) ": ")
+              (when message (str message))))))
 
     :else nil))
 

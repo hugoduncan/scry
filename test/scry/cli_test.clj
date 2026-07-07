@@ -987,7 +987,41 @@
             (is (<= (count (:first-root-cause diagnostic)) 20100))
             (is (str/includes? (:first-root-cause diagnostic) ":max-string-length"))
             (is (<= (count stderr) 20500))
-            (is (str/includes? stderr ":max-string-length"))))))))
+            (is (str/includes? stderr ":max-string-length")))))))
+  (testing "map-shaped assertion actual via is bounded and tolerant"
+    (with-temp-dir [dir]
+      (let [long-message (apply str (repeat 21000 "y"))
+            cyclic-via (cycle [{:type 'pathological.Root
+                                :message long-message}])
+            entries [{:var 'scry.fixtures.pathological/map-shaped-actual
+                      :ns 'scry.fixtures.pathological
+                      :status :error
+                      :assertion-summary {:pass 0 :fail 0 :error 1}
+                      :assertions [{:type :error
+                                    :message "outer"
+                                    :actual {:via cyclic-via
+                                             :cause long-message}}]}]
+            out (string-writer)
+            err (string-writer)]
+        (with-redefs [cli-results/write-result-files! (fn [& _]
+                                                        (throw (ex-info "write exploded" {})))]
+          (let [outcome (#'cli/run-cli
+                         (#'cli/normalize-exec-opts {})
+                         (test-boundary {:cwd (.getPath dir)
+                                         :out out
+                                         :err err
+                                         :run-clojure-test (fn [_]
+                                                             (runner-result entries))}))
+                diagnostic (:scry.cli/diagnostic-error outcome)
+                stderr (str err)]
+            (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+            (is (= 'scry.fixtures.pathological/map-shaped-actual
+                   (:first-failing-var diagnostic)))
+            (is (<= (count (:first-root-cause diagnostic)) 20100))
+            (is (str/includes? (:first-root-cause diagnostic)
+                               ":max-string-length"))
+            (is (str/includes? stderr "First root cause:"))
+            (is (<= (count stderr) 20500))))))))
 
 (deftest run-cli-result-file-write-failure-is-diagnostic-test
   ;; Result-file serialization failure is post-run diagnostics: the summary and

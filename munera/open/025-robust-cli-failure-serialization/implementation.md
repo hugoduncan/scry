@@ -113,3 +113,5 @@
 
 - 2026-07-07 documentation-review follow-up slice: addressed 2 immediately preceding documentation-review steps. Updated CHANGELOG.md Unreleased for the user-visible robust CLI failure serialization fix, updated public scry.cli/run documentation source for clojure -X diagnostic-error/result-files fallback semantics, and regenerated doc/API.md with bb api-docs.
 - verification passed: `bb api-docs --check`; `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` (1 test, 65 assertions).
+
+- documentation review: added 1 step to be addressed.

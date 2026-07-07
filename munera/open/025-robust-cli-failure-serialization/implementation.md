@@ -98,3 +98,5 @@
 - test-shaper review: added 2 steps to be addressed.
 
 - 2026-07-07 test-shaper follow-up slice: addressed 2 immediately preceding review steps. Added hostile Java Map/Iterable sanitizer boundary regressions and made sanitizer collection traversal fall back to bounded non-EDN placeholders when collection iteration/access throws. Added a run-with-boundary/-X-path pathological fixture regression through the real clojure-test runner, proving structured non-zero ex-data preserves `:scry.cli/test-failure` with bounded result files and no diagnostic fallback. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (75 tests, 594 assertions) and `clojure -M:test -m scry.cli` (128 tests, 892 assertions).
+
+- test-shaper review: added 2 steps to be addressed.

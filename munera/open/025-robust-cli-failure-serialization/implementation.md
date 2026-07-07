@@ -67,3 +67,5 @@
 - test review: added 1 step to be addressed.
 
 - 2026-07-07 test-review follow-up slice: addressed 1 immediately preceding review step. Added focused diagnostic-write-failure coverage for a passing outcome, proving a post-run result-file write failure preserves exit code 0 and `:scry.cli/pass`, attaches bounded top-level `:scry.cli/diagnostic-error`, and leaves result files empty without writing the failure-details pointer. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (66 tests, 533 assertions) and `clojure -M:test -m scry.cli` (121 tests, 831 assertions).
+
+- test review: added 2 steps to be addressed.

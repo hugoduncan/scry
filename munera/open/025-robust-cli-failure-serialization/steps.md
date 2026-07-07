@@ -72,3 +72,9 @@
 - [x] Make `assertion-cause-text` bounded for map-shaped `:actual` values: avoid unbounded `(last (:via actual))` traversal, tolerate cyclic/hostile/non-sequential `:via`, and add a regression where result-file writing fails while the first failing assertion has a pathological map-shaped `:actual`.
 - [x] Add a true end-to-end CLI regression that runs the pathological fixture namespace/vars through the real clojure-test runner instead of a synthetic `runner-result`, so cyclic assertion actuals and cyclic `ex-data` are proven safe across capture, canonical result construction, CLI classification, and result-file serialization together.
 - [x] Re-run the final core CLI verification after the latest diagnostic-bound changes (`clojure -M:test -m scry.cli`) and record the result in `implementation.md`.
+
+## Test review follow-ups
+
+- [ ] Add direct unit tests for Throwable cause-depth truncation using a configured small `:max-throwable-depth`, asserting the bounded sentinel shape instead of only incidental root-message preservation.
+- [ ] Add direct unit tests for Throwable suppressed-exception count capping using a configured small `:max-suppressed`, asserting excess suppressed exceptions are omitted or otherwise bounded as intended.
+- [ ] Add a focused CLI regression proving the normal summary is written before result-file serialization is attempted, e.g. by observing the stdout writer inside a forced `write-result-files!` failure boundary.

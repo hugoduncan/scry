@@ -41,3 +41,5 @@
 - implementation review: added 2 steps to be addressed.
 
 - 2026-07-07 review follow-up slice: addressed 2 immediately preceding implementation-review steps. Added a true end-to-end CLI regression that runs `scry.fixtures.pathological` through the real clojure-test runner and verifies cyclic assertion actuals plus cyclic Throwable ex-data survive capture, canonical result construction, CLI classification, and result-file serialization. Adjusted the cyclic ex-data fixture to wrap an `IExceptionInfo` cause so clojure.test does not overflow while printing the raw error before scry sanitization. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (60 tests, 473 assertions) and `clojure -M:test -m scry.cli` (116 tests, 771 assertions).
+
+- test review: added 3 steps to be addressed.

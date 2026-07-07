@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.50] - 2026-07-07
+
 - Fixed CLI failure-detail serialization for pathological failure data: `.scry-results/*.edn` normalization is now bounded and cycle-safe, Throwable data is serialized through a bounded shape, and post-run result-file diagnostic failures preserve the test-derived outcome/summary while adding bounded top-level `:scry.cli/diagnostic-error` metadata and empty `:result-files` instead of collapsing the run into `:scry.cli/runner-error`.
 
 ## [0.1.48] - 2026-06-30

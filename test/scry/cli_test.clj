@@ -991,6 +991,40 @@
     (is (= 1 (count (:trace sanitized))))
     (is (= frame-keys (set (keys (first (:trace sanitized))))))))
 
+(deftest edn-readable-data-cyclic-throwable-cause-chain-test
+  ;; Throwable cause cycles use the controlled cycle placeholder instead of
+  ;; relying on incidental cause-depth truncation or recursing forever.
+  (let [a (RuntimeException. "a")
+        b (RuntimeException. "b")]
+    (.initCause a b)
+    (.initCause b a)
+    (let [sanitized (cli-results/edn-readable-data a {:max-throwable-depth 10
+                                                      :max-stack-frames 0})]
+      (is (= "a" (:message sanitized)))
+      (is (= "b" (get-in sanitized [:cause :message])))
+      (is (= {:scry/cycle true :class "java.lang.RuntimeException"}
+             (get-in sanitized [:cause :cause]))))))
+
+(deftest edn-readable-data-truncation-sentinel-collisions-test
+  ;; If user data already equals the explicit max-seq-length sentinel, the
+  ;; sentinel remains observable after truncation for set and map shapes.
+  (let [sentinel {:scry/truncated :max-seq-length}]
+    (testing "sets containing the sentinel still expose it after truncation"
+      (let [values (doto (java.util.LinkedHashSet.)
+                     (.add sentinel)
+                     (.add 1)
+                     (.add 2))]
+        (is (some #(= sentinel %)
+                  (cli-results/edn-readable-data values
+                                                 {:max-seq-length 2})))))
+    (testing "maps containing the sentinel key still expose the sentinel entry after truncation"
+      (is (= {sentinel sentinel
+              :kept :value}
+             (cli-results/edn-readable-data (array-map sentinel :user
+                                                       :kept :value
+                                                       :dropped :value)
+                                            {:max-seq-length 2}))))))
+
 (deftest run-cli-pathological-failures-keep-test-outcome-test
   ;; Pathological cyclic assertion and Throwable data must not turn a test
   ;; failure into a runner-level StackOverflowError.

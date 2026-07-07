@@ -1,0 +1,5 @@
+🎯 Keep scry CLI post-run diagnostics non-authoritative. Once a runner has produced canonical entries + summary and `classify-outcome` has chosen `:scry.cli/outcome-kind`, later human/diagnostic work (summary-adjacent details, `.scry-results` EDN writing, fallback root-cause text) must not be allowed to reclassify the run as `:scry.cli/runner-error` or hide the real test signal.
+
+Pattern from task 025: emit/classify the normal test outcome before detailed result-file serialization; wrap result-file writing in its own boundary; on failure attach bounded top-level `:scry.cli/diagnostic-error`, return empty `:result-files`, and preserve the test-derived outcome/exit semantics. Any fallback text and structured diagnostic metadata must be cycle-safe, depth/string bounded, and hostile-`toString`/Throwable-accessor safe.
+
+This complements runner hardening: test-run failures and diagnostic-rendering failures are different phases. Only pre-result runner failures belong to `:scry.cli/runner-error`; post-result diagnostic failures are additive metadata.

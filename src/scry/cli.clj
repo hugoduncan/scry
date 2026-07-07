@@ -575,6 +575,20 @@
         (str (subs s 0 max-length) "…" (pr-str {:scry/truncated :max-string-length}))
         s))))
 
+(defn- safe-throwable-message
+  [^Throwable t]
+  (try
+    (.getMessage t)
+    (catch Throwable e
+      (str "<unavailable message: " (.getName (class e)) ">"))))
+
+(defn- safe-throwable-cause
+  [^Throwable t]
+  (try
+    (.getCause t)
+    (catch Throwable _
+      nil)))
+
 (defn- root-cause-throwable
   [^Throwable t]
   (loop [current t
@@ -591,7 +605,7 @@
       :else
       (do
         (.put seen current true)
-        (if-let [cause (.getCause current)]
+        (if-let [cause (safe-throwable-cause current)]
           (recur cause (inc depth) seen)
           current)))))
 
@@ -600,7 +614,7 @@
   (when-let [root (root-cause-throwable t)]
     (bounded-diagnostic-string
      (str (.getName (class root))
-          (when-let [message (bounded-diagnostic-string (.getMessage root))]
+          (when-let [message (bounded-diagnostic-string (safe-throwable-message root))]
             (str ": " message))))))
 
 (defn- bounded-last-sequential
@@ -735,7 +749,7 @@
              :type (symbol (.getName (class e)))
              :root-type (symbol (.getName (class root)))
              :root-message (bounded-diagnostic-string
-                            (or (.getMessage root) (.getName (class root))))
+                            (or (safe-throwable-message root) (.getName (class root))))
              :failed-entry-count (count failing)}
       (results/concrete-var-symbol? (:var first-entry))
       (assoc :first-failing-var (:var first-entry))
@@ -776,16 +790,18 @@
    surface an empty diagnostic. Falls back to the exception class name and, when
    available, the root cause's class/message."
   [^Throwable e]
-  (let [msg (.getMessage e)
+  (let [msg (safe-throwable-message e)
         root (root-cause-throwable e)
+        root-message (when root (safe-throwable-message root))
         base (if (str/blank? msg)
                (str "Unexpected " (.getName (class e)) " during scry CLI run")
                (bounded-diagnostic-string msg))]
     (bounded-diagnostic-string
-     (if (and (not (identical? root e))
-              (not (str/blank? (.getMessage root))))
+     (if (and root
+              (not (identical? root e))
+              (not (str/blank? root-message)))
        (str base " (root cause: " (.getName (class root)) ": "
-            (bounded-diagnostic-string (.getMessage root)) ")")
+            (bounded-diagnostic-string root-message) ")")
        base))))
 
 (def ^:private canonical-entry-statuses #{:pass :fail :error :unknown})

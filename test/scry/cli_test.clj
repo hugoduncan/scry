@@ -1272,6 +1272,40 @@
                  (:first-failing-var diagnostic)))
           (is (str/includes? (:first-root-cause diagnostic) "<unprintable"))
           (is (str/includes? stderr "<unprintable"))
+          (is (not (str/includes? stderr "runner-error")))))))
+  (testing "fallback diagnostics tolerate Throwable actual accessors that throw"
+    (with-temp-dir [dir]
+      (let [hostile (proxy [RuntimeException] ["outer"]
+                      (getMessage []
+                        (throw (RuntimeException. "message exploded")))
+                      (getCause []
+                        (throw (RuntimeException. "cause exploded"))))
+            entries [{:var 'scry.fixtures.pathological/hostile-throwable-diagnostic
+                      :ns 'scry.fixtures.pathological
+                      :status :error
+                      :assertion-summary {:pass 0 :fail 0 :error 1}
+                      :assertions [{:type :error
+                                    :message "outer"
+                                    :actual hostile}]}]
+            out (string-writer)
+            err (string-writer)]
+        (let [outcome (#'cli/run-cli
+                       (#'cli/normalize-exec-opts {})
+                       (test-boundary {:cwd (.getPath dir)
+                                       :out out
+                                       :err err
+                                       :write-result-files (fn [& _]
+                                                             (throw (ex-info "write exploded" {})))
+                                       :run-clojure-test (fn [_]
+                                                           (runner-result entries))}))
+              diagnostic (:scry.cli/diagnostic-error outcome)
+              stderr (str err)]
+          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+          (is (= 'scry.fixtures.pathological/hostile-throwable-diagnostic
+                 (:first-failing-var diagnostic)))
+          (is (str/includes? (:first-root-cause diagnostic)
+                             "<unavailable message: java.lang.RuntimeException>"))
+          (is (str/includes? stderr "First root cause:"))
           (is (not (str/includes? stderr "runner-error"))))))))
 
 (deftest map-shaped-assertion-actual-via-is-bounded-test

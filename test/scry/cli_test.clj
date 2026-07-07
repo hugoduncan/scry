@@ -874,7 +874,7 @@
       (.put m "self" m)
       (is (= {"self" {:scry/cycle true :class "java.util.HashMap"}}
              (cli-results/edn-readable-data m {:max-depth 4}))))
-    (is (= [0 1]
+    (is (= [0 1 {:scry/truncated :max-seq-length}]
            (cli-results/edn-readable-data (range 5) {:max-seq-length 2})))
     (is (= {:a {:b {{:scry/truncated :max-depth} {:scry/truncated :max-depth}}}}
            (cli-results/edn-readable-data {:a {:b {:c 1}}} {:max-depth 2})))
@@ -943,6 +943,53 @@
       (is (= {:outer {{:scry/truncated :max-depth}
                       {:scry/truncated :max-depth}}}
              (:data sanitized))))))
+
+(deftest edn-readable-data-max-seq-length-sentinels-test
+  ;; Every supported collection family emits an explicit truncation sentinel
+  ;; instead of silently dropping excess values.
+  (testing "sequential and vector collections"
+    (is (= [0 1 {:scry/truncated :max-seq-length}]
+           (cli-results/edn-readable-data (range 5) {:max-seq-length 2})))
+    (is (= [0 1 {:scry/truncated :max-seq-length}]
+           (cli-results/edn-readable-data [0 1 2 3] {:max-seq-length 2}))))
+  (testing "sets"
+    (let [sanitized (cli-results/edn-readable-data (apply sorted-set [0 1 2])
+                                                   {:max-seq-length 2})]
+      (is (= 3 (count sanitized)))
+      (is (contains? sanitized {:scry/truncated :max-seq-length}))))
+  (testing "persistent and Java maps"
+    (is (= {0 0 1 1
+            {:scry/truncated :max-seq-length} {:scry/truncated :max-seq-length}}
+           (cli-results/edn-readable-data (array-map 0 0 1 1 2 2)
+                                          {:max-seq-length 2})))
+    (let [m (java.util.LinkedHashMap.)]
+      (.put m 0 0)
+      (.put m 1 1)
+      (.put m 2 2)
+      (is (= {0 0 1 1
+              {:scry/truncated :max-seq-length} {:scry/truncated :max-seq-length}}
+             (cli-results/edn-readable-data m {:max-seq-length 2})))))
+  (testing "arrays and Iterable values"
+    (is (= [0 1 {:scry/truncated :max-seq-length}]
+           (cli-results/edn-readable-data (int-array [0 1 2])
+                                          {:max-seq-length 2})))
+    (let [values (java.util.ArrayList. [0 1 2])]
+      (is (= [0 1 {:scry/truncated :max-seq-length}]
+             (cli-results/edn-readable-data values {:max-seq-length 2}))))))
+
+(deftest edn-readable-data-throwable-frame-shape-test
+  ;; Throwable frame data is a bounded map shape for both :at and :trace.
+  (let [error (RuntimeException. "boom")
+        sanitized (cli-results/edn-readable-data error {:max-stack-frames 1})
+        frame-keys #{:class :method :file :line}]
+    (is (= frame-keys (set (keys (:at sanitized)))))
+    (is (string? (:class (:at sanitized))))
+    (is (string? (:method (:at sanitized))))
+    (is (or (nil? (:file (:at sanitized)))
+            (string? (:file (:at sanitized)))))
+    (is (integer? (:line (:at sanitized))))
+    (is (= 1 (count (:trace sanitized))))
+    (is (= frame-keys (set (keys (first (:trace sanitized))))))))
 
 (deftest run-cli-pathological-failures-keep-test-outcome-test
   ;; Pathological cyclic assertion and Throwable data must not turn a test

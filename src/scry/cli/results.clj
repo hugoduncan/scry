@@ -281,6 +281,25 @@
   [coll opts]
   (take (:max-seq-length opts) coll))
 
+(defn- truncated-seq?
+  [coll opts]
+  (boolean (seq (drop (:max-seq-length opts) coll))))
+
+(defn- append-truncation-sentinel
+  [xs coll opts]
+  (let [sentinel (truncated :max-seq-length)]
+    (if (truncated-seq? coll opts)
+      (concat xs [sentinel])
+      xs)))
+
+(defn- limited-map-entries
+  [value opts depth]
+  (let [entries (map (partial map-entry-data opts depth) (limited value opts))]
+    (if (truncated-seq? value opts)
+      (concat entries [[(truncated :max-seq-length)
+                        (truncated :max-seq-length)]])
+      entries)))
+
 (defn edn-readable-data*
   [value opts depth]
   (let [opts (merge default-sanitizer-limits opts)]
@@ -299,31 +318,51 @@
 
       (map? value)
       (with-identity value opts
-        #(into {} (map (partial map-entry-data opts depth)) (limited value opts)))
+        #(into {} (limited-map-entries value opts depth)))
 
       (instance? java.util.Map value)
       (with-identity value opts
-        #(into {} (map (partial map-entry-data opts depth)) (limited value opts)))
+        #(into {} (limited-map-entries value opts depth)))
 
       (vector? value)
       (with-identity value opts
-        #(mapv (fn [x] (edn-readable-data* x opts (inc depth))) (limited value opts)))
+        #(vec (append-truncation-sentinel
+               (map (fn [x] (edn-readable-data* x opts (inc depth)))
+                    (limited value opts))
+               value
+               opts)))
 
       (set? value)
       (with-identity value opts
-        #(into #{} (map (fn [x] (edn-readable-data* x opts (inc depth)))) (limited value opts)))
+        #(into #{} (append-truncation-sentinel
+                    (map (fn [x] (edn-readable-data* x opts (inc depth)))
+                         (limited value opts))
+                    value
+                    opts)))
 
       (seq? value)
       (with-identity value opts
-        #(doall (map (fn [x] (edn-readable-data* x opts (inc depth))) (limited value opts))))
+        #(doall (append-truncation-sentinel
+                 (map (fn [x] (edn-readable-data* x opts (inc depth)))
+                      (limited value opts))
+                 value
+                 opts)))
 
       (.isArray (class value))
       (with-identity value opts
-        #(mapv (fn [x] (edn-readable-data* x opts (inc depth))) (limited value opts)))
+        #(vec (append-truncation-sentinel
+               (map (fn [x] (edn-readable-data* x opts (inc depth)))
+                    (limited value opts))
+               value
+               opts)))
 
       (instance? Iterable value)
       (with-identity value opts
-        #(mapv (fn [x] (edn-readable-data* x opts (inc depth))) (limited value opts)))
+        #(vec (append-truncation-sentinel
+               (map (fn [x] (edn-readable-data* x opts (inc depth)))
+                    (limited value opts))
+               value
+               opts)))
 
       :else
       (non-edn-placeholder value opts))))

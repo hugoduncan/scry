@@ -951,6 +951,12 @@
    successful outcome. Throws ex-info with structured outcome data when the CLI
    run is non-zero so `clojure -X` exits non-zero without calling System/exit.
 
+   Returned outcome data includes the test `:summary`, `:result-files`, and
+   `:scry.cli/outcome-kind` when a run reaches normal classification. If
+   post-run diagnostic/result-file writing fails, the test-derived outcome is
+   preserved, `:result-files` is empty, and bounded diagnostic metadata is
+   attached as top-level `:scry.cli/diagnostic-error`.
+
    `clojure -X` invokes the exec fn with `nil` when no `:exec-args`/key-value
    overrides are supplied, so a bare `clojure -X:alias` (alias sets only
    `:exec-fn`) arrives here as `nil`; treat that as an empty options map."

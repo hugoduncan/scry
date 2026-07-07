@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed CLI failure-detail serialization for pathological failure data: `.scry-results/*.edn` normalization is now bounded and cycle-safe, Throwable data is serialized through a bounded shape, and post-run result-file diagnostic failures preserve the test-derived outcome/summary while adding bounded top-level `:scry.cli/diagnostic-error` metadata and empty `:result-files` instead of collapsing the run into `:scry.cli/runner-error`.
+
 ## [0.1.48] - 2026-06-30
 
 - Fixed the `scry.cli` runner collapsing an entire run into `:scry.cli/runner-error` (with an empty diagnostic, no summary, and no `.scry-results`) when a test emitted output or activity from threads scry's per-test capture does not own (e.g. native/JNI background threads or direct `System.err` writes). Output routing is now contained and thread-safe, per-var Throwables are contained as errors so the run still completes with a normal pass/fail summary, and any genuine runner-level error now carries a non-empty message plus the underlying exception.

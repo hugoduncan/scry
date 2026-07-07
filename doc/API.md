@@ -54,6 +54,8 @@ Function.
 
 Normalizes EDN options, runs the shared CLI implementation, and returns the successful structured outcome map. When the CLI result is non-zero, throws `ex-info` with `:type :scry.cli/non-zero`, `:exit-code`, `:scry.cli/outcome-kind`, `:summary`, `:error`, and `:outcome` data so `clojure -X` exits non-zero without calling `System/exit`.
 
+When a run reaches normal classification, outcome data includes the test `:summary`, `:result-files`, and `:scry.cli/outcome-kind`. If post-run diagnostic/result-file writing fails, the test-derived outcome is preserved, `:result-files` is empty, and bounded diagnostic metadata is attached as top-level `:scry.cli/diagnostic-error`.
+
 The structured outcome's `:scry.cli/outcome-kind` is authoritative for exit status; only `:scry.cli/pass` exits `0`. The outcome kinds are:
 
 - `:scry.cli/pass` — at least one test var ran and all passed.
@@ -73,7 +75,7 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
 Main-style CLI usage is run through project aliases, for example `clojure -M:test -m scry.cli` and `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L837-L848">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L947-L964">Source</a></sub></p>
 
 -----
 # <a name="scry.core">scry.core</a>

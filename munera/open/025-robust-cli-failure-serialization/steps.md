@@ -102,5 +102,5 @@
 
 ## Documentation review follow-ups
 
-- [ ] Update `CHANGELOG.md` `Unreleased` for the user-visible CLI bug fix: bounded/cycle-safe failure EDN serialization, preservation of the test-derived outcome/summary when result-file diagnostics fail, and additive `:scry.cli/diagnostic-error` metadata.
-- [ ] Update the public `scry.cli/run` API docstring and regenerate `doc/API.md` so `clojure -X` structured outcomes document the possible top-level `:scry.cli/diagnostic-error` key and empty `:result-files` fallback when post-run diagnostic/result-file writing fails.
+- [x] Update `CHANGELOG.md` `Unreleased` for the user-visible CLI bug fix: bounded/cycle-safe failure EDN serialization, preservation of the test-derived outcome/summary when result-file diagnostics fail, and additive `:scry.cli/diagnostic-error` metadata.
+- [x] Update the public `scry.cli/run` API docstring and regenerate `doc/API.md` so `clojure -X` structured outcomes document the possible top-level `:scry.cli/diagnostic-error` key and empty `:result-files` fallback when post-run diagnostic/result-file writing fails.

@@ -6,3 +6,4 @@
 - no inconsistency review feedback
 - design-step follow-up guidance: preserve the existing CLI contract from `AGENTS.md`/`src/scry/cli.clj` that `:scry.cli/outcome-kind` is the authoritative machine signal and human stdout/stderr diagnostics are supplementary; resolve wording so diagnostic serialization failures are additive metadata, not a scope change to normal test outcome semantics. Relevant implementation files: `src/scry/cli.clj`, `src/scry/cli/results.clj`, `test/scry/cli_test.clj`.
 - design follow-up completed: `:scry.cli/diagnostic-error` is additive top-level outcome metadata, not an outcome-kind; entries+summary collection is the boundary after which diagnostic failures preserve the test-derived outcome. Result-file writing should move after normal summary emission to satisfy the summary-before-diagnostics requirement.
+- no ambiguity review feedback

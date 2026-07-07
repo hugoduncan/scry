@@ -89,3 +89,5 @@
 - 2026-07-07 implementation-review follow-up slice: addressed 1 immediately preceding review step. Made CLI diagnostic fallback string coercion hostile-safe by catching throwing `toString` in bounded diagnostic strings and using bounded coercion while composing map-shaped assertion root-cause text/load-error details. Added focused regression where result-file writing fails and the first failing assertion contains message/root-cause values whose `toString` throws, proving the outcome remains test-derived instead of `:scry.cli/runner-error`. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (71 tests, 572 assertions) and `clojure -M:test -m scry.cli` (126 tests, 870 assertions).
 
 - implementation review: no new feedback.
+
+- test review: no new feedback.

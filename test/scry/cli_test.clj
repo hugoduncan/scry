@@ -1223,6 +1223,46 @@
       (is (str/includes? stderr "See "))
       (is (str/includes? stderr "for failure details")))))
 
+(deftest run-cli-unknown-result-file-write-failure-is-diagnostic-test
+  ;; Diagnostic-write failures preserve unknown-result outcomes and still emit
+  ;; the existing unknown-result result-directory pointer semantics.
+  (with-temp-dir [dir]
+    (let [unknown-entry {:var 'scry.fixtures.unknown/no-assertions
+                         :ns 'scry.fixtures.unknown
+                         :status :unknown
+                         :assertion-summary {:pass 0 :fail 0 :error 0}
+                         :assertions []
+                         :out ""
+                         :err ""}
+          out (string-writer)
+          err (string-writer)
+          outcome (#'cli/run-cli
+                   (#'cli/normalize-exec-opts {})
+                   (test-boundary {:cwd (.getPath dir)
+                                   :out out
+                                   :err err
+                                   :write-result-files (fn [& _]
+                                                         (throw (ex-info "write exploded" {})))
+                                   :run-clojure-test (fn [opts]
+                                                       ((:progress-callback opts) unknown-entry)
+                                                       (runner-result [unknown-entry]))}))
+          diagnostic (:scry.cli/diagnostic-error outcome)
+          stderr (str err)]
+      (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
+      (is (= [] (:result-files outcome)))
+      (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
+             (str out)))
+      (is (= :result-file-writing (:phase diagnostic)))
+      (is (= 0 (:failed-entry-count diagnostic)))
+      (is (not (contains? diagnostic :first-failing-var)))
+      (is (not (contains? diagnostic :first-root-cause)))
+      (is (str/starts-with? stderr "no-assertions\n"))
+      (is (str/includes? stderr
+                         "Failure diagnostics failed while serializing 0 failing entries."))
+      (is (str/includes? stderr "See "))
+      (is (str/includes? stderr "for failure details")))))
+
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned
   ;; result, while CLI-retained canonical results still drive detailed EDN

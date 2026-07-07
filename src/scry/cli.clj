@@ -559,10 +559,17 @@
   []
   (:max-throwable-depth results/default-sanitizer-limits))
 
+(defn- hostile-safe-string
+  [x]
+  (try
+    (str x)
+    (catch Throwable e
+      (str "<unprintable " (.getName (class x)) ": " (.getName (class e)) ">"))))
+
 (defn- bounded-diagnostic-string
   [s]
   (when s
-    (let [s (str s)
+    (let [s (hostile-safe-string s)
           max-length (diagnostic-max-string-length)]
       (if (and max-length (> (count s) max-length))
         (str (subs s 0 max-length) "…" (pr-str {:scry/truncated :max-string-length}))
@@ -627,9 +634,9 @@
           message (or (:message root) (:cause actual))]
       (when (or klass message)
         (bounded-diagnostic-string
-         (str (when klass (str klass))
+         (str (when klass (bounded-diagnostic-string klass))
               (when (and klass message) ": ")
-              (when message (str message))))))
+              (when message (bounded-diagnostic-string message))))))
 
     :else nil))
 
@@ -638,7 +645,7 @@
    class/message, derived from the synthetic entry's first assertion."
   [entry]
   (let [assertion (first (:assertions entry))
-        parts (remove str/blank? [(:message assertion)
+        parts (remove str/blank? [(bounded-diagnostic-string (:message assertion))
                                   (assertion-cause-text assertion)])]
     (when (seq parts)
       (str/join " — " parts))))

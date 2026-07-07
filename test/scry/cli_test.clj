@@ -1162,7 +1162,41 @@
           (is (<= (count (:first-root-cause diagnostic)) 20100))
           (is (str/includes? (:first-root-cause diagnostic) ":max-string-length"))
           (is (<= (count stderr) 20500))
-          (is (str/includes? stderr ":max-string-length")))))))
+          (is (str/includes? stderr ":max-string-length"))))))
+  (testing "fallback diagnostics tolerate throwing toString values"
+    (with-temp-dir [dir]
+      (let [hostile (proxy [Object] []
+                      (toString []
+                        (throw (RuntimeException. "toString exploded"))))
+            entries [{:var 'scry.fixtures.pathological/hostile-diagnostic
+                      :ns 'scry.fixtures.pathological
+                      :status :error
+                      :assertion-summary {:pass 0 :fail 0 :error 1}
+                      :assertions [{:type :error
+                                    :message hostile
+                                    :actual {:via [{:type 'pathological.Root
+                                                    :message hostile}]
+                                             :cause hostile}}]}]
+            out (string-writer)
+            err (string-writer)]
+        (let [outcome (#'cli/run-cli
+                       (#'cli/normalize-exec-opts {})
+                       (test-boundary {:cwd (.getPath dir)
+                                       :out out
+                                       :err err
+                                       :write-result-files (fn [& _]
+                                                             (throw (ex-info "write exploded" {})))
+                                       :run-clojure-test (fn [_]
+                                                           (runner-result entries))}))
+              diagnostic (:scry.cli/diagnostic-error outcome)
+              stderr (str err)]
+          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+          (is (= 'scry.fixtures.pathological/hostile-diagnostic
+                 (:first-failing-var diagnostic)))
+          (is (str/includes? (:first-root-cause diagnostic) "<unprintable"))
+          (is (str/includes? stderr "<unprintable"))
+          (is (not (str/includes? stderr "runner-error"))))))))
+
 (deftest map-shaped-assertion-actual-via-is-bounded-test
   (testing "map-shaped assertion actual via is bounded and tolerant"
     (with-temp-dir [dir]

@@ -1263,6 +1263,39 @@
       (is (str/includes? stderr "See "))
       (is (str/includes? stderr "for failure details")))))
 
+(deftest run-cli-pass-result-file-write-failure-is-diagnostic-test
+  ;; Diagnostic-write failures are post-run even for green runs: they attach
+  ;; bounded diagnostic metadata, but do not make a passing test run fail.
+  (with-temp-dir [dir]
+    (let [out (string-writer)
+          err (string-writer)
+          outcome (#'cli/run-cli
+                   (#'cli/normalize-exec-opts
+                    {:vars ['scry.fixtures.failing/also-passes]})
+                   (test-boundary {:cwd (.getPath dir)
+                                   :out out
+                                   :err err
+                                   :write-result-files (fn [& _]
+                                                         (throw (ex-info "write exploded" {})))}))
+          diagnostic (:scry.cli/diagnostic-error outcome)
+          stderr (str err)]
+      (is (= 0 (:exit-code outcome)))
+      (is (= :scry.cli/pass (:scry.cli/outcome-kind outcome)))
+      (is (= [] (:result-files outcome)))
+      (is (str/includes? (str out)
+                         "Assertions: 1 passed, 0 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"))
+      (is (= :result-file-writing (:phase diagnostic)))
+      (is (= 0 (:failed-entry-count diagnostic)))
+      (is (= 'clojure.lang.ExceptionInfo (:type diagnostic)))
+      (is (= 'clojure.lang.ExceptionInfo (:root-type diagnostic)))
+      (is (= "write exploded" (:message diagnostic)))
+      (is (= "write exploded" (:root-message diagnostic)))
+      (is (not (contains? diagnostic :first-failing-var)))
+      (is (not (contains? diagnostic :first-root-cause)))
+      (is (str/includes? stderr
+                         "Failure diagnostics failed while serializing 0 failing entries."))
+      (is (not (str/includes? stderr "for failure details"))))))
+
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned
   ;; result, while CLI-retained canonical results still drive detailed EDN

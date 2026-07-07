@@ -668,6 +668,44 @@
     (.write err (results-dir-pointer dir result-files))
     (.flush err)))
 
+(declare error-diagnostic-message)
+
+(defn- diagnostic-error
+  [^Throwable e entries]
+  (let [root (root-cause-throwable e)
+        failing (filter results/failure-entry? entries)
+        first-entry (first failing)
+        first-assertion (first (:assertions first-entry))]
+    (cond-> {:phase :result-file-writing
+             :message (error-diagnostic-message e)
+             :type (symbol (.getName (class e)))
+             :root-type (symbol (.getName (class root)))
+             :root-message (or (.getMessage root) (.getName (class root)))
+             :failed-entry-count (count failing)}
+      (results/concrete-var-symbol? (:var first-entry))
+      (assoc :first-failing-var (:var first-entry))
+
+      first-assertion
+      (assoc :first-root-cause (or (assertion-cause-text first-assertion)
+                                   (:message first-assertion))))))
+
+(defn- write-result-files-diagnostic!
+  [{:keys [err]} dir entries]
+  (try
+    {:result-files (results/write-result-files! dir entries)}
+    (catch Throwable e
+      (let [diagnostic (diagnostic-error e entries)]
+        (.write err (str "Failure diagnostics failed while serializing "
+                         (:failed-entry-count diagnostic)
+                         " failing entries.\n"))
+        (when-let [var (:first-failing-var diagnostic)]
+          (.write err (str "First failing var: " var "\n")))
+        (when-let [cause (:first-root-cause diagnostic)]
+          (.write err (str "First root cause: " cause "\n")))
+        (.flush err)
+        {:result-files []
+         :diagnostic-error diagnostic}))))
+
 (defn- error-outcome-kind
   [^Throwable e]
   (case (:type (ex-data e))
@@ -768,20 +806,21 @@
           result (run-normalized normalized-options boundary progress-callback)
           entries (canonical-result-entries result)
           summary (cli-summary result entries)
-          result-files (results/write-result-files! dir entries)
           outcome-kind (classify-outcome entries summary)
           code (exit-code outcome-kind)]
       (write-summary! boundary summary)
       (when-let [seed (and (contains? failure-outcome-kinds outcome-kind)
                            (get-in result [:summary :seed]))]
         (write-seed! boundary seed))
-      (write-failure-diagnostic! boundary dir entries result-files outcome-kind)
-      {:exit-code code
-       :scry.cli/outcome-kind outcome-kind
-       :result result
-       :summary summary
-       :result-files result-files
-       :error nil})
+      (let [{:keys [result-files diagnostic-error]} (write-result-files-diagnostic! boundary dir entries)]
+        (write-failure-diagnostic! boundary dir entries result-files outcome-kind)
+        (cond-> {:exit-code code
+                 :scry.cli/outcome-kind outcome-kind
+                 :result result
+                 :summary summary
+                 :result-files result-files
+                 :error nil}
+          diagnostic-error (assoc :scry.cli/diagnostic-error diagnostic-error))))
     (catch Throwable e
       (let [outcome-kind (error-outcome-kind e)
             message (error-diagnostic-message e)]

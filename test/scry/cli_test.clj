@@ -16,6 +16,7 @@
    [scry.fixtures.failing]
    [scry.fixtures.mixed]
    [scry.fixtures.output]
+   [scry.fixtures.pathological]
    [scry.fixtures.passing]
    [scry.fixtures.short-circuiting-fixtures]
    [scry.fixtures.unknown]))
@@ -799,10 +800,10 @@
       (is (= 'scry.fixtures.erroring/throws-exception (:var error-data)))
       (is (= :error (:status error-data)))
       (is (= :error (:type assertion)))
-      (is (= :throwable (get-in assertion [:actual :type])))
-      (is (= 'java.lang.ArithmeticException (get-in assertion [:actual :class])))
-      (is (str/includes? (get-in assertion [:actual :stacktrace])
-                         "java.lang.ArithmeticException"))
+      (is (= 'java.lang.ArithmeticException (get-in assertion [:actual :type])))
+      (is (str/includes? (-> assertion :actual :type str)
+                         "ArithmeticException"))
+      (is (vector? (get-in assertion [:actual :trace])))
       (is (str/includes? (:stacktrace assertion)
                          "java.lang.ArithmeticException")))))
 
@@ -849,11 +850,93 @@
       (is (= 'scry.fixtures.arbitrary/arbitrary-object-fails (:var failure-data)))
       (is (= :fail (:status failure-data)))
       (let [object-leaves (filter #(and (map? %)
-                                        (= :object (:type %))
-                                        (= 'java.lang.Object (:class %)))
+                                        (= "java.lang.Object" (:scry/non-edn-class %)))
                                   (tree-seq coll? seq assertion))]
         (is (= 2 (count object-leaves)))
-        (is (every? #(string? (:pr-str %)) object-leaves))))))
+        (is (every? #(string? (:str %)) object-leaves))))))
+
+(deftest edn-readable-data-bounds-pathological-values-test
+  ;; Sanitizer output is bounded, readable EDN for cyclic data, long sequences,
+  ;; deep structures, non-EDN objects, and Throwables with cyclic ex-data.
+  (testing "cycles, depth, sequence length, and arbitrary objects"
+    (let [m (java.util.HashMap.)]
+      (.put m "self" m)
+      (is (= {"self" {:scry/cycle true :class "java.util.HashMap"}}
+             (cli-results/edn-readable-data m {:max-depth 4}))))
+    (is (= [0 1]
+           (cli-results/edn-readable-data (range 5) {:max-seq-length 2})))
+    (is (= {:a {:b {{:scry/truncated :max-depth} {:scry/truncated :max-depth}}}}
+           (cli-results/edn-readable-data {:a {:b {:c 1}}} {:max-depth 2})))
+    (is (= "java.lang.Object"
+           (:scry/non-edn-class (cli-results/edn-readable-data (Object.))))))
+  (testing "throwables use controlled bounded shape"
+    (let [data (java.util.IdentityHashMap.)
+          _ (.put data :self data)
+          cause (ex-info "root" {:cyclic data})
+          error (ex-info "boom" {} cause)
+          sanitized (cli-results/edn-readable-data error {:max-stack-frames 2})]
+      (is (= 'clojure.lang.ExceptionInfo (:type sanitized)))
+      (is (= "boom" (:message sanitized)))
+      (is (= 'clojure.lang.ExceptionInfo (get-in sanitized [:cause :type])))
+      (is (= "root" (get-in sanitized [:cause :message])))
+      (is (<= (count (:trace sanitized)) 2))
+      (is (= {:scry/cycle true :class "java.util.IdentityHashMap"}
+             (get-in sanitized [:cause :data :cyclic :self]))))))
+
+(deftest run-cli-pathological-failures-keep-test-outcome-test
+  ;; Pathological cyclic assertion and Throwable data must not turn a test
+  ;; failure into a runner-level StackOverflowError.
+  (with-temp-dir [dir]
+    (let [cyclic-map (java.util.HashMap.)
+          cyclic-data (java.util.IdentityHashMap.)
+          _ (.put cyclic-map "self" cyclic-map)
+          _ (.put cyclic-data :self cyclic-data)
+          entries [{:var 'scry.fixtures.pathological/cyclic-failure-actual-does-not-crash-cli
+                    :ns 'scry.fixtures.pathological
+                    :status :fail
+                    :assertion-summary {:pass 0 :fail 1 :error 0}
+                    :assertions [{:type :fail :expected {} :actual cyclic-map}]}
+                   {:var 'scry.fixtures.pathological/throwable-with-cyclic-ex-data-does-not-crash-cli
+                    :ns 'scry.fixtures.pathological
+                    :status :error
+                    :assertion-summary {:pass 0 :fail 0 :error 1}
+                    :assertions [{:type :error
+                                  :actual (ex-info "boom" {:cyclic cyclic-data})}]}]
+          outcome (run-cli-in dir (#'cli/normalize-exec-opts {})
+                              {:run-clojure-test (fn [_] (runner-result entries))})
+          files (result-files dir)
+          data (mapv #(edn/read-string (slurp (io/file dir ".scry-results" %))) files)]
+      (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (str/includes? (:stdout outcome) "Assertions:"))
+      (is (not (str/includes? (:stderr outcome) "StackOverflowError")))
+      (is (= #{"scry.fixtures.pathological__cyclic-failure-actual-does-not-crash-cli.edn"
+               "scry.fixtures.pathological__throwable-with-cyclic-ex-data-does-not-crash-cli.edn"}
+             (set files)))
+      (is (some #(= {:scry/cycle true :class "java.util.HashMap"} %)
+                (mapcat #(tree-seq coll? seq %) data)))
+      (is (some #(= {:scry/cycle true :class "java.util.IdentityHashMap"} %)
+                (mapcat #(tree-seq coll? seq %) data)))
+      (is (some #(= "boom" %) (mapcat #(tree-seq coll? seq %) data))))))
+
+(deftest run-cli-result-file-write-failure-is-diagnostic-test
+  ;; Result-file serialization failure is post-run diagnostics: the summary and
+  ;; test-derived outcome survive, with bounded diagnostic metadata attached.
+  (with-temp-dir [dir]
+    (with-redefs [cli-results/write-result-files! (fn [& _]
+                                                    (throw (ex-info "write exploded" {})))]
+      (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
+                                     {:vars ['scry.fixtures.failing/equality-fails]}))]
+        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+        (is (= [] (:result-files outcome)))
+        (is (= :result-file-writing
+               (get-in outcome [:scry.cli/diagnostic-error :phase])))
+        (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
+        (is (= 'scry.fixtures.failing/equality-fails
+               (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
+        (is (str/includes? (:stdout outcome) "Assertions:"))
+        (is (str/includes? (:stderr outcome)
+                           "Failure diagnostics failed while serializing 1 failing entries."))))))
 
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned

@@ -1,0 +1,16 @@
+(ns scry.fixtures.pathological
+  (:require [clojure.test :refer [deftest is]]))
+
+(deftest cyclic-failure-actual-does-not-crash-cli
+  ;; Produces cyclic assertion data that CLI result-file serialization must
+  ;; sanitize without hiding the assertion failure.
+  (let [x (java.util.HashMap.)]
+    (.put x "self" x)
+    (is (= {} x))))
+
+(deftest throwable-with-cyclic-ex-data-does-not-crash-cli
+  ;; Produces cyclic ex-data that Throwable normalization must bound while
+  ;; preserving the test error signal.
+  (let [m (java.util.IdentityHashMap.)]
+    (.put m :self m)
+    (throw (ex-info "boom" {:cyclic m}))))

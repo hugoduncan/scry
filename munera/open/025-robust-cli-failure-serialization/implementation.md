@@ -55,3 +55,5 @@
 - test review: added 1 step to be addressed.
 
 - 2026-07-07 test-review follow-up slice: addressed 1 immediately preceding review step. Moved the map-shaped assertion actual regression into `map-shaped-assertion-actual-via-is-bounded-test` so it runs as an isolated clojure.test test instead of at namespace load time. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (62 tests, 491 assertions).
+
+- test review: added 1 step to be addressed.

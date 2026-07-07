@@ -95,3 +95,4 @@
 - test-shaper review: added 1 step to be addressed.
 
 - 2026-07-07 test-shaper follow-up slice: addressed 1 immediately preceding review step. Added a true persistent-set truncation sentinel collision regression for `edn-readable-data` using a sorted persistent set, while keeping separate generic `Iterable` coverage. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (71 tests, 574 assertions).
+- test-shaper review: added 2 steps to be addressed.

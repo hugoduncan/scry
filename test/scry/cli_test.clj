@@ -934,7 +934,15 @@
       (let [sanitized (cli-results/edn-readable-data top {:max-suppressed 1
                                                           :max-stack-frames 0})]
         (is (= 1 (count (:suppressed sanitized))))
-        (is (= "suppressed-1" (get-in sanitized [:suppressed 0 :message])))))))
+        (is (= "suppressed-1" (get-in sanitized [:suppressed 0 :message]))))))
+  (testing "Throwable ex-data depth is bounded independently"
+    (let [error (ex-info "boom" {:outer {:inner {:leaf :value}}})
+          sanitized (cli-results/edn-readable-data error {:max-depth 20
+                                                          :max-ex-data-depth 1
+                                                          :max-stack-frames 0})]
+      (is (= {:outer {{:scry/truncated :max-depth}
+                      {:scry/truncated :max-depth}}}
+             (:data sanitized))))))
 
 (deftest run-cli-pathological-failures-keep-test-outcome-test
   ;; Pathological cyclic assertion and Throwable data must not turn a test
@@ -1288,6 +1296,37 @@
       (is (= 0 (:failed-entry-count diagnostic)))
       (is (= 'clojure.lang.ExceptionInfo (:type diagnostic)))
       (is (= 'clojure.lang.ExceptionInfo (:root-type diagnostic)))
+      (is (= "write exploded" (:message diagnostic)))
+      (is (= "write exploded" (:root-message diagnostic)))
+      (is (not (contains? diagnostic :first-failing-var)))
+      (is (not (contains? diagnostic :first-root-cause)))
+      (is (str/includes? stderr
+                         "Failure diagnostics failed while serializing 0 failing entries."))
+      (is (not (str/includes? stderr "for failure details"))))))
+
+(deftest run-cli-zero-tests-result-file-write-failure-is-diagnostic-test
+  ;; Diagnostic-write failures preserve zero-tests outcomes and do not emit the
+  ;; failure-details pointer text because zero-tests is not a failure-details outcome.
+  (with-temp-dir [dir]
+    (let [out (string-writer)
+          err (string-writer)
+          outcome (#'cli/run-cli
+                   (#'cli/normalize-exec-opts
+                    {:namespaces ['clojure.core]})
+                   (test-boundary {:cwd (.getPath dir)
+                                   :out out
+                                   :err err
+                                   :write-result-files (fn [& _]
+                                                         (throw (ex-info "write exploded" {})))}))
+          diagnostic (:scry.cli/diagnostic-error outcome)
+          stderr (str err)]
+      (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
+      (is (= [] (:result-files outcome)))
+      (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored\n"
+             (str out)))
+      (is (= :result-file-writing (:phase diagnostic)))
+      (is (= 0 (:failed-entry-count diagnostic)))
       (is (= "write exploded" (:message diagnostic)))
       (is (= "write exploded" (:root-message diagnostic)))
       (is (not (contains? diagnostic :first-failing-var)))

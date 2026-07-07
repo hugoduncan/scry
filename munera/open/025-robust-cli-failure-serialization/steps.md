@@ -45,15 +45,17 @@
 
 - [x] Add an end-to-end CLI regression for cyclic assertion actual data verifying non-zero exit, `:scry.cli/test-failure`, summary output, no primary `StackOverflowError`, and cycle/truncation placeholders in failure EDN or fallback diagnostics.
 - [x] Add an end-to-end CLI regression for cyclic Throwable ex-data verifying non-zero exit, `:scry.cli/test-failure`, summary output, no primary `StackOverflowError`, preserved root-cause message, and cycle/truncation placeholders in failure EDN or fallback diagnostics.
-- [ ] Verify `-X` CLI return maps include the same `:summary`, `:result-files`, `:scry.cli/outcome-kind`, and optional `:scry.cli/diagnostic-error` semantics without duplicate summary fields.
+- [x] Verify `-X` CLI return maps include the same `:summary`, `:result-files`, `:scry.cli/outcome-kind`, and optional `:scry.cli/diagnostic-error` semantics without duplicate summary fields.
 - [x] Verify normal passing and normal failing CLI tests still preserve existing result-file and diagnostic behavior.
 
 ## Slice 6 — Documentation and verification
 
-- [ ] Update README.md if the additive `:scry.cli/diagnostic-error` key or sanitizer placeholders need public documentation.
-- [ ] Update AGENTS.md only if development workflow, conventions, or required verification commands change.
-- [ ] Update `mementum/state.md` only if the project feature/structure snapshot changes materially.
-- [ ] Run focused REPL or command-line tests while iterating and record useful discoveries in `implementation.md`.
-- [ ] Run final focused CLI verification: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"`.
-- [ ] Run final core command-line verification if runner/capture/API behavior changed: `clojure -M:test -m scry.cli`.
-- [ ] Record final verification commands and results in `implementation.md`.
+- [x] Update README.md if the additive `:scry.cli/diagnostic-error` key or sanitizer placeholders need public documentation.
+- [x] Update AGENTS.md only if development workflow, conventions, or required verification commands change.
+  - No workflow/convention changes were needed.
+- [x] Update `mementum/state.md` only if the project feature/structure snapshot changes materially.
+  - No feature/structure snapshot update was needed for this task-local CLI behavior refinement.
+- [x] Run focused REPL or command-line tests while iterating and record useful discoveries in `implementation.md`.
+- [x] Run final focused CLI verification: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"`.
+- [x] Run final core command-line verification if runner/capture/API behavior changed: `clojure -M:test -m scry.cli`.
+- [x] Record final verification commands and results in `implementation.md`.

@@ -938,6 +938,40 @@
         (is (str/includes? (:stderr outcome)
                            "Failure diagnostics failed while serializing 1 failing entries."))))))
 
+(deftest run-exec-result-file-write-failure-is-diagnostic-test
+  ;; The -X path preserves the same post-run diagnostic failure semantics in
+  ;; structured non-zero ex-data: no duplicate summary fields and no runner-error.
+  (with-temp-dir [dir]
+    (with-redefs [cli-results/write-result-files! (fn [& _]
+                                                    (throw (ex-info "write exploded" {})))]
+      (let [out (string-writer)
+            err (string-writer)
+            thrown (try
+                     (#'cli/run-with-boundary
+                      {:vars ['scry.fixtures.failing/equality-fails]}
+                      (test-boundary {:cwd (.getPath dir)
+                                      :out out
+                                      :err err}))
+                     nil
+                     (catch clojure.lang.ExceptionInfo e e))
+            data (ex-data thrown)
+            outcome (:outcome data)]
+        (is (some? thrown))
+        (is (= :scry.cli/non-zero (:type data)))
+        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind data)))
+        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+        (is (= [] (:result-files outcome)))
+        (is (= (:summary data) (:summary outcome)))
+        (is (= :result-file-writing
+               (get-in outcome [:scry.cli/diagnostic-error :phase])))
+        (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
+        (is (= 'scry.fixtures.failing/equality-fails
+               (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
+        (is (not (contains? outcome :summary-text)))
+        (is (str/includes? (str out) "Assertions:"))
+        (is (str/includes? (str err)
+                           "Failure diagnostics failed while serializing 1 failing entries."))))))
+
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned
   ;; result, while CLI-retained canonical results still drive detailed EDN

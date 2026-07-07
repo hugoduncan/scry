@@ -268,7 +268,10 @@
       (do
         (.put seen value true)
         (try
-          (f)
+          (try
+            (f)
+            (catch Throwable _
+              (non-edn-placeholder value opts)))
           (finally
             (.remove seen value)))))))
 

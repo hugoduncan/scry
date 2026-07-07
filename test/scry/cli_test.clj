@@ -1033,6 +1033,36 @@
                                                        :dropped :value)
                                             {:max-seq-length 2}))))))
 
+(deftest edn-readable-data-hostile-collection-boundaries-test
+  ;; Hostile collection implementations fall back to bounded placeholders
+  ;; instead of escaping sanitizer traversal as unstructured write failures.
+  (testing "Java Map whose entrySet throws"
+    (let [value (proxy [java.util.AbstractMap] []
+                  (entrySet []
+                    (throw (RuntimeException. "entrySet exploded"))))
+          sanitized (cli-results/edn-readable-data value {:max-string-length 80})]
+      (is (str/includes? (:scry/non-edn-class sanitized) "proxy"))
+      (is (string? (:str sanitized)))))
+  (testing "Iterable whose iterator throws"
+    (let [value (proxy [Iterable] []
+                  (iterator []
+                    (throw (RuntimeException. "iterator exploded"))))
+          sanitized (cli-results/edn-readable-data value {:max-string-length 80})]
+      (is (str/includes? (:scry/non-edn-class sanitized) "proxy"))
+      (is (string? (:str sanitized)))))
+  (testing "Java Map whose entry access throws"
+    (let [entry (proxy [java.util.Map$Entry] []
+                  (getKey []
+                    (throw (RuntimeException. "key exploded")))
+                  (getValue [] :value)
+                  (setValue [_] nil))
+          value (proxy [java.util.AbstractMap] []
+                  (entrySet []
+                    (java.util.Collections/singleton entry)))
+          sanitized (cli-results/edn-readable-data value {:max-string-length 80})]
+      (is (str/includes? (:scry/non-edn-class sanitized) "proxy"))
+      (is (string? (:str sanitized))))))
+
 (deftest run-cli-pathological-failures-keep-test-outcome-test
   ;; Pathological cyclic assertion and Throwable data must not turn a test
   ;; failure into a runner-level StackOverflowError.
@@ -1269,6 +1299,31 @@
         (is (str/includes? (str out) "Assertions:"))
         (is (str/includes? (str err)
                            "Failure diagnostics failed while serializing 1 failing entries."))))))
+
+(deftest run-exec-pathological-fixtures-through-real-runner-test
+  ;; Exercise the -X/run-with-boundary path through the real clojure-test runner
+  ;; so structured non-zero ex-data preserves the test-derived outcome for
+  ;; pathological cyclic assertion and ex-data failures.
+  (with-temp-dir [dir]
+    (let [out (string-writer)
+          err (string-writer)
+          thrown (try
+                   (#'cli/run-with-boundary
+                    {:namespaces ['scry.fixtures.pathological]}
+                    (test-boundary {:cwd (.getPath dir)
+                                    :out out
+                                    :err err}))
+                   nil
+                   (catch clojure.lang.ExceptionInfo e e))
+          data (ex-data thrown)
+          outcome (:outcome data)
+          files (result-files dir)
+          result-data (mapv #(edn/read-string (slurp (io/file dir ".scry-results" %))) files)]
+      (is (some? thrown))
+      (is (= :scry.cli/non-zero (:type data)))
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind data)))
+      (assert-pathological-cli-outcome outcome files result-data (str out) (str err))
+      (is (not (contains? outcome :scry.cli/diagnostic-error))))))
 
 (deftest run-exec-result-file-write-failure-is-diagnostic-test
   ;; The -X path preserves the same post-run diagnostic failure semantics in

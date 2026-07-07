@@ -943,6 +943,52 @@
                 (mapcat #(tree-seq coll? seq %) data)))
       (is (some #(= "boom" %) (mapcat #(tree-seq coll? seq %) data))))))
 
+(deftest cli-diagnostic-fallback-is-bounded-and-cycle-safe-test
+  ;; Fallback diagnostics must not recurse forever or emit unbounded strings when
+  ;; result-file serialization itself fails or the first failing assertion is
+  ;; pathological.
+  (testing "root-cause helpers tolerate cyclic and deep cause chains"
+    (let [cyclic (proxy [RuntimeException] ["cycle"]
+                   (getCause [] this))
+          deep (reduce (fn [cause n]
+                         (RuntimeException. (str "cause-" n) cause))
+                       (RuntimeException. "root")
+                       (range 20))]
+      (is (str/includes? (#'cli/throwable-cause-text cyclic) "cycle"))
+      (is (str/includes? (#'cli/throwable-cause-text deep) "cause-"))))
+  (testing "diagnostic-error and stderr fallback bound hostile strings"
+    (with-temp-dir [dir]
+      (let [long-message (apply str (repeat 21000 "x"))
+            cyclic (proxy [RuntimeException] [long-message]
+                     (getCause [] this))
+            entries [{:var 'scry.fixtures.pathological/bounded-diagnostic
+                      :ns 'scry.fixtures.pathological
+                      :status :error
+                      :assertion-summary {:pass 0 :fail 0 :error 1}
+                      :assertions [{:type :error
+                                    :message long-message
+                                    :actual cyclic}]}]
+            out (string-writer)
+            err (string-writer)]
+        (with-redefs [cli-results/write-result-files! (fn [& _]
+                                                        (throw cyclic))]
+          (let [outcome (#'cli/run-cli
+                         (#'cli/normalize-exec-opts {})
+                         (test-boundary {:cwd (.getPath dir)
+                                         :out out
+                                         :err err
+                                         :run-clojure-test (fn [_]
+                                                             (runner-result entries))}))
+                diagnostic (:scry.cli/diagnostic-error outcome)
+                stderr (str err)]
+            (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+            (is (<= (count (:message diagnostic)) 20100))
+            (is (<= (count (:root-message diagnostic)) 20100))
+            (is (<= (count (:first-root-cause diagnostic)) 20100))
+            (is (str/includes? (:first-root-cause diagnostic) ":max-string-length"))
+            (is (<= (count stderr) 20500))
+            (is (str/includes? stderr ":max-string-length"))))))))
+
 (deftest run-cli-result-file-write-failure-is-diagnostic-test
   ;; Result-file serialization failure is post-run diagnostics: the summary and
   ;; test-derived outcome survive, with bounded diagnostic metadata attached.

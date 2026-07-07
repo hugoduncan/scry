@@ -550,19 +550,50 @@
   (.write out (str "Randomized with --seed " seed "\n"))
   (.flush out))
 
+(defn- diagnostic-max-string-length
+  []
+  (:max-string-length results/default-sanitizer-limits))
+
+(defn- diagnostic-max-cause-depth
+  []
+  (:max-throwable-depth results/default-sanitizer-limits))
+
+(defn- bounded-diagnostic-string
+  [s]
+  (when s
+    (let [s (str s)
+          max-length (diagnostic-max-string-length)]
+      (if (and max-length (> (count s) max-length))
+        (str (subs s 0 max-length) "…" (pr-str {:scry/truncated :max-string-length}))
+        s))))
+
 (defn- root-cause-throwable
   [^Throwable t]
-  (loop [t t]
-    (if-let [cause (.getCause t)]
-      (recur cause)
-      t)))
+  (loop [current t
+         depth 0
+         seen (java.util.IdentityHashMap.)]
+    (cond
+      (nil? current)
+      nil
+
+      (or (>= depth (diagnostic-max-cause-depth))
+          (.containsKey seen current))
+      current
+
+      :else
+      (do
+        (.put seen current true)
+        (if-let [cause (.getCause current)]
+          (recur cause (inc depth) seen)
+          current)))))
 
 (defn- throwable-cause-text
   [^Throwable t]
-  (let [root (root-cause-throwable t)]
-    (str (.getName (class root))
-         (when-let [message (.getMessage root)]
-           (str ": " message)))))
+  (when-let [root (root-cause-throwable t)]
+    (bounded-diagnostic-string
+     (str (.getName (class root))
+          (when-let [message (bounded-diagnostic-string (.getMessage root))]
+            (str ": " message))))))
 
 (defn- assertion-cause-text
   "Human root-cause text for a load-error assertion's `:actual`.
@@ -677,17 +708,19 @@
         first-entry (first failing)
         first-assertion (first (:assertions first-entry))]
     (cond-> {:phase :result-file-writing
-             :message (error-diagnostic-message e)
+             :message (bounded-diagnostic-string (error-diagnostic-message e))
              :type (symbol (.getName (class e)))
              :root-type (symbol (.getName (class root)))
-             :root-message (or (.getMessage root) (.getName (class root)))
+             :root-message (bounded-diagnostic-string
+                            (or (.getMessage root) (.getName (class root))))
              :failed-entry-count (count failing)}
       (results/concrete-var-symbol? (:var first-entry))
       (assoc :first-failing-var (:var first-entry))
 
       first-assertion
-      (assoc :first-root-cause (or (assertion-cause-text first-assertion)
-                                   (:message first-assertion))))))
+      (assoc :first-root-cause (bounded-diagnostic-string
+                                (or (assertion-cause-text first-assertion)
+                                    (:message first-assertion)))))))
 
 (defn- write-result-files-diagnostic!
   [{:keys [err]} dir entries]
@@ -721,17 +754,16 @@
    available, the root cause's class/message."
   [^Throwable e]
   (let [msg (.getMessage e)
-        root (loop [^Throwable t e]
-               (if-let [cause (.getCause t)]
-                 (recur cause)
-                 t))
+        root (root-cause-throwable e)
         base (if (str/blank? msg)
                (str "Unexpected " (.getName (class e)) " during scry CLI run")
-               msg)]
-    (if (and (not (identical? root e))
-             (not (str/blank? (.getMessage root))))
-      (str base " (root cause: " (.getName (class root)) ": " (.getMessage root) ")")
-      base)))
+               (bounded-diagnostic-string msg))]
+    (bounded-diagnostic-string
+     (if (and (not (identical? root e))
+              (not (str/blank? (.getMessage root))))
+       (str base " (root cause: " (.getName (class root)) ": "
+            (bounded-diagnostic-string (.getMessage root)) ")")
+       base))))
 
 (def ^:private canonical-entry-statuses #{:pass :fail :error :unknown})
 

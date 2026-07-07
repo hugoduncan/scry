@@ -943,6 +943,29 @@
                 (mapcat #(tree-seq coll? seq %) data)))
       (is (some #(= "boom" %) (mapcat #(tree-seq coll? seq %) data))))))
 
+(deftest run-cli-pathological-fixtures-through-real-runner-test
+  ;; Exercise the pathological fixtures through the real clojure-test runner so
+  ;; capture, canonical result construction, CLI classification, and result-file
+  ;; serialization are proven safe together.
+  (with-temp-dir [dir]
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
+                                   {:namespaces ['scry.fixtures.pathological]}))
+          files (result-files dir)
+          data (mapv #(edn/read-string (slurp (io/file dir ".scry-results" %))) files)
+          flattened (mapcat #(tree-seq coll? seq %) data)]
+      (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (= {:pass 0 :fail 1 :error 1}
+             (get-in outcome [:summary :assertions])))
+      (is (= {:pass 0 :fail 1 :error 1 :unknown 0}
+             (get-in outcome [:summary :tests])))
+      (is (= 2 (get-in outcome [:summary :var-count])))
+      (is (str/includes? (:stdout outcome) "Assertions:"))
+      (is (not (str/includes? (:stderr outcome) "StackOverflowError")))
+      (is (some #(= {:scry/cycle true :class "java.util.HashMap"} %) flattened))
+      (is (some #(= {:scry/cycle true :class "java.util.IdentityHashMap"} %) flattened))
+      (is (some #(= "boom" %) flattened)))))
+
 (deftest cli-diagnostic-fallback-is-bounded-and-cycle-safe-test
   ;; Fallback diagnostics must not recurse forever or emit unbounded strings when
   ;; result-file serialization itself fails or the first failing assertion is

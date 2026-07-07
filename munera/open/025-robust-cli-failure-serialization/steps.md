@@ -59,3 +59,9 @@
 - [x] Run final focused CLI verification: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"`.
 - [x] Run final core command-line verification if runner/capture/API behavior changed: `clojure -M:test -m scry.cli`.
 - [x] Record final verification commands and results in `implementation.md`.
+
+## Implementation review follow-ups
+
+- [ ] Change sanitizer cycle detection to be path-scoped, not globally sticky, so repeated shared object identities in separate branches are serialized normally while true recursive cycles still emit `{:scry/cycle true :class "..."}`.
+- [ ] Apply configured string bounding to `:scry/non-edn-class` placeholder `:str` values, including hostile or very large `toString` output.
+- [ ] Add regression tests for repeated shared object identities that are not cycles and for bounded non-EDN placeholder strings.

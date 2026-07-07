@@ -65,5 +65,5 @@
 - [x] Change sanitizer cycle detection to be path-scoped, not globally sticky, so repeated shared object identities in separate branches are serialized normally while true recursive cycles still emit `{:scry/cycle true :class "..."}`.
 - [x] Apply configured string bounding to `:scry/non-edn-class` placeholder `:str` values, including hostile or very large `toString` output.
 - [x] Add regression tests for repeated shared object identities that are not cycles and for bounded non-EDN placeholder strings.
-- [ ] Move the Throwable bounded-shape assertions in `test/scry/cli_test.clj` back inside `edn-readable-data-bounds-pathological-values-test` (or another `deftest`) so they run under `clojure.test` instead of as top-level load-time assertions.
-- [ ] Make Throwable cycle tracking path-scoped like the general sanitizer identity tracking, and add a regression for repeated shared Throwable identities in separate branches so non-recursive sharing is not serialized as a cycle.
+- [x] Move the Throwable bounded-shape assertions in `test/scry/cli_test.clj` back inside `edn-readable-data-bounds-pathological-values-test` (or another `deftest`) so they run under `clojure.test` instead of as top-level load-time assertions.
+- [x] Make Throwable cycle tracking path-scoped like the general sanitizer identity tracking, and add a regression for repeated shared Throwable identities in separate branches so non-recursive sharing is not serialized as a cycle.

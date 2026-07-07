@@ -243,19 +243,22 @@
         (cycle-placeholder t)
         (do
           (.put seen t true)
-          (let [ex-data-value (when (instance? clojure.lang.IExceptionInfo t)
-                                (ex-data t))
-                ex-opts (assoc opts :max-depth (:max-ex-data-depth opts))
-                trace (take (:max-stack-frames opts) (.getStackTrace t))
-                suppressed (take (:max-suppressed opts) (.getSuppressed t))]
-            (cond-> {:type (symbol (class-name t))
-                     :message (some-> (.getMessage t) (bounded-string opts))
-                     :at (some-> (first (.getStackTrace t)) stack-frame-data)
-                     :trace (mapv stack-frame-data trace)}
-              ex-data-value (assoc :data (edn-readable-data* ex-data-value ex-opts 0))
-              (.getCause t) (assoc :cause (throwable-data* (.getCause t) opts (inc depth)))
-              (seq suppressed) (assoc :suppressed (mapv #(throwable-data* % opts (inc depth))
-                                                        suppressed)))))))))
+          (try
+            (let [ex-data-value (when (instance? clojure.lang.IExceptionInfo t)
+                                  (ex-data t))
+                  ex-opts (assoc opts :max-depth (:max-ex-data-depth opts))
+                  trace (take (:max-stack-frames opts) (.getStackTrace t))
+                  suppressed (take (:max-suppressed opts) (.getSuppressed t))]
+              (cond-> {:type (symbol (class-name t))
+                       :message (some-> (.getMessage t) (bounded-string opts))
+                       :at (some-> (first (.getStackTrace t)) stack-frame-data)
+                       :trace (mapv stack-frame-data trace)}
+                ex-data-value (assoc :data (edn-readable-data* ex-data-value ex-opts 0))
+                (.getCause t) (assoc :cause (throwable-data* (.getCause t) opts (inc depth)))
+                (seq suppressed) (assoc :suppressed (mapv #(throwable-data* % opts (inc depth))
+                                                          suppressed))))
+            (finally
+              (.remove seen t))))))))
 
 (defn- with-identity
   [value opts f]

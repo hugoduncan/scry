@@ -882,20 +882,30 @@
                                                    {:max-string-length 5})]
       (is (str/includes? (:scry/non-edn-class sanitized) "proxy"))
       (is (str/starts-with? (:str sanitized) "xxxxx…"))
-      (is (str/includes? (:str sanitized) ":max-string-length")))))
-(testing "throwables use controlled bounded shape"
-  (let [data (java.util.IdentityHashMap.)
-        _ (.put data :self data)
-        cause (ex-info "root" {:cyclic data})
-        error (ex-info "boom" {} cause)
-        sanitized (cli-results/edn-readable-data error {:max-stack-frames 2})]
-    (is (= 'clojure.lang.ExceptionInfo (:type sanitized)))
-    (is (= "boom" (:message sanitized)))
-    (is (= 'clojure.lang.ExceptionInfo (get-in sanitized [:cause :type])))
-    (is (= "root" (get-in sanitized [:cause :message])))
-    (is (<= (count (:trace sanitized)) 2))
-    (is (= {:scry/cycle true :class "java.util.IdentityHashMap"}
-           (get-in sanitized [:cause :data :cyclic :self])))))
+      (is (str/includes? (:str sanitized) ":max-string-length"))))
+  (testing "throwables use controlled bounded shape"
+    (let [data (java.util.IdentityHashMap.)
+          _ (.put data :self data)
+          cause (ex-info "root" {:cyclic data})
+          error (ex-info "boom" {} cause)
+          sanitized (cli-results/edn-readable-data error {:max-stack-frames 2})]
+      (is (= 'clojure.lang.ExceptionInfo (:type sanitized)))
+      (is (= "boom" (:message sanitized)))
+      (is (= 'clojure.lang.ExceptionInfo (get-in sanitized [:cause :type])))
+      (is (= "root" (get-in sanitized [:cause :message])))
+      (is (<= (count (:trace sanitized)) 2))
+      (is (= {:scry/cycle true :class "java.util.IdentityHashMap"}
+             (get-in sanitized [:cause :data :cyclic :self])))))
+  (testing "repeated shared Throwable identities in separate branches are not cycles"
+    (let [shared (ex-info "shared" {})]
+      (is (= {:left {:type 'clojure.lang.ExceptionInfo
+                     :message "shared"}
+              :right {:type 'clojure.lang.ExceptionInfo
+                      :message "shared"}}
+             (-> (cli-results/edn-readable-data {:left shared :right shared}
+                                                {:max-stack-frames 0})
+                 (update :left select-keys [:type :message])
+                 (update :right select-keys [:type :message])))))))
 
 (deftest run-cli-pathological-failures-keep-test-outcome-test
   ;; Pathological cyclic assertion and Throwable data must not turn a test

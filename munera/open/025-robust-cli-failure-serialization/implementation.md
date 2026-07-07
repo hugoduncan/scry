@@ -51,3 +51,5 @@
 - 2026-07-07 test-review follow-up slice: addressed 2 immediately preceding test-review steps. Added an injectable `:write-result-files` boundary to `scry.cli` and converted diagnostic fallback tests away from global `with-redefs`; added a subprocess regression that invokes the actual `-m scry.cli` entrypoint against `scry.fixtures.pathological`, verifies non-zero exit, normal summary output, result-file placeholders/root message, and no primary `StackOverflowError`. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (61 tests, 485 assertions).
 - final core CLI verification passed after follow-ups: `clojure -M:test -m scry.cli` (117 tests, 783 assertions).
 - post-format verification passed: focused CLI test command (61 tests, 485 assertions) and `clojure -M:test -m scry.cli` (117 tests, 783 assertions).
+
+- test review: added 1 step to be addressed.

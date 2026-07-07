@@ -9,3 +9,4 @@
 - no ambiguity review feedback
 - review-slice handoff: when addressing design-step fallout, maintain the boundary that diagnostic serialization is a post-run CLI concern; consult `AGENTS.md` for the CLI contract and `src/scry/cli.clj` / `src/scry/cli/results.clj` for implementation behavior.
 - ambiguity review added 3 new design steps: pin sanitizer truncation/string representation, cycle-detection path-vs-global semantics, and controlled Throwable frame shape before implementation tests lock in accidental choices.
+- plan-review inconsistency pass: no new feedback

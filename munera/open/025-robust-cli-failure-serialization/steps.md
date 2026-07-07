@@ -75,6 +75,6 @@
 
 ## Test review follow-ups
 
-- [ ] Add direct unit tests for Throwable cause-depth truncation using a configured small `:max-throwable-depth`, asserting the bounded sentinel shape instead of only incidental root-message preservation.
-- [ ] Add direct unit tests for Throwable suppressed-exception count capping using a configured small `:max-suppressed`, asserting excess suppressed exceptions are omitted or otherwise bounded as intended.
-- [ ] Add a focused CLI regression proving the normal summary is written before result-file serialization is attempted, e.g. by observing the stdout writer inside a forced `write-result-files!` failure boundary.
+- [x] Add direct unit tests for Throwable cause-depth truncation using a configured small `:max-throwable-depth`, asserting the bounded sentinel shape instead of only incidental root-message preservation.
+- [x] Add direct unit tests for Throwable suppressed-exception count capping using a configured small `:max-suppressed`, asserting excess suppressed exceptions are omitted or otherwise bounded as intended.
+- [x] Add a focused CLI regression proving the normal summary is written before result-file serialization is attempted, e.g. by observing the stdout writer inside a forced `write-result-files!` failure boundary.

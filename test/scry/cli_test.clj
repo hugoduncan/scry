@@ -905,7 +905,25 @@
              (-> (cli-results/edn-readable-data {:left shared :right shared}
                                                 {:max-stack-frames 0})
                  (update :left select-keys [:type :message])
-                 (update :right select-keys [:type :message])))))))
+                 (update :right select-keys [:type :message]))))))
+  (testing "Throwable cause depth is explicitly bounded"
+    (let [root (RuntimeException. "root")
+          middle (RuntimeException. "middle" root)
+          top (RuntimeException. "top" middle)
+          sanitized (cli-results/edn-readable-data top {:max-throwable-depth 1
+                                                        :max-stack-frames 0})]
+      (is (= 'java.lang.RuntimeException (:type sanitized)))
+      (is (= "top" (:message sanitized)))
+      (is (= {:scry/truncated :throwable-cause-depth}
+             (:cause sanitized)))))
+  (testing "Throwable suppressed exceptions are capped"
+    (let [top (RuntimeException. "top")]
+      (.addSuppressed top (RuntimeException. "suppressed-1"))
+      (.addSuppressed top (RuntimeException. "suppressed-2"))
+      (let [sanitized (cli-results/edn-readable-data top {:max-suppressed 1
+                                                          :max-stack-frames 0})]
+        (is (= 1 (count (:suppressed sanitized))))
+        (is (= "suppressed-1" (get-in sanitized [:suppressed 0 :message])))))))
 
 (deftest run-cli-pathological-failures-keep-test-outcome-test
   ;; Pathological cyclic assertion and Throwable data must not turn a test
@@ -1050,20 +1068,30 @@
   ;; Result-file serialization failure is post-run diagnostics: the summary and
   ;; test-derived outcome survive, with bounded diagnostic metadata attached.
   (with-temp-dir [dir]
-    (with-redefs [cli-results/write-result-files! (fn [& _]
-                                                    (throw (ex-info "write exploded" {})))]
-      (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
-                                     {:vars ['scry.fixtures.failing/equality-fails]}))]
-        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-        (is (= [] (:result-files outcome)))
-        (is (= :result-file-writing
-               (get-in outcome [:scry.cli/diagnostic-error :phase])))
-        (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
-        (is (= 'scry.fixtures.failing/equality-fails
-               (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
-        (is (str/includes? (:stdout outcome) "Assertions:"))
-        (is (str/includes? (:stderr outcome)
-                           "Failure diagnostics failed while serializing 1 failing entries."))))))
+    (let [out (string-writer)
+          err (string-writer)
+          summary-before-write? (atom false)]
+      (with-redefs [cli-results/write-result-files! (fn [& _]
+                                                      (reset! summary-before-write?
+                                                              (str/includes? (str out) "Assertions:"))
+                                                      (throw (ex-info "write exploded" {})))]
+        (let [outcome (#'cli/run-cli
+                       (#'cli/normalize-exec-opts
+                        {:vars ['scry.fixtures.failing/equality-fails]})
+                       (test-boundary {:cwd (.getPath dir)
+                                       :out out
+                                       :err err}))]
+          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+          (is (= [] (:result-files outcome)))
+          (is (= :result-file-writing
+                 (get-in outcome [:scry.cli/diagnostic-error :phase])))
+          (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
+          (is (= 'scry.fixtures.failing/equality-fails
+                 (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
+          (is @summary-before-write?)
+          (is (str/includes? (str out) "Assertions:"))
+          (is (str/includes? (str err)
+                             "Failure diagnostics failed while serializing 1 failing entries.")))))))
 
 (deftest run-exec-result-file-write-failure-is-diagnostic-test
   ;; The -X path preserves the same post-run diagnostic failure semantics in

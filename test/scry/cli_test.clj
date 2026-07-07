@@ -1173,6 +1173,56 @@
       (is (str/includes? (str err)
                          "Failure diagnostics failed while serializing 1 failing entries.")))))
 
+(deftest run-cli-load-error-result-file-write-failure-is-diagnostic-test
+  ;; Diagnostic-write failures preserve synthetic load-error outcomes and still
+  ;; emit both the bounded fallback warning and the normal load-error stderr
+  ;; detail/pointer semantics.
+  (with-temp-dir [dir]
+    (let [root-cause (RuntimeException. "load root cause")
+          load-failure (ex-info "compile failed" {} root-cause)
+          synthetic-error {:var nil
+                           :ns nil
+                           :status :error
+                           :assertion-summary {:pass 0 :fail 0 :error 1}
+                           :assertions [{:type :error
+                                         :message "Failed loading tests:"
+                                         :expected nil
+                                         :actual load-failure}]
+                           :out ""
+                           :err ""}
+          out (string-writer)
+          err (string-writer)
+          outcome (#'cli/run-cli
+                   (#'cli/normalize-exec-opts {})
+                   (test-boundary {:cwd (.getPath dir)
+                                   :out out
+                                   :err err
+                                   :write-result-files (fn [& _]
+                                                         (throw (ex-info "write exploded" {})))
+                                   :run-clojure-test (fn [opts]
+                                                       ((:progress-callback opts) synthetic-error)
+                                                       (runner-result [synthetic-error]))}))
+          diagnostic (:scry.cli/diagnostic-error outcome)
+          stderr (str err)]
+      (is (= 1 (:exit-code outcome)))
+      (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
+      (is (= [] (:result-files outcome)))
+      (is (= "Assertions: 0 passed, 0 failed, 1 errored\nTests: 0 passed, 0 failed, 1 errored\n"
+             (str out)))
+      (is (= :result-file-writing (:phase diagnostic)))
+      (is (= 1 (:failed-entry-count diagnostic)))
+      (is (not (contains? diagnostic :first-failing-var)))
+      (is (str/includes? (:first-root-cause diagnostic) "java.lang.RuntimeException"))
+      (is (str/includes? (:first-root-cause diagnostic) "load root cause"))
+      (is (str/includes? stderr "suite-error-1"))
+      (is (str/includes? stderr
+                         "Failure diagnostics failed while serializing 1 failing entries."))
+      (is (str/includes? stderr "First root cause: java.lang.RuntimeException: load root cause"))
+      (is (str/includes? stderr "Load error: Failed loading tests:"))
+      (is (str/includes? stderr "java.lang.RuntimeException: load root cause"))
+      (is (str/includes? stderr "See "))
+      (is (str/includes? stderr "for failure details")))))
+
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned
   ;; result, while CLI-retained canonical results still drive detailed EDN

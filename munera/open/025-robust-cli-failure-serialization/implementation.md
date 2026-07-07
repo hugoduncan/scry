@@ -119,3 +119,5 @@
 - 2026-07-07 documentation-review follow-up slice: addressed 1 immediately preceding review step. Documented the stable public `:scry.cli/diagnostic-error` metadata keys in README.md and the generated `scry.cli/run` API docs source, then regenerated doc/API.md. Verification passed: `bb api-docs --check`; `clojure -M:quickdoc:quickdoc-test:kaocha -e "(require '[scry.api-docs-test :as t] '[clojure.test :as ct]) (let [result (ct/run-tests 'scry.api-docs-test)] (when-not (ct/successful? result) (System/exit 1)))"` (1 test, 65 assertions).
 
 - documentation review: no new feedback.
+
+- code-shaper review: no new feedback.

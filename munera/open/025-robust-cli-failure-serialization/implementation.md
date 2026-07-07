@@ -33,3 +33,5 @@
 - implementation review: added 2 steps to be addressed.
 
 - 2026-07-07 review follow-up slice: addressed 2 immediately preceding implementation-review steps. CLI fallback diagnostic root-cause traversal is now cycle-safe and bounded for serialization exceptions and first failing Throwable assertions; top-level diagnostic-error string fields and matching stderr fallback root-cause text are bounded. Added regression coverage for cyclic/deep diagnostic cause chains and hostile long messages. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (57 tests, 457 assertions).
+
+- implementation review: added 1 step to be addressed.

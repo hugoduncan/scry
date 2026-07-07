@@ -25,3 +25,5 @@
 - implementation review: added 3 steps to be addressed.
 
 - 2026-07-07 review follow-up slice: addressed 3 implementation-review steps. Sanitizer identity tracking is now path-scoped so repeated shared objects in separate branches serialize normally while recursive cycles still emit `{:scry/cycle true :class "..."}`. Non-EDN placeholder `:str` values now use configured string bounding, including hostile/large `toString` output. Added direct regressions for shared non-cycle identities and bounded non-EDN placeholder strings. Verification passed: `clojure -M:test -e "(require '[scry.cli-test :as t] '[clojure.test :as ct]) (let [r (ct/run-tests 'scry.cli-test)] (when-not (ct/successful? r) (System/exit 1)))"` (56 tests, 441 assertions) and `clojure -M:test -m scry.cli` (114 tests, 739 assertions).
+
+- implementation review: added 2 steps to be addressed.

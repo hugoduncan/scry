@@ -12,3 +12,5 @@
 - plan-review inconsistency pass: no new feedback
 - design-step resolution guidance: keep sanitizer and Throwable shapes stable enough for CLI result-file assertions but avoid expanding public API beyond documented placeholders/diagnostic metadata; resolve ambiguities against existing `src/scry/cli/results.clj` file-writing needs and `test/scry/cli_test.clj` expectations, with `src/scry/cli.clj` preserving outcome/summary ordering.
 - plan-follow-up scan: latest plan-review batch identified as commits `f6f388b`..`55044ba` with baseline `63f92f0`; `git diff 63f92f0..HEAD -- munera/open/025-robust-cli-failure-serialization/steps.md` added no checklist lines, so there are no attributed unchecked `steps.md` follow-up items to execute.
+
+- plan-review ambiguity pass: no new feedback

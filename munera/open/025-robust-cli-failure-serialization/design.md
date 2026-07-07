@@ -43,9 +43,17 @@ Layer 1 — Preserve failure signal:
   written to stderr, and an empty result-file vector is used.
 - The run outcome must remain `:scry.cli/test-failure` (or the appropriate
   test-derived outcome), **not** become `:scry.cli/runner-error`.
-- Print the minimal test summary **before** detailed serialization work, so
-  users always know the run failed because of test errors, not because no
-  tests ran.
+- Compute the test-derived outcome from collected entries and summary before
+  detailed serialization work. Print the normal CLI run summary to stdout
+  immediately after the outcome is known and before writing `.scry-results/`
+  detail files, so users always know the run failed because of test errors,
+  not because no tests ran. This is the existing normal summary text, not an
+  additional duplicate summary line.
+- Preserve existing supplementary human output semantics: progress labels may
+  already have been written before the summary; failure stderr diagnostics and
+  result-directory pointers remain after result-file writing; `-X` return maps
+  carry the same `:summary`, `:result-files`, and outcome metadata rather than
+  receiving a second summary field.
 
 Layer 2 — Robust EDN sanitizer (`scry.cli.results/edn-readable-data`):
 
@@ -73,28 +81,59 @@ Layer 3 — Controlled Throwable normalization:
 - This preserves the useful root cause message rather than a
   `StackOverflowError`.
 
-Layer 4 — Outcome taxonomy:
+Layer 4 — Outcome taxonomy and diagnostic metadata:
 
-- Distinguish "test runner failed" from "diagnostic rendering failed".
-  Extend the taxonomy with `:scry.cli/diagnostic-error` alongside existing
-  `:scry.cli/test-failure`, `:scry.cli/load-error`, `:scry.cli/runner-error`.
+- Keep `:scry.cli/outcome-kind` as the authoritative machine signal. Do not add
+  `:scry.cli/diagnostic-error` as an allowed `:scry.cli/outcome-kind` value.
+  It is an additive top-level key on the CLI / `-X` outcome map when
+  diagnostic rendering or result-file writing fails after the run has produced
+  a test-derived outcome.
 - When the test run succeeded in producing entries but diagnostic
-  serialization failed, the outcome should be the test-derived outcome with
-  an attached diagnostic-error, e.g.:
+  serialization failed, the outcome should be the test-derived outcome with an
+  attached diagnostic-error, e.g.:
   `{:scry.cli/outcome-kind :scry.cli/test-failure
     :scry.cli/diagnostic-error {...}}`
   not `{:scry.cli/outcome-kind :scry.cli/runner-error}`.
+- `:scry.cli/diagnostic-error` must be a bounded EDN map suitable for tests to
+  assert structurally. Required keys:
+  - `:phase` — keyword naming the diagnostic phase, initially
+    `:result-file-writing`;
+  - `:message` — non-empty human-readable exception message or fallback class
+    text;
+  - `:type` — exception class symbol;
+  - `:root-type` — root-cause class symbol;
+  - `:root-message` — root-cause message or fallback text;
+  - `:failed-entry-count` — number of failing/erroring/unknown entries that
+    result-file writing attempted to serialize;
+  - `:first-failing-var` — symbol for the first concrete failing var, when one
+    exists;
+  - `:first-root-cause` — bounded string combining root-cause class and message
+    from the first failing entry, when derivable.
+  Implementations may include additional bounded diagnostic keys, but tests
+  should rely only on these required fields.
 
-Layer 5 — Runner diagnostic fallback ergonomics:
+Layer 5 — Diagnostic fallback ergonomics:
 
-- Keep progress labels. When scry catches a runner-level exception that
-  occurred **after** collecting entries, include the first failing var and
-  first root cause in the diagnostic, e.g.:
+- Keep progress labels.
+- Do not reinterpret the existing outer `run-cli` catch path as test-derived:
+  exceptions raised before canonical entries and summary have been collected
+  remain `:scry.cli/runner-error` and use the existing error-summary behavior.
+- Once canonical entries and summary have been collected, later diagnostic
+  failures are no longer runner failures. The primary outcome remains the
+  result of `classify-outcome` (`:scry.cli/test-failure`,
+  `:scry.cli/load-error`, `:scry.cli/unknown-result`, `:scry.cli/zero-tests`,
+  or `:scry.cli/pass`) and the failure is recorded under
+  `:scry.cli/diagnostic-error`.
+- If result-file writing fails, stderr should include a concise fallback
+  diagnostic using the same bounded facts as `:scry.cli/diagnostic-error`, e.g.:
   ```
   Failure diagnostics failed while serializing 17 failing entries.
   First failing var: rocksdb-packed-vals.query.filter-driver-...-test/...
   First root cause: java.lang.UnsatisfiedLinkError: Can't load library: ...
   ```
+  The fallback must include `failed-entry-count`; it must include
+  `first-failing-var` and `first-root-cause` when those can be derived from the
+  collected entries without unbounded traversal.
 
 ## Non-goals
 
@@ -124,8 +163,9 @@ Layer 5 — Runner diagnostic fallback ergonomics:
     placeholders (or, if writing itself fails, a stderr warning and empty
     result-file vector);
   - returns `:scry.cli/outcome-kind :scry.cli/test-failure` (never
-    `:scry.cli/runner-error`) and, when diagnostics failed, attaches
-    `:scry.cli/diagnostic-error`;
+    `:scry.cli/runner-error`) and, when diagnostics failed, attaches a bounded
+    top-level `:scry.cli/diagnostic-error` map with the required Layer 4
+    fields;
   - does **not** surface a `StackOverflowError`.
 - `edn-readable-data` is cycle-safe and depth/length-limited with the
   documented placeholders.

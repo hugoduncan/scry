@@ -456,7 +456,8 @@
    :err *err*
    :cwd (System/getProperty "user.dir")
    :run-clojure-test clojure-test/run
-   :resolve-kaocha-runner default-resolve-kaocha-runner})
+   :resolve-kaocha-runner default-resolve-kaocha-runner
+   :write-result-files results/write-result-files!})
 
 (defn- assertion-counts
   [entries]
@@ -738,9 +739,9 @@
                                     (:message first-assertion)))))))
 
 (defn- write-result-files-diagnostic!
-  [{:keys [err]} dir entries]
+  [{:keys [err write-result-files]} dir entries]
   (try
-    {:result-files (results/write-result-files! dir entries)}
+    {:result-files ((or write-result-files results/write-result-files!) dir entries)}
     (catch Throwable e
       (let [diagnostic (diagnostic-error e entries)]
         (.write err (str "Failure diagnostics failed while serializing "

@@ -2,6 +2,7 @@
   (:require
    [clojure.edn :as edn]
    [clojure.java.io :as io]
+   [clojure.java.shell :as sh]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [scry.cli :as cli]
@@ -392,6 +393,16 @@
        (map #(.getName %))
        sort
        vec))
+
+(defn- shell-command
+  [& args]
+  (let [opts (when (map? (last args)) (last args))
+        cmd (if opts (butlast args) args)
+        opts (merge {:dir (System/getProperty "user.dir")} opts)
+        env (merge (into {} (System/getenv)) (:env opts))
+        opts (assoc opts :env env)
+        result (apply sh/sh (concat cmd (mapcat identity opts)))]
+    (update result :exit int)))
 
 (defn- write-stale-result!
   [dir]
@@ -961,6 +972,29 @@
                 (mapcat #(tree-seq coll? seq %) data)))
       (is (some #(= "boom" %) (mapcat #(tree-seq coll? seq %) data))))))
 
+(defn- assert-pathological-cli-outcome
+  [outcome files data stdout stderr]
+  (let [flattened (mapcat #(tree-seq coll? seq %) data)]
+    (is (= 1 (:exit-code outcome)))
+    (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+    (is (= {:pass 0 :fail 1 :error 1}
+           (get-in outcome [:summary :assertions])))
+    (is (= {:pass 0 :fail 1 :error 1 :unknown 0}
+           (get-in outcome [:summary :tests])))
+    (is (= 2 (get-in outcome [:summary :var-count])))
+    (is (= #{{:scry/cycle true :class "java.util.HashMap"}
+             {:scry/cycle true :class "java.util.IdentityHashMap"}}
+           (->> flattened
+                (filter #(and (map? %)
+                              (:scry/cycle %)))
+                set)))
+    (is (some #(= "boom" %) flattened))
+    (is (= #{"scry.fixtures.pathological__cyclic-failure-actual-does-not-crash-cli.edn"
+             "scry.fixtures.pathological__throwable-with-cyclic-ex-data-does-not-crash-cli.edn"}
+           (set files)))
+    (is (str/includes? stdout "Assertions:"))
+    (is (not (str/includes? stderr "StackOverflowError")))))
+
 (deftest run-cli-pathological-fixtures-through-real-runner-test
   ;; Exercise the pathological fixtures through the real clojure-test runner so
   ;; capture, canonical result construction, CLI classification, and result-file
@@ -969,20 +1003,31 @@
     (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
                                    {:namespaces ['scry.fixtures.pathological]}))
           files (result-files dir)
+          data (mapv #(edn/read-string (slurp (io/file dir ".scry-results" %))) files)]
+      (assert-pathological-cli-outcome outcome files data (:stdout outcome) (:stderr outcome)))))
+
+(deftest main-cli-pathological-fixtures-subprocess-test
+  ;; Exercise the actual `-m scry.cli` entrypoint in a subprocess. This proves
+  ;; the pathological namespace exits non-zero, prints the normal summary, and
+  ;; writes structured failure files without surfacing StackOverflowError as the
+  ;; primary failure.
+  (with-temp-dir [dir]
+    (let [project-dir (System/getProperty "user.dir")
+          classpath (-> (shell-command "clojure" "-Spath" "-A:test") :out str/trim (str/replace #"^test:" (str project-dir "/test:")) (str/replace #":src:" (str ":" project-dir "/src:")))
+          result (shell-command "java" "-cp" classpath "clojure.main" "-m" "scry.cli"
+                                "--dir" (str project-dir "/test")
+                                "--namespace" "scry.fixtures.pathological"
+                                {:dir (.getPath dir)})
+          files (result-files dir)
           data (mapv #(edn/read-string (slurp (io/file dir ".scry-results" %))) files)
-          flattened (mapcat #(tree-seq coll? seq %) data)]
-      (is (= 1 (:exit-code outcome)))
-      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-      (is (= {:pass 0 :fail 1 :error 1}
-             (get-in outcome [:summary :assertions])))
-      (is (= {:pass 0 :fail 1 :error 1 :unknown 0}
-             (get-in outcome [:summary :tests])))
-      (is (= 2 (get-in outcome [:summary :var-count])))
-      (is (str/includes? (:stdout outcome) "Assertions:"))
-      (is (not (str/includes? (:stderr outcome) "StackOverflowError")))
-      (is (some #(= {:scry/cycle true :class "java.util.HashMap"} %) flattened))
-      (is (some #(= {:scry/cycle true :class "java.util.IdentityHashMap"} %) flattened))
-      (is (some #(= "boom" %) flattened)))))
+          outcome {:exit-code (:exit result)
+                   :scry.cli/outcome-kind :scry.cli/test-failure
+                   :summary {:assertions {:pass 0 :fail 1 :error 1}
+                             :tests {:pass 0 :fail 1 :error 1 :unknown 0}
+                             :var-count 2}}]
+      (is (= 1 (:exit result)))
+      (assert-pathological-cli-outcome outcome files data (:out result) (:err result))
+      (is (str/includes? (:err result) "for failure details")))))
 
 (deftest cli-diagnostic-fallback-is-bounded-and-cycle-safe-test
   ;; Fallback diagnostics must not recurse forever or emit unbounded strings when
@@ -1011,58 +1056,58 @@
                                     :actual cyclic}]}]
             out (string-writer)
             err (string-writer)]
-        (with-redefs [cli-results/write-result-files! (fn [& _]
-                                                        (throw cyclic))]
-          (let [outcome (#'cli/run-cli
-                         (#'cli/normalize-exec-opts {})
-                         (test-boundary {:cwd (.getPath dir)
-                                         :out out
-                                         :err err
-                                         :run-clojure-test (fn [_]
-                                                             (runner-result entries))}))
-                diagnostic (:scry.cli/diagnostic-error outcome)
-                stderr (str err)]
-            (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-            (is (<= (count (:message diagnostic)) 20100))
-            (is (<= (count (:root-message diagnostic)) 20100))
-            (is (<= (count (:first-root-cause diagnostic)) 20100))
-            (is (str/includes? (:first-root-cause diagnostic) ":max-string-length"))
-            (is (<= (count stderr) 20500))
-            (is (str/includes? stderr ":max-string-length")))))))
-  (testing "map-shaped assertion actual via is bounded and tolerant"
-    (with-temp-dir [dir]
-      (let [long-message (apply str (repeat 21000 "y"))
-            cyclic-via (cycle [{:type 'pathological.Root
-                                :message long-message}])
-            entries [{:var 'scry.fixtures.pathological/map-shaped-actual
-                      :ns 'scry.fixtures.pathological
-                      :status :error
-                      :assertion-summary {:pass 0 :fail 0 :error 1}
-                      :assertions [{:type :error
-                                    :message "outer"
-                                    :actual {:via cyclic-via
-                                             :cause long-message}}]}]
-            out (string-writer)
-            err (string-writer)]
-        (with-redefs [cli-results/write-result-files! (fn [& _]
-                                                        (throw (ex-info "write exploded" {})))]
-          (let [outcome (#'cli/run-cli
-                         (#'cli/normalize-exec-opts {})
-                         (test-boundary {:cwd (.getPath dir)
-                                         :out out
-                                         :err err
-                                         :run-clojure-test (fn [_]
-                                                             (runner-result entries))}))
-                diagnostic (:scry.cli/diagnostic-error outcome)
-                stderr (str err)]
-            (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-            (is (= 'scry.fixtures.pathological/map-shaped-actual
-                   (:first-failing-var diagnostic)))
-            (is (<= (count (:first-root-cause diagnostic)) 20100))
-            (is (str/includes? (:first-root-cause diagnostic)
-                               ":max-string-length"))
-            (is (str/includes? stderr "First root cause:"))
-            (is (<= (count stderr) 20500))))))))
+        (let [outcome (#'cli/run-cli
+                       (#'cli/normalize-exec-opts {})
+                       (test-boundary {:cwd (.getPath dir)
+                                       :out out
+                                       :err err
+                                       :write-result-files (fn [& _]
+                                                             (throw cyclic))
+                                       :run-clojure-test (fn [_]
+                                                           (runner-result entries))}))
+              diagnostic (:scry.cli/diagnostic-error outcome)
+              stderr (str err)]
+          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+          (is (<= (count (:message diagnostic)) 20100))
+          (is (<= (count (:root-message diagnostic)) 20100))
+          (is (<= (count (:first-root-cause diagnostic)) 20100))
+          (is (str/includes? (:first-root-cause diagnostic) ":max-string-length"))
+          (is (<= (count stderr) 20500))
+          (is (str/includes? stderr ":max-string-length")))))))
+(testing "map-shaped assertion actual via is bounded and tolerant"
+  (with-temp-dir [dir]
+    (let [long-message (apply str (repeat 21000 "y"))
+          cyclic-via (cycle [{:type 'pathological.Root
+                              :message long-message}])
+          entries [{:var 'scry.fixtures.pathological/map-shaped-actual
+                    :ns 'scry.fixtures.pathological
+                    :status :error
+                    :assertion-summary {:pass 0 :fail 0 :error 1}
+                    :assertions [{:type :error
+                                  :message "outer"
+                                  :actual {:via cyclic-via
+                                           :cause long-message}}]}]
+          out (string-writer)
+          err (string-writer)]
+      (let [outcome (#'cli/run-cli
+                     (#'cli/normalize-exec-opts {})
+                     (test-boundary {:cwd (.getPath dir)
+                                     :out out
+                                     :err err
+                                     :write-result-files (fn [& _]
+                                                           (throw (ex-info "write exploded" {})))
+                                     :run-clojure-test (fn [_]
+                                                         (runner-result entries))}))
+            diagnostic (:scry.cli/diagnostic-error outcome)
+            stderr (str err)]
+        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+        (is (= 'scry.fixtures.pathological/map-shaped-actual
+               (:first-failing-var diagnostic)))
+        (is (<= (count (:first-root-cause diagnostic)) 20100))
+        (is (str/includes? (:first-root-cause diagnostic)
+                           ":max-string-length"))
+        (is (str/includes? stderr "First root cause:"))
+        (is (<= (count stderr) 20500))))))
 
 (deftest run-cli-result-file-write-failure-is-diagnostic-test
   ;; Result-file serialization failure is post-run diagnostics: the summary and
@@ -1071,61 +1116,61 @@
     (let [out (string-writer)
           err (string-writer)
           summary-before-write? (atom false)]
-      (with-redefs [cli-results/write-result-files! (fn [& _]
-                                                      (reset! summary-before-write?
-                                                              (str/includes? (str out) "Assertions:"))
-                                                      (throw (ex-info "write exploded" {})))]
-        (let [outcome (#'cli/run-cli
-                       (#'cli/normalize-exec-opts
-                        {:vars ['scry.fixtures.failing/equality-fails]})
-                       (test-boundary {:cwd (.getPath dir)
-                                       :out out
-                                       :err err}))]
-          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-          (is (= [] (:result-files outcome)))
-          (is (= :result-file-writing
-                 (get-in outcome [:scry.cli/diagnostic-error :phase])))
-          (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
-          (is (= 'scry.fixtures.failing/equality-fails
-                 (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
-          (is @summary-before-write?)
-          (is (str/includes? (str out) "Assertions:"))
-          (is (str/includes? (str err)
-                             "Failure diagnostics failed while serializing 1 failing entries.")))))))
-
-(deftest run-exec-result-file-write-failure-is-diagnostic-test
-  ;; The -X path preserves the same post-run diagnostic failure semantics in
-  ;; structured non-zero ex-data: no duplicate summary fields and no runner-error.
-  (with-temp-dir [dir]
-    (with-redefs [cli-results/write-result-files! (fn [& _]
-                                                    (throw (ex-info "write exploded" {})))]
-      (let [out (string-writer)
-            err (string-writer)
-            thrown (try
-                     (#'cli/run-with-boundary
-                      {:vars ['scry.fixtures.failing/equality-fails]}
-                      (test-boundary {:cwd (.getPath dir)
-                                      :out out
-                                      :err err}))
-                     nil
-                     (catch clojure.lang.ExceptionInfo e e))
-            data (ex-data thrown)
-            outcome (:outcome data)]
-        (is (some? thrown))
-        (is (= :scry.cli/non-zero (:type data)))
-        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind data)))
+      (let [outcome (#'cli/run-cli
+                     (#'cli/normalize-exec-opts
+                      {:vars ['scry.fixtures.failing/equality-fails]})
+                     (test-boundary {:cwd (.getPath dir)
+                                     :out out
+                                     :err err
+                                     :write-result-files (fn [& _]
+                                                           (reset! summary-before-write?
+                                                                   (str/includes? (str out) "Assertions:"))
+                                                           (throw (ex-info "write exploded" {})))}))]
         (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
         (is (= [] (:result-files outcome)))
-        (is (= (:summary data) (:summary outcome)))
         (is (= :result-file-writing
                (get-in outcome [:scry.cli/diagnostic-error :phase])))
         (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
         (is (= 'scry.fixtures.failing/equality-fails
                (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
-        (is (not (contains? outcome :summary-text)))
+        (is @summary-before-write?)
         (is (str/includes? (str out) "Assertions:"))
         (is (str/includes? (str err)
                            "Failure diagnostics failed while serializing 1 failing entries."))))))
+
+(deftest run-exec-result-file-write-failure-is-diagnostic-test
+  ;; The -X path preserves the same post-run diagnostic failure semantics in
+  ;; structured non-zero ex-data: no duplicate summary fields and no runner-error.
+  (with-temp-dir [dir]
+    (let [out (string-writer)
+          err (string-writer)
+          thrown (try
+                   (#'cli/run-with-boundary
+                    {:vars ['scry.fixtures.failing/equality-fails]}
+                    (test-boundary {:cwd (.getPath dir)
+                                    :out out
+                                    :err err
+                                    :write-result-files (fn [& _]
+                                                          (throw (ex-info "write exploded" {})))}))
+                   nil
+                   (catch clojure.lang.ExceptionInfo e e))
+          data (ex-data thrown)
+          outcome (:outcome data)]
+      (is (some? thrown))
+      (is (= :scry.cli/non-zero (:type data)))
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind data)))
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (= [] (:result-files outcome)))
+      (is (= (:summary data) (:summary outcome)))
+      (is (= :result-file-writing
+             (get-in outcome [:scry.cli/diagnostic-error :phase])))
+      (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
+      (is (= 'scry.fixtures.failing/equality-fails
+             (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
+      (is (not (contains? outcome :summary-text)))
+      (is (str/includes? (str out) "Assertions:"))
+      (is (str/includes? (str err)
+                         "Failure diagnostics failed while serializing 1 failing entries.")))))
 
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned

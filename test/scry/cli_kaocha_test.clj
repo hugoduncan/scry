@@ -20,22 +20,22 @@
      (is true "Kaocha CLI tests are skipped unless the :kaocha alias is active")))
 
 (defn- temp-dir
-  []
+  ^java.io.File []
   (.toFile (java.nio.file.Files/createTempDirectory
             "scry-cli-kaocha-test"
             (make-array java.nio.file.attribute.FileAttribute 0))))
 
 (defn- delete-recursive!
-  [file]
+  [^java.io.File file]
   (when (.exists file)
     (when (.isDirectory file)
-      (doseq [child (.listFiles file)]
+      (doseq [^java.io.File child (.listFiles file)]
         (delete-recursive! child)))
     (.delete file)))
 
 (defmacro with-temp-dir
   [[sym] & body]
-  `(let [~sym (temp-dir)]
+  `(let [^java.io.File ~sym (temp-dir)]
      (try
        ~@body
        (finally
@@ -115,14 +115,14 @@
   [dir opts]
   (let [out (string-writer)
         err (string-writer)
-        boundary (test-boundary {:cwd (.getPath dir) :out out :err err})
+        boundary (test-boundary {:cwd (.getPath ^java.io.File dir) :out out :err err})
         outcome (#'cli/run-cli opts boundary)]
     (assoc outcome :stdout (str out) :stderr (str err))))
 
 (defn- result-files
   [dir]
   (->> (.listFiles (io/file dir ".scry-results"))
-       (map #(.getName %))
+       (map #(.getName ^java.io.File %))
        sort
        vec))
 

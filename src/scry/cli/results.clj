@@ -6,7 +6,7 @@
 
 (defn results-dir
   "Return the .scry-results directory for an IO boundary map containing :cwd."
-  [{:keys [cwd]}]
+  ^java.io.File [{:keys [cwd]}]
   (io/file cwd ".scry-results"))
 
 (defn- directory-without-following-symlinks?
@@ -17,15 +17,15 @@
                [java.nio.file.LinkOption/NOFOLLOW_LINKS])))
 
 (defn- delete-recursive!
-  [file]
-  (let [path (.toPath file)]
+  [^java.io.File file]
+  (let [^java.nio.file.Path path (.toPath file)]
     (when (java.nio.file.Files/exists
            path
            (into-array java.nio.file.LinkOption
                        [java.nio.file.LinkOption/NOFOLLOW_LINKS]))
       (when (directory-without-following-symlinks? path)
         (with-open [children (java.nio.file.Files/newDirectoryStream path)]
-          (doseq [child children]
+          (doseq [^java.nio.file.Path child children]
             (delete-recursive! (.toFile child)))))
       (try
         (java.nio.file.Files/delete path)
@@ -38,7 +38,7 @@
 (defn prepare-results-dir!
   "Clear and recreate the CLI results directory for a run."
   [io-boundary]
-  (let [dir (results-dir io-boundary)]
+  (let [^java.io.File dir (results-dir io-boundary)]
     (delete-recursive! dir)
     (when-not (.mkdirs dir)
       (throw (ex-info (str "Could not create " (.getPath dir))
@@ -249,7 +249,7 @@
   [^Throwable t opts depth]
   (if (>= depth (:max-throwable-depth opts))
     (truncated :throwable-cause-depth)
-    (let [seen (:throwable-seen opts)]
+    (let [^java.util.IdentityHashMap seen (:throwable-seen opts)]
       (if (.containsKey seen t)
         (cycle-placeholder t)
         (do
@@ -258,10 +258,10 @@
             (let [ex-data-value (when (instance? clojure.lang.IExceptionInfo t)
                                   (throwable-access t ex-data opts))
                   ex-opts (assoc opts :max-depth (:max-ex-data-depth opts))
-                  message (throwable-access t #(.getMessage %) opts)
-                  stack-trace (throwable-access t #(.getStackTrace %) opts)
-                  cause (throwable-access t #(.getCause %) opts)
-                  suppressed-values (throwable-access t #(.getSuppressed %) opts)
+                  message (throwable-access t #(.getMessage ^Throwable %) opts)
+                  stack-trace (throwable-access t #(.getStackTrace ^Throwable %) opts)
+                  cause (throwable-access t #(.getCause ^Throwable %) opts)
+                  suppressed-values (throwable-access t #(.getSuppressed ^Throwable %) opts)
                   trace (when-not (throwable-access-failed? stack-trace)
                           (take (:max-stack-frames opts) stack-trace))
                   suppressed (when-not (throwable-access-failed? suppressed-values)
@@ -289,7 +289,7 @@
 
 (defn- with-identity
   [value opts f]
-  (let [seen (:seen opts)]
+  (let [^java.util.IdentityHashMap seen (:seen opts)]
     (if (.containsKey seen value)
       (cycle-placeholder value)
       (do

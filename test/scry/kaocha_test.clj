@@ -35,29 +35,29 @@
         (:kaocha/tests cfg)))
 
 (defn- write-temp-project-file
-  [project relative-path content]
+  ^java.io.File [project relative-path content]
   (let [file (io/file project relative-path)]
     (io/make-parents file)
     (spit file content)
     file))
 
 (defn- temp-project
-  []
+  ^java.io.File []
   (.toFile (java.nio.file.Files/createTempDirectory
             "scry-kaocha-test-"
             (make-array java.nio.file.attribute.FileAttribute 0))))
 
 (defn- delete-recursive!
-  [file]
+  [^java.io.File file]
   (when (.exists file)
     (when (.isDirectory file)
-      (doseq [child (.listFiles file)]
+      (doseq [^java.io.File child (.listFiles file)]
         (delete-recursive! child)))
     (.delete file)))
 
 (defmacro with-temp-project
   [[sym] & body]
-  `(let [~sym (temp-project)]
+  `(let [^java.io.File ~sym (temp-project)]
      (try
        ~@body
        (finally

@@ -87,7 +87,7 @@
    :ns-patterns ["-test$"]})
 
 (defn- tests-edn-file
-  []
+  ^java.io.File []
   (io/file (System/getProperty "user.dir") "tests.edn"))
 
 (defn- tests-edn-exists?

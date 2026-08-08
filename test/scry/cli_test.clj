@@ -352,21 +352,21 @@
                                                   "--namespace-regex" "b"])))))
 
 (defn- temp-dir
-  []
+  ^java.io.File []
   (let [dir (java.nio.file.Files/createTempDirectory "scry-cli-test" (make-array java.nio.file.attribute.FileAttribute 0))]
     (.toFile dir)))
 
 (defn- delete-recursive!
-  [file]
+  [^java.io.File file]
   (when (.exists file)
     (when (.isDirectory file)
-      (doseq [child (.listFiles file)]
+      (doseq [^java.io.File child (.listFiles file)]
         (delete-recursive! child)))
     (.delete file)))
 
 (defmacro with-temp-dir
   [[sym] & body]
-  `(let [~sym (temp-dir)]
+  `(let [^java.io.File ~sym (temp-dir)]
      (try
        ~@body
        (finally
@@ -382,7 +382,7 @@
   ([dir opts boundary-overrides]
    (let [out (string-writer)
          err (string-writer)
-         boundary (test-boundary (merge {:cwd (.getPath dir) :out out :err err}
+         boundary (test-boundary (merge {:cwd (.getPath ^java.io.File dir) :out out :err err}
                                         boundary-overrides))
          outcome (#'cli/run-cli opts boundary)]
      (assoc outcome :stdout (str out) :stderr (str err)))))
@@ -390,7 +390,7 @@
 (defn- result-files
   [dir]
   (->> (.listFiles (io/file dir ".scry-results"))
-       (map #(.getName %))
+       (map #(.getName ^java.io.File %))
        sort
        vec))
 
@@ -423,7 +423,7 @@
    :canonical-results (vec entries)})
 
 (defn- create-symlink!
-  [link target]
+  [^java.io.File link ^java.io.File target]
   (try
     (java.nio.file.Files/createSymbolicLink
      (.toPath link)
@@ -1210,7 +1210,7 @@
       (is (str/includes? (#'cli/throwable-cause-text deep) "cause-"))))
   (testing "diagnostic-error and stderr fallback bound hostile strings"
     (with-temp-dir [dir]
-      (let [long-message (apply str (repeat 21000 "x"))
+      (let [^String long-message (apply str (repeat 21000 "x"))
             cyclic (proxy [RuntimeException] [long-message]
                      (getCause [] this))
             entries [{:var 'scry.fixtures.pathological/bounded-diagnostic

@@ -255,7 +255,7 @@
   (compatibility-context state-or-context))
 
 (defn- routing-writer*
-  ^Writer [context-fn fallback-writer stream-key]
+  ^Writer [context-fn ^Writer fallback-writer stream-key]
   (proxy [Writer] []
     (write
       ([x]

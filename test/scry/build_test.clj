@@ -72,13 +72,15 @@
              value))))
 
 (defn jar-entries [jar-file]
-  (with-open [jar (JarFile. jar-file)]
-    (set (map #(.getName %) (enumeration-seq (.entries jar))))))
+  (let [^java.io.File f (io/file jar-file)]
+    (with-open [jar (JarFile. f)]
+      (set (map #(.getName ^java.util.jar.JarEntry %) (enumeration-seq (.entries jar)))))))
 
 (defn slurp-jar-entry [jar-file entry]
-  (with-open [jar (JarFile. jar-file)
-              in (.getInputStream jar (.getEntry jar entry))]
-    (slurp in)))
+  (let [^java.io.File f (io/file jar-file)]
+    (with-open [jar (JarFile. f)
+                in (.getInputStream jar (.getEntry jar entry))]
+      (slurp in))))
 
 (defn pom-dependencies
   "Returns dependency maps parsed from the small generated pom shape used by the build."
@@ -106,23 +108,23 @@
   (let [factory (doto (DocumentBuilderFactory/newInstance)
                   (.setNamespaceAware false)
                   (.setFeature "http://apache.org/xml/features/disallow-doctype-decl" true))
-        builder (.newDocumentBuilder factory)]
+        ^javax.xml.parsers.DocumentBuilder builder (.newDocumentBuilder factory)]
     (.parse builder (InputSource. (StringReader. pom)))))
 
 (defn element-name
-  [node]
+  [^Node node]
   (when (= Node/ELEMENT_NODE (.getNodeType node))
     (.getNodeName node)))
 
 (defn node-list-seq
   [^NodeList node-list]
-  (map #(.item node-list %) (range (.getLength node-list))))
+  (map #(.item node-list ^Integer %) (range (.getLength node-list))))
 
 (defn child-elements
-  ([node]
+  ([^Node node]
    (if node
      (->> (node-list-seq (.getChildNodes node))
-          (filter #(= Node/ELEMENT_NODE (.getNodeType %))))
+          (filter #(= Node/ELEMENT_NODE (.getNodeType ^Node %))))
      []))
   ([node tag]
    (filter #(= tag (element-name %)) (child-elements node))))
@@ -133,11 +135,11 @@
 
 (defn child-element-text
   [node tag]
-  (some-> (first-child-element node tag)
-          (.getTextContent)))
+  (when-let [^Node child (first-child-element node tag)]
+    (.getTextContent child)))
 
 (defn project-element
-  [document]
+  [^org.w3c.dom.Document document]
   (.getDocumentElement document))
 
 (defn assert-absent-child-elements
@@ -190,7 +192,7 @@
       (is (= "hugo@hugoduncan.org" (child-element-text developer "email")))
       (is (= "https://github.com/hugoduncan" (child-element-text developer "url")))
       (is (= ["maintainer" "developer"]
-             (mapv #(.getTextContent %) (child-elements roles "role")))))
+             (mapv #(.getTextContent ^Node %) (child-elements roles "role")))))
     (testing "intentionally omitted metadata"
       (assert-absent-child-elements project ["organization" "properties"])
       (assert-absent-child-elements developer ["organization"

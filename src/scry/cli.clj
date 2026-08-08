@@ -14,7 +14,7 @@
    mode it applies to. With a specific runner keyword the help lists only that
    runner's relevant options, without mode annotations, so `--help` is sensitive
    to an explicitly supplied `--runner`."
-  [runner]
+  ^String [runner]
   (str/join
    "\n"
    (case runner
@@ -489,7 +489,7 @@
    :var-count (count entries)})
 
 (defn- summary-text
-  [{:keys [assertions tests]}]
+  ^String [{:keys [assertions tests]}]
   (str "Assertions: " (:pass assertions 0) " passed, "
        (:fail assertions 0) " failed, "
        (:error assertions 0) " errored\n"
@@ -511,7 +511,7 @@
        (results/synthetic-token status (get ordinal status))))))
 
 (defn- progress!
-  [synthetic-counters {:keys [out err]} entry]
+  [synthetic-counters {:keys [^java.io.Writer out ^java.io.Writer err]} entry]
   (case (:status entry)
     :pass (when (results/concrete-var-backed-entry? entry)
             (.write out ".")
@@ -521,7 +521,7 @@
     (do (.write err (str (progress-label synthetic-counters entry) "\n")) (.flush err))))
 
 (defn- write-summary!
-  [{:keys [out]} summary]
+  [{:keys [^java.io.Writer out]} summary]
   (.write out (summary-text summary))
   (.flush out))
 
@@ -538,7 +538,7 @@
    This is supplementary human-facing output only; the authoritative machine
    signals (`:scry.cli/outcome-kind`, exit code, `.scry-results/*.edn`) and the
    returned outcome map's `nil` `:summary` are unchanged."
-  [{:keys [out]} outcome-kind]
+  [{:keys [^java.io.Writer out]} outcome-kind]
   (.write out (str "No tests run — scry CLI error outcome: " outcome-kind "\n"))
   (.flush out))
 
@@ -547,7 +547,7 @@
    as `:summary :seed`) on stdout after the summary so a failing order can be
    reproduced. Called only for failing outcomes, mirroring Kaocha's own
    failure-only seed reporting."
-  [{:keys [out]} seed]
+  [{:keys [^java.io.Writer out]} seed]
   (.write out (str "Randomized with --seed " seed "\n"))
   (.flush out))
 
@@ -712,7 +712,7 @@
   #{:scry.cli/load-error :scry.cli/test-failure :scry.cli/unknown-result})
 
 (defn- results-dir-pointer
-  [dir result-files]
+  ^String [dir result-files]
   (let [n (count result-files)]
     (str "See " (.getPath ^java.io.File dir) " for failure details"
          (when (pos? n)
@@ -727,7 +727,7 @@
    class/message inline so the failure is visible without opening the EDN file.
    Authoritative machine signals (outcome-kind, exit code, result files) are
    unchanged."
-  [{:keys [err] :as _boundary} dir entries result-files outcome-kind]
+  [{:keys [^java.io.Writer err] :as _boundary} dir entries result-files outcome-kind]
   (when (contains? failure-outcome-kinds outcome-kind)
     (when (= :scry.cli/load-error outcome-kind)
       (when-let [detail (some-> (first (filter load-error-entry? entries))
@@ -760,7 +760,7 @@
                                     (:message first-assertion)))))))
 
 (defn- write-result-files-diagnostic!
-  [{:keys [err write-result-files]} dir entries]
+  [{:keys [^java.io.Writer err write-result-files]} dir entries]
   (try
     {:result-files ((or write-result-files results/write-result-files!) dir entries)}
     (catch Throwable e
@@ -894,10 +894,11 @@
           diagnostic-error (assoc :scry.cli/diagnostic-error diagnostic-error))))
     (catch Throwable e
       (let [outcome-kind (error-outcome-kind e)
-            message (error-diagnostic-message e)]
+            message (error-diagnostic-message e)
+            ^java.io.Writer err (:err boundary)]
         (write-error-summary! boundary outcome-kind)
-        (.write (:err boundary) (str "scry CLI error: " message "\n"))
-        (.flush (:err boundary))
+        (.write err (str "scry CLI error: " message "\n"))
+        (.flush err)
         {:exit-code (exit-code outcome-kind)
          :scry.cli/outcome-kind outcome-kind
          :result nil
@@ -972,17 +973,20 @@
     (let [parsed (parse-main-args args)]
       (if (:help? parsed)
         (do
-          (.write (:out boundary) (:usage parsed))
-          (.write (:out boundary) "\n")
-          (.flush (:out boundary))
+          (let [^java.io.Writer out (:out boundary)
+                ^String usage (:usage parsed)]
+            (.write out usage)
+            (.write out "\n")
+            (.flush out))
           0)
         (:exit-code (run-cli parsed boundary))))
     (catch clojure.lang.ExceptionInfo e
       (if (= :scry.cli/argument-error (:type (ex-data e)))
         (do
           (write-error-summary! boundary :scry.cli/argument-error)
-          (.write (:err boundary) (str "scry CLI argument error: " (.getMessage e) "\n"))
-          (.flush (:err boundary))
+          (let [^java.io.Writer err (:err boundary)]
+            (.write err (str "scry CLI argument error: " (.getMessage e) "\n"))
+            (.flush err))
           1)
         (throw e)))))
 

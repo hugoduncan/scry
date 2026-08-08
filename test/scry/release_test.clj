@@ -355,7 +355,7 @@
            @calls))))
 
 (defn workflow-step
-  [workflow step-name]
+  [^String workflow step-name]
   (let [marker (str "      - name: " step-name)
         start (.indexOf workflow marker)]
     (when (neg? start)

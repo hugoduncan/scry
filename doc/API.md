@@ -75,7 +75,7 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
 Main-style CLI usage is run through project aliases, for example `clojure -M:test -m scry.cli` and `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L947-L967">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L948-L968">Source</a></sub></p>
 
 -----
 # <a name="scry.core">scry.core</a>

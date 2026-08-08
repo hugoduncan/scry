@@ -281,9 +281,9 @@
 
 (defn- delete-matching-files!
   [dir pred]
-  (let [root (io/file dir)]
+  (let [^java.io.File root (io/file dir)]
     (when (.exists root)
-      (doseq [file (file-seq root)]
+      (doseq [^java.io.File file (file-seq root)]
         (when (and (.isFile file) (pred (.getName file)))
           (io/delete-file file true))))))
 

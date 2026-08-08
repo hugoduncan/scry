@@ -5,11 +5,11 @@
 
  :aliases
  {;; Plain clojure.test + scry development/tests.
-  :test {:extra-paths ["test" "bb"]}
+  :test {:extra-paths ["test" "bb" "dev"]}
 
   ;; Kaocha adapter. The scry.kaocha namespace lives on this path so the
   ;; core never depends on kaocha being present.
-  :kaocha {:extra-paths ["src-kaocha"]
+  :kaocha {:extra-paths ["src-kaocha" "dev"]
            :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}
 
   ;; Maintainer build tasks. Use with clojure -T:build clean, jar, kaocha-jar, or jars.

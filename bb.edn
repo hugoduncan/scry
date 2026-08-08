@@ -23,6 +23,26 @@
   api-docs {:doc "Regenerate doc/API.md, or check with --check."
             :task (apply shell "clojure" "-M:quickdoc:kaocha" "-m" "scry.api-docs"
                          *command-line-args*)}
+  test {:doc "Run the full scry test suite (core, Kaocha, build, release slices)."
+        :task (do
+                (require '[scry.tests])
+                ((resolve 'scry.tests/run-tests!) *command-line-args*))}
+  test:core {:doc "Run the focused core test slice."
+             :task (do
+                     (require '[scry.tests])
+                     ((resolve 'scry.tests/run-tests!) :core))}
+  test:kaocha {:doc "Run the focused Kaocha adapter and Kaocha CLI test slices."
+               :task (do
+                       (require '[scry.tests])
+                       ((resolve 'scry.tests/run-tests!) :kaocha))}
+  test:build {:doc "Run the focused build test slice."
+              :task (do
+                      (require '[scry.tests])
+                      ((resolve 'scry.tests/run-tests!) :build))}
+  test:release {:doc "Run the focused release-helper test slice."
+                :task (do
+                        (require '[scry.tests])
+                        ((resolve 'scry.tests/run-tests!) :release))}
   release {:doc "Push a release, or dispatch a dry-run with --dry-run [--ref REF]."
            :task (do
                    (require '[scry.release])

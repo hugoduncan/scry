@@ -172,6 +172,20 @@ REPL runs are encouraged while iterating, but they do not replace final command-
 
 GitHub Actions CI is configured in `.github/workflows/ci.yml` for pull requests and pushes to `master`. It uses `mise` project tools to run `bb clj-fmt:check` and `bb clj-kondo:lint`, verifies generated API docs with `bb api-docs --check` plus focused API-doc content regression tests, then runs core tests, optional Kaocha tests, focused build checks, and the jar build. Keep its verification commands aligned with the local commands documented below, and use `actions/checkout` with full Git history because the jar version is derived from Git commit count.
 
+## Maintainer test workflow
+
+Babashka wraps the CI-aligned test slices so the full suite (or a focused slice) can be run in one command:
+
+```sh
+bb test              # all slices: core, Kaocha adapter, Kaocha CLI, build, release
+bb test:core         # scry.capture-test, scry.clojure-test-test, scry.cli-test via scry.core/run
+bb test:kaocha       # scry.kaocha-test + scry.cli-kaocha-test (requires the :kaocha alias)
+bb test:build        # scry.build-test (requires the :build alias)
+bb test:release      # scry.release-test (requires the :release-test alias)
+```
+
+`bb test` runs slices in order and stops at the first failing slice. Each slice shells out to the same `clojure` invocations documented below, so CI stays aligned with local verification.
+
 ## Maintainer build workflow
 
 Build tasks use `tools.build` through the `:build` alias:

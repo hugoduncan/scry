@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.56] - 2026-08-07
+
 - Fixed a "case has int tests, but tested expression is not primitive" performance warning in the invocation-scope classifier by inlining the test-var count as a primitive long in the case test position.
 - Eliminated all `*warn-on-reflection*` warnings in the project's own source, build, and test code (the only remaining reflection warnings come from the `clojure.data.xml` dependency).
 - Added clj-kondo config imports from dependencies (babashka.fs, http-kit, rewrite-clj, taoensso.encore), ignored the clj-kondo cache, and added a `dev/user.clj` + `.nrepl.edn` setup that enables `*warn-on-reflection*` for REPL work.

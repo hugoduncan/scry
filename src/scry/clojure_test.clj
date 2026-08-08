@@ -83,18 +83,16 @@
    executable tests, classification falls back to an explicit namespace selector
    when present; discovered runs are always :suite."
   [{:keys [vars namespaces]} _vars-to-run]
-  (let [explicit-test-var-count (when (seq vars)
-                                  (count (filter #(:test (meta %)) vars)))]
-    (cond
-      (seq vars)
-      (case explicit-test-var-count
-        0 (if (= 1 (count namespaces)) :namespace :suite)
-        1 :var
-        :suite)
+  (cond
+    (seq vars)
+    (case (count (filter #(:test (meta %)) vars))
+      0 (if (= 1 (count namespaces)) :namespace :suite)
+      1 :var
+      :suite)
 
-      (= 1 (count namespaces)) :namespace
+    (= 1 (count namespaces)) :namespace
 
-      :else :suite)))
+    :else :suite))
 
 (defn- non-owned-raw-test-vars?
   "Return true when a raw nested clojure.test/test-vars call should not report

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Fixed a "case has int tests, but tested expression is not primitive" performance warning in the invocation-scope classifier by inlining the test-var count as a primitive long in the case test position.
+- Eliminated all `*warn-on-reflection*` warnings in the project's own source, build, and test code (the only remaining reflection warnings come from the `clojure.data.xml` dependency).
+- Added clj-kondo config imports from dependencies (babashka.fs, http-kit, rewrite-clj, taoensso.encore), ignored the clj-kondo cache, and added a `dev/user.clj` + `.nrepl.edn` setup that enables `*warn-on-reflection*` for REPL work.
+- Added `bb test` / `bb test:core` / `bb test:kaocha` / `bb test:build` / `bb test:release` tasks wrapping each CI-aligned test slice as a shell invocation.
+
 ## [0.1.50] - 2026-07-07
 
 - Fixed CLI failure-detail serialization for pathological failure data: `.scry-results/*.edn` normalization is now bounded and cycle-safe, Throwable data is serialized through a bounded shape, and post-run result-file diagnostic failures preserve the test-derived outcome/summary while adding bounded top-level `:scry.cli/diagnostic-error` metadata and empty `:result-files` instead of collapsing the run into `:scry.cli/runner-error`.

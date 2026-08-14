@@ -20,6 +20,11 @@
                                "--lint" "test-quickdoc"
                                "--lint" "build.clj"
                                "--fail-level" "error")}
+  vale {:doc "Sync Vale packages and lint project prose."
+        :task (do
+                (shell "mise" "exec" "--" "vale" "sync")
+                (shell "mise" "exec" "--" "vale"
+                       "README.md" "AGENTS.md" "CHANGELOG.md" "SKILL.md"))}
   api-docs {:doc "Regenerate doc/API.md, or check with --check."
             :task (apply shell "clojure" "-M:quickdoc:kaocha" "-m" "scry.api-docs"
                          *command-line-args*)}

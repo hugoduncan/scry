@@ -1,8 +1,7 @@
 (ns scry.cli.results
   "Result-file naming, filesystem lifecycle, and EDN sanitization for the CLI."
   (:require
-   [clojure.java.io :as io]
-   [clojure.string :as str]))
+   [clojure.java.io :as io]))
 
 (defn results-dir
   "Return the .scry-results directory for an IO boundary map containing :cwd."

@@ -13,7 +13,7 @@ metadata:
   language: "clojure"
 ---
 
-# Scry
+# scry
 
 Use `scry` to run Clojure tests and inspect structured results instead of scraping human-oriented terminal output.
 

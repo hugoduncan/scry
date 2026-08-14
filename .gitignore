@@ -7,3 +7,4 @@ target/
 .psi/skills/
 .psi/workflows/
 /.clj-kondo/.cache/
+styles/proselint/

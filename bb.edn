@@ -19,7 +19,7 @@
                                "--lint" "bb"
                                "--lint" "test-quickdoc"
                                "--lint" "build.clj"
-                               "--fail-level" "error")}
+                               "--fail-level" "warning")}
   vale {:doc "Sync Vale packages and lint project prose."
         :task (do
                 (shell "mise" "exec" "--" "vale" "sync")

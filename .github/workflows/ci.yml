@@ -41,6 +41,12 @@ jobs:
       - name: Lint Clojure code
         run: bb clj-kondo:lint
 
+      - name: Lint prose with Vale
+        uses: vale-cli/vale-action@v3
+        with:
+          files: '["README.md", "AGENTS.md", "CHANGELOG.md", "SKILL.md"]'
+          fail_on_error: true
+
       - name: Check generated API docs
         run: |
           bb api-docs --check

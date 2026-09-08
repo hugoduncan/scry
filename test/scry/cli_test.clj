@@ -1793,6 +1793,56 @@
                 (slurp (io/file dir ".scry-results"
                                 "demo.core__published-before-summary-error.edn")))))))))
 
+(deftest run-cli-missing-canonical-and-progress-errors-preserve-sink-boundaries-test
+  ;; A normal runner return fixes the reconciliation diagnostic phase even when
+  ;; no canonical vector is available, while progress writer failures remain
+  ;; outside contained artifact diagnostics.
+  (testing "missing canonical results retain a completed artifact without reconciliation"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/published-without-canonical-results
+                     :status :fail
+                     :assertion-summary {:pass 0 :fail 1 :error 0}
+                     :assertions [{:type :fail}]}
+            outcome (run-cli-in
+                     dir
+                     (#'cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [opts]
+                        ((:progress-callback opts) failure)
+                        {:summary {}})})]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (= ["demo.core__published-without-canonical-results.edn"]
+               (mapv #(.getName (io/file %)) (:result-files outcome))))
+        (is (not (contains? outcome :scry.cli/diagnostic-error)))
+        (is (= failure
+               (edn/read-string
+                (slurp (io/file dir ".scry-results"
+                                "demo.core__published-without-canonical-results.edn"))))))))
+  (testing "a progress writer failure is a runner error, not an artifact diagnostic"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/progress-output-fails
+                     :status :fail
+                     :assertion-summary {:pass 0 :fail 1 :error 0}
+                     :assertions [{:type :fail}]}
+            outcome (#'cli/run-cli
+                     (#'cli/normalize-exec-opts {})
+                     (test-boundary
+                      {:cwd (.getPath dir)
+                       :out (string-writer)
+                       :err (failing-writer "progress unavailable")
+                       :run-clojure-test
+                       (fn [opts]
+                         ((:progress-callback opts) failure)
+                         (runner-result [failure]))}))]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (not (contains? outcome :scry.cli/diagnostic-error)))
+        (is (= ["demo.core__progress-output-fails.edn"]
+               (mapv #(.getName (io/file %)) (:result-files outcome))))
+        (is (= failure
+               (edn/read-string
+                (slurp (io/file dir ".scry-results"
+                                "demo.core__progress-output-fails.edn")))))))))
+
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned
   ;; result, while CLI-retained canonical results still drive detailed EDN

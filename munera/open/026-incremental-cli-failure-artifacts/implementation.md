@@ -6,3 +6,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 
 - no architectural review feedback
 - ambiguity review added 6 new design steps
+- inconsistency review added 3 new design steps

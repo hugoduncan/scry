@@ -1427,6 +1427,105 @@
       (is (= entry (edn/read-string
                     (slurp (io/file dir ".scry-results" "demo.core__missed-callback.edn"))))))))
 
+(deftest run-cli-publishes-completed-failure-before-next-entry-test
+  ;; A completed failure is atomically readable before the runner advances to
+  ;; the next entry, while a passing entry creates no artifact.
+  (with-temp-dir [dir]
+    (let [failure {:var 'demo.core/first-fails
+                   :status :fail
+                   :assertion-summary {:pass 1 :fail 1 :error 0}
+                   :assertions [{:type :fail :expected :left :actual :right}]
+                   :out "setup\nbody\nteardown\n"
+                   :err ""}
+          passing {:var 'demo.core/then-passes
+                   :status :pass
+                   :assertion-summary {:pass 1 :fail 0 :error 0}
+                   :assertions []}
+          observed (atom nil)
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:run-clojure-test
+                    (fn [opts]
+                      ((:progress-callback opts) failure)
+                      (let [failure-file (io/file dir ".scry-results"
+                                                  "demo.core__first-fails.edn")
+                            passing-file (io/file dir ".scry-results"
+                                                  "demo.core__then-passes.edn")]
+                        (reset! observed {:failure (edn/read-string (slurp failure-file))
+                                          :passing-exists? (.exists passing-file)}))
+                      ((:progress-callback opts) passing)
+                      (runner-result [failure passing]))})]
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (= failure (:failure @observed)))
+      (is (false? (:passing-exists? @observed)))
+      (is (= ["demo.core__first-fails.edn"] (result-files dir))))))
+
+(deftest run-cli-retains-incremental-artifacts-on-runner-error-test
+  ;; A catchable runner error does not discard an artifact published by an
+  ;; already-completed failing entry, and the outcome retains that path.
+  (with-temp-dir [dir]
+    (let [failure {:var 'demo.core/published-before-error
+                   :status :error
+                   :assertion-summary {:pass 0 :fail 0 :error 1}
+                   :assertions [{:type :error :message "completed"}]}
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:run-clojure-test
+                    (fn [opts]
+                      ((:progress-callback opts) failure)
+                      (throw (ex-info "runner stopped" {})))})]
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+      (is (= ["demo.core__published-before-error.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (= failure
+             (edn/read-string
+              (slurp (io/file dir ".scry-results"
+                              "demo.core__published-before-error.edn")))))
+      (is (str/includes? (:stderr outcome) "scry CLI error: runner stopped"))
+      (is (str/includes? (:stderr outcome) "for failure details")))))
+
+(deftest run-cli-contained-publication-failure-test
+  ;; Publication I/O is diagnostic-only: a transient failure is reconciled and
+  ;; a persistent failure leaves the test-derived outcome and sibling artifact.
+  (with-temp-dir [dir]
+    (let [first-failure {:var 'demo.core/transient
+                         :status :fail
+                         :assertion-summary {:pass 0 :fail 1 :error 0}
+                         :assertions [{:type :fail}]}
+          second-failure {:var 'demo.core/persisted
+                          :status :error
+                          :assertion-summary {:pass 0 :fail 0 :error 1}
+                          :assertions [{:type :error}]}
+          calls (atom 0)
+          sink-factory (fn [results-dir]
+                         (cli-results/create-result-sink
+                          results-dir
+                          {:publish-entry!
+                           (fn [_ filename entry]
+                             (if (= 1 (swap! calls inc))
+                               (throw (ex-info "transient disk failure" {}))
+                               (let [path (io/file results-dir filename)]
+                                 (spit path (pr-str entry))
+                                 (.getPath path))))}))
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:create-result-sink sink-factory
+                    :run-clojure-test
+                    (fn [opts]
+                      (doseq [entry [first-failure second-failure]]
+                        ((:progress-callback opts) entry))
+                      (runner-result [first-failure second-failure]))})]
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (not (contains? outcome :scry.cli/diagnostic-error)))
+      (is (= ["demo.core__transient.edn" "demo.core__persisted.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (= first-failure
+             (edn/read-string (slurp (io/file dir ".scry-results"
+                                              "demo.core__transient.edn"))))))))
+
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned
   ;; result, while CLI-retained canonical results still drive detailed EDN

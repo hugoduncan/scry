@@ -1571,6 +1571,57 @@
       (is (str/includes? (:stderr outcome) "scry CLI error: runner stopped"))
       (is (str/includes? (:stderr outcome) "for failure details")))))
 
+(deftest run-cli-runner-error-retains-unresolved-publication-diagnostic-test
+  ;; A runner abort after contained incremental failure preserves a successful
+  ;; sibling, retains incremental diagnostic metadata, and emits diagnostics
+  ;; before the ordinary runner-error report.
+  (with-temp-dir [dir]
+    (let [unavailable {:var 'demo.core/unavailable-before-abort
+                       :status :fail
+                       :assertion-summary {:pass 0 :fail 1 :error 0}
+                       :assertions [{:type :fail :message "unavailable artifact"}]}
+          persisted {:var 'demo.core/persisted-before-abort
+                     :status :error
+                     :assertion-summary {:pass 0 :fail 0 :error 1}
+                     :assertions [{:type :error :message "persisted artifact"}]}
+          sink-factory (fn [results-dir]
+                         (cli-results/create-result-sink
+                          results-dir
+                          {:publish-entry!
+                           (fn [_ filename entry]
+                             (if (= unavailable entry)
+                               (throw (ex-info "disk unavailable" {}))
+                               (let [path (io/file results-dir filename)]
+                                 (spit path (pr-str entry))
+                                 (.getPath path))))}))
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:create-result-sink sink-factory
+                    :run-clojure-test
+                    (fn [opts]
+                      ((:progress-callback opts) unavailable)
+                      ((:progress-callback opts) persisted)
+                      (throw (ex-info "runner aborted" {})))})
+          ^String stderr (:stderr outcome)
+          diagnostics-index (.indexOf stderr "Failure diagnostics failed")
+          runner-error-index (.indexOf stderr "scry CLI error: runner aborted")
+          pointer-index (.indexOf stderr "for failure details")]
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+      (is (= :incremental-result-file-writing
+             (get-in outcome [:scry.cli/diagnostic-error :phase])))
+      (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
+      (is (= 'demo.core/unavailable-before-abort
+             (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
+      (is (= ["demo.core__persisted-before-abort.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (= persisted
+             (edn/read-string
+              (slurp (io/file dir ".scry-results"
+                              "demo.core__persisted-before-abort.edn")))))
+      (is (<= 0 diagnostics-index))
+      (is (< diagnostics-index runner-error-index pointer-index)))))
+
 (deftest run-cli-contained-publication-failure-test
   ;; Publication I/O is diagnostic-only: a transient failure is reconciled and
   ;; a persistent failure leaves the test-derived outcome and sibling artifact.

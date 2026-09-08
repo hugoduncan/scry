@@ -545,6 +545,32 @@
                             (:completion-order state))]
     (vec (distinct (concat canonical-paths callback-only)))))
 
+(defn- ordered-unresolved
+  "Return unresolved artifacts in canonical-first deterministic order.
+
+  Canonical concrete identities are ordered by their first canonical occurrence,
+  then callback-only identities retain completion order, and synthetic
+  assignments follow their established assignment order."
+  [state entries synthetic-errors]
+  (let [canonical-vars (->> entries
+                            (filter concrete-var-backed-entry?)
+                            (map :var)
+                            distinct)
+        callback-only-vars (remove (set canonical-vars) (:completion-order state))
+        ordered-vars (concat canonical-vars callback-only-vars)
+        unresolved-concrete
+        (keep (fn [var-symbol]
+                (let [identity (get-in state [:identities var-symbol])]
+                  (when (and (:latest-required identity)
+                             (> (:required-generation identity)
+                                (or (:successful-generation identity) 0)))
+                    {:var var-symbol
+                     :entry (get-in identity [:latest-required :entry])
+                     :error (:latest-error identity)})))
+              ordered-vars)]
+    (vec (concat unresolved-concrete
+                 (map #(select-keys % [:entry :error]) synthetic-errors)))))
+
 (defn reconcile-result-sink!
   "Reconcile a sink with normally returned canonical entries.
 
@@ -602,16 +628,7 @@
           paths (successful-paths-in-order (assoc @state :dir (:dir sink))
                                            assignments
                                            successful-synthetic-filenames)
-          unresolved (vec (concat
-                           (for [var-symbol (:completion-order @state)
-                                 :let [identity (get-in @state [:identities var-symbol])]
-                                 :when (and (:latest-required identity)
-                                            (> (:required-generation identity)
-                                               (or (:successful-generation identity) 0)))]
-                             {:var var-symbol
-                              :entry (get-in identity [:latest-required :entry])
-                              :error (:latest-error identity)})
-                           (map #(select-keys % [:entry :error]) synthetic-errors)))]
+          unresolved (ordered-unresolved @state entries synthetic-errors)]
       {:result-files (vec (distinct paths))
        :unresolved unresolved})))
 
@@ -622,15 +639,7 @@
     {:result-files (vec (distinct
                          (keep #(get-in state [:identities % :successful-path])
                                (:completion-order state))))
-     :unresolved (vec
-                  (for [var-symbol (:completion-order state)
-                        :let [identity (get-in state [:identities var-symbol])]
-                        :when (and (:latest-required identity)
-                                   (> (:required-generation identity)
-                                      (or (:successful-generation identity) 0)))]
-                    {:var var-symbol
-                     :entry (get-in identity [:latest-required :entry])
-                     :error (:latest-error identity)}))}))
+     :unresolved (ordered-unresolved state [] [])}))
 
 (defn write-result-files!
   "Write readable EDN result files for failing/erroring canonical entries.

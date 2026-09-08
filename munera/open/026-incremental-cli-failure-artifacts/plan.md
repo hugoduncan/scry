@@ -49,14 +49,17 @@ retried, never thrown into a runner or used to change the primary outcome.
   `ATOMIC_MOVE` and `REPLACE_EXISTING` to the final `.edn` path. Unsupported or
   failed atomic moves are contained as diagnostic write failures; do not fall
   back to exposing a non-atomic final file.
-- Track concrete identities independently from paths: first completion order,
-  a monotonically advancing completion generation for every callback event,
-  latest failing/erroring callback snapshot and its completion generation,
-  latest successfully published required generation, latest exception,
-  successful final path, and sink-owned temporary paths. This makes a later
-  failed failure snapshot remain unresolved even when an older readable artifact
-  exists, while pass/unknown callbacks neither retract the file nor create a new
-  requirement.
+- Track concrete identities independently from paths: first completion order; a
+  callback occurrence ordinal that advances for every concrete callback,
+  including pass/unknown; a separate required failure generation that advances
+  only for failing/erroring callbacks; the latest failing/erroring callback
+  snapshot together with both numbers; the latest successfully published
+  required generation; the latest exception; the successful final path; and
+  sink-owned temporary paths. The all-callback ordinal matches executions to
+  canonical occurrences without making non-failing callbacks artifact
+  requirements. The failure generation makes a later failed failure snapshot
+  remain unresolved even when an older readable artifact exists, while
+  pass/unknown callbacks neither retract the file nor create a new requirement.
 - Make duplicate concrete executions replace the same deterministic path. The
   latest successful failing/erroring completion snapshot wins; final
   reconciliation must not rewrite it merely because equivalent final canonical
@@ -85,12 +88,16 @@ retried, never thrown into a runner or used to change the primary outcome.
   the older file; a later pass/unknown does not create a newer required
   generation.
 - Refactor CLI diagnostic construction to consume the sink's deterministically
-  ordered unresolved identities. After a normal return use phase
-  `:final-result-file-reconciliation` and the latest retry exception. If a
-  runner exception prevents reconciliation, use phase
-  `:incremental-result-file-writing` and each identity's latest incremental
-  exception. Count unique unresolved artifact identities and derive the first
-  var/root cause from the first ordered unresolved item.
+  ordered unresolved identities. The runner-return boundary selects the phase:
+  use `:incremental-result-file-writing` only when `run-normalized` throws before
+  returning, and use `:final-result-file-reconciliation` after any normal runner
+  return, including when canonical validation then fails. A
+  reconciliation-orchestration exception likewise snapshots the state reached
+  so far with the final-reconciliation phase, without recursively retrying;
+  ordinary per-entry publication failures remain contained and reconciliation
+  continues. Use the latest applicable exception for each identity, count unique
+  unresolved artifact identities, and derive the first var/root cause from the
+  first ordered unresolved item.
 - Best-effort remove the current attempt's temporary file after a contained
   failure and all remaining sink-owned temporary files after reconciliation.
   Cleanup failures must not replace the publication diagnostic.
@@ -100,20 +107,22 @@ retried, never thrown into a runner or used to change the primary outcome.
 - Restructure `run-cli` so the prepared directory and sink remain available to
   every catchable exception path after sink creation. Keep result-directory
   preparation authoritative and before sink creation or runner invocation.
-- Treat canonical validation as the reconciliation eligibility boundary. A
-  `run-normalized` exception, a missing `:canonical-results` vector, or any
-  malformed canonical entry uses the sink's no-reconciliation exception
-  snapshot: preserve successful callback publications and report unresolved
-  callback requirements with phase `:incremental-result-file-writing`.
+- Treat runner return as the diagnostic-phase boundary and successful validation
+  of the complete canonical vector as the reconciliation eligibility boundary.
+  A `run-normalized` exception uses the sink's no-reconciliation snapshot with
+  phase `:incremental-result-file-writing`. Once `run-normalized` returns,
+  unresolved state uses phase `:final-result-file-reconciliation`; a missing
+  `:canonical-results` vector or malformed canonical entry still prevents
+  reconciliation from beginning, but preserves callback publications through a
+  no-reconciliation snapshot with that final phase.
 - Once the complete canonical vector validates, reconcile immediately, before
-  summary/seed or stderr rendering. All later catchable failures—including
-  summary, seed, failure-diagnostic, and results-directory-pointer output
-  failures—use the resulting reconciled sink snapshot; they do not run a second
-  reconciliation, and unresolved publication metadata has phase
-  `:final-result-file-reconciliation`. An unexpected exception from the
-  reconciliation orchestration itself snapshots the state reached so far and
-  does not recursively retry, although ordinary per-entry publication failures
-  remain contained by the sink.
+  summary/seed or stderr rendering. All later catchable failures—including an
+  unexpected reconciliation-orchestration exception and summary, seed,
+  failure-diagnostic, or results-directory-pointer output failures—use the state
+  reached by that single reconciliation attempt with phase
+  `:final-result-file-reconciliation` and do not recursively retry or begin a
+  second reconciliation. Ordinary per-entry publication failures remain
+  contained so reconciliation can continue.
 - On a normal return, retain outcome classification, summary/seed output,
   failure-directory diagnostics, and outcome throwing semantics. Preserve the
   existing ordering among human-facing summary, seed, and stderr output while

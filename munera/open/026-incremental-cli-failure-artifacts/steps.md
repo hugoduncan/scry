@@ -9,14 +9,14 @@
 
 ## Slice 2 — Atomic sink foundation
 
-- [ ] Define the per-run result-sink state and operations in `scry.cli.results`, including concrete completion order, latest required failure generation/snapshot, latest successful generation/path, latest exception, and owned temporary paths.
+- [ ] Define the per-run result-sink state and operations in `scry.cli.results`, including concrete completion order, an all-concrete-callback occurrence ordinal, a separate latest required failure generation/snapshot, latest successful required generation/path, latest exception, and owned temporary paths.
 - [ ] Add a one-entry publisher that applies the existing bounded EDN sanitizer, writes and closes a unique temporary file inside `.scry-results/`, and atomically moves it with replacement to the unchanged deterministic final `.edn` filename.
 - [ ] Contain sanitizer, temporary-write, close, atomic-move, and per-attempt cleanup failures in sink state without throwing to a runner or replacing the original publication exception.
-- [ ] Make sink callback handling synchronously publish only concrete `:fail`/`:error` entries; make concrete pass/unknown and all synthetic callbacks filesystem no-ops.
-- [ ] Implement duplicate concrete completion semantics so each new failing/erroring callback advances the required generation, a successful publish replaces the same path, and a later pass/unknown neither retracts nor invalidates an earlier artifact.
+- [ ] Make every concrete callback, including pass/unknown, advance its identity's occurrence ordinal for later canonical matching; synchronously publish only concrete `:fail`/`:error` entries, and make concrete pass/unknown plus all synthetic callbacks artifact-requirement/filesystem no-ops.
+- [ ] Implement duplicate concrete completion semantics so each new failing/erroring callback separately advances the required failure generation, a successful publish replaces the same path, and a later pass/unknown neither retracts nor invalidates an earlier artifact.
 - [ ] Add focused sink tests proving successful final files are readable EDN, retain the detailed canonical entry shape, and use existing filename encoding.
 - [ ] Add focused sink tests proving no final `.edn` path becomes visible before a complete atomic move, temporary paths are never returned, and failed-attempt temporary files are best-effort removed.
-- [ ] Add focused sink tests for pass/unknown/synthetic no-op behavior and duplicate fail/fail, fail/pass, and failed-newer-failure generation state.
+- [ ] Add focused sink tests proving pass/unknown concrete callbacks advance occurrence ordinals without creating required failure generations or filesystem work, synthetic callbacks are no-ops, and duplicate fail/fail, fail/pass, and failed-newer-failure state remains distinct.
 - [ ] Run the focused sink/CLI tests through the development REPL and inspect structured failures before proceeding.
 
 ## Slice 3 — Final reconciliation and diagnostics
@@ -27,7 +27,7 @@
 - [ ] Build deduplicated `:result-files` in first canonical artifact occurrence order, then successful callback-only completion order, including only successfully published final `.edn` paths.
 - [ ] Implement deterministic unresolved-item ordering for normal reconciliation: concrete identities in canonical first-occurrence order, callback-only identities in completion order, then synthetic assignments.
 - [ ] Implement exception-path sink snapshots that return successful paths and unresolved concrete identities in completion order without attempting final reconciliation.
-- [ ] Refactor bounded diagnostic metadata construction so normal unresolved writes use phase `:final-result-file-reconciliation`, runner-abort unresolved writes use `:incremental-result-file-writing`, and `:failed-entry-count` counts unique latest-required artifact identities.
+- [ ] Refactor bounded diagnostic metadata construction so unresolved writes use `:incremental-result-file-writing` only when the runner throws before returning, use `:final-result-file-reconciliation` after any normal runner return (including canonical-validation or reconciliation-orchestration failure), and make `:failed-entry-count` count unique latest-required artifact identities.
 - [ ] Derive diagnostic `:message`, `:type`, `:root-type`, `:root-message`, optional `:first-failing-var`, and optional `:first-root-cause` from the first deterministically ordered unresolved item's latest applicable exception/snapshot.
 - [ ] Best-effort remove every remaining sink-owned temporary file after normal reconciliation while ignoring unknown temporary files.
 - [ ] Add state-level tests for a callback-ignoring runner, transient failure followed by successful retry, persistent partial failure with successful siblings, callback-only artifacts, callback-only concrete filename reservation against synthetic collisions, and deterministic diagnostic/result-file order.
@@ -40,14 +40,14 @@
 - [ ] Compose the CLI callback so sink handling always completes before terminal progress output is attempted, while preserving existing progress text, stream selection, and flush behavior.
 - [ ] Keep terminal writer/flush exceptions outside sink containment and verify a pure progress-output failure follows the existing runner-error path without `:scry.cli/diagnostic-error`.
 - [ ] On normal runner return, validate the complete canonical vector, reconcile the sink before human output, classify and print the existing summary/seed once, emit bounded write diagnostics when needed, and preserve outcome-kind/exit precedence.
-- [ ] Define exception snapshots by lifecycle: runner invocation and canonical-validation failures use no-reconciliation incremental state; failures after validated reconciliation use that reconciled state without retrying; an unexpected reconciliation-orchestration exception snapshots progress without recursively reconciling.
+- [ ] Define exception snapshots by lifecycle: a runner invocation exception uses no-reconciliation state with phase `:incremental-result-file-writing`; after any normal runner return, canonical-validation failures use no-reconciliation state with phase `:final-result-file-reconciliation`; reconciliation-orchestration and all later failures snapshot the state reached with that final phase, without recursive or second reconciliation.
 - [ ] On catchable exceptions after sink creation, preserve snapshot `:result-files`, attach unresolved diagnostics with the lifecycle-appropriate phase, retain `:result nil`/`:summary nil`, and best-effort emit bounded failure-diagnostic/first-detail lines before the normal runner-error line plus a results-directory pointer only when an artifact survived, without allowing a secondary catch-path writer failure to replace the primary error or structured outcome.
 - [ ] Preserve result-directory preparation failures as authoritative pre-run runner errors that do not create a sink or invoke the runner.
 - [ ] Replace the task-025 `:write-result-files` test injection seam with focused sink/publication injection and keep all existing sanitizer/fallback expectations covered.
 - [ ] Add a core CLI test where a failing first var's following var reads the complete EDN before its body starts.
 - [ ] Extend the core timing fixture/test so the immediate file contains assertion detail plus `:each` setup/body/teardown output under existing core ownership semantics.
 - [ ] Add a core CLI test proving a passing first var creates no artifact before the next var starts.
-- [ ] Add core CLI tests proving earlier artifacts remain readable/listed after runner invocation, malformed/missing canonical result, reconciliation-orchestration, and post-reconciliation output exceptions, with no reconciliation before canonical validation and no second reconciliation after it.
+- [ ] Add core CLI tests proving earlier artifacts remain readable/listed after runner invocation, malformed/missing canonical result, reconciliation-orchestration, and post-reconciliation output exceptions; assert incremental phase only when the runner throws before return, final-reconciliation phase after any normal return, no reconciliation before canonical validation, and no recursive/second reconciliation afterward.
 - [ ] Add a combined unresolved incremental-write/runner-exception regression proving the outcome retains incremental diagnostic metadata and stderr emits bounded failure-diagnostic/first-detail lines, then the runner-error line, then the results-directory pointer only when a sibling artifact survived.
 - [ ] Add core CLI tests proving transient and persistent incremental write failures do not stop later tests or replace test-derived outcomes, and successful sibling files remain listed.
 - [ ] Re-run result-format projection tests to prove incremental files use unprojected canonical entries independently of the public projection.

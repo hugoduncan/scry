@@ -66,7 +66,7 @@ The CLI should consume one runner-neutral completed-entry stream for progress an
 
 The existing `:progress-callback` remains the runner boundary rather than adding a second competing callback. Its concrete-var contract is strengthened and made consistent:
 
-- it fires once after each concrete var reaches its completion boundary;
+- it fires once per concrete-var execution/completion event after that execution reaches its completion boundary; the same var identity may therefore produce more than one callback if a runner executes it more than once;
 - it receives the full, unprojected canonical entry, including assertions and available captured output;
 - callback order is test execution order;
 - it remains synchronous;
@@ -74,7 +74,7 @@ The existing `:progress-callback` remains the runner boundary rather than adding
 
 Synthetic suite/load progress may still use a non-concrete entry because it has no test var. Such entries are not covered by the per-var completeness guarantee and are persisted during final reconciliation.
 
-The callback is observational: runner return values, scoped formatting, and result classification remain authoritative. CLI-side callback failures must be contained and must not abort or reclassify the test run.
+The callback is observational: runner return values, scoped formatting, and result classification remain authoritative. “CLI-side callback failure containment” applies specifically to sink serialization, temporary-file, move, and cleanup failures; those failures must not abort or reclassify the test run. Terminal progress writer or flush failures retain the existing behavior: they are not converted into artifact diagnostic metadata and may propagate through the runner into the CLI’s ordinary runner-error path.
 
 ## Core `clojure.test` behavior
 
@@ -97,8 +97,11 @@ Therefore, completed concrete entries are emitted from an adapter-owned leaf `:k
 - the hook runs after the leaf has final result counts and assertion history;
 - the adapter ensures it runs after the capture-output plugin so finalized merged output is available;
 - it defensively accepts either finalized output or the still-readable capture buffer;
-- it uses the same leaf-to-canonical transformation as the final result conversion, preventing drift between incremental files and returned results;
+- it uses the same leaf-to-canonical transformation as the final result conversion;
+- the adapter-owned hook is explicitly placed last in the active plugin chain, after capture-output and all user/configured plugin `post-test` hooks, so its completion snapshot includes any preceding hook changes to counts, history, or output;
 - it invokes the callback before Kaocha advances to the next leaf and returns the leaf unchanged.
+
+“Final per-var” for Kaocha means the leaf state delivered after every active `post-test` hook except the adapter’s observational completion hook itself. The adapter hook must not mutate the leaf. If a future Kaocha execution path performs leaf mutation after all plugin `post-test` hooks, that incompatibility must be detected by parity tests rather than silently weakening the guarantee.
 
 The existing reporter path remains responsible for synthetic suite/load-error progress because such errors may have no leaf `post-test` event. It must not duplicate concrete-var callbacks.
 
@@ -125,23 +128,25 @@ No opt-in/opt-out flag is added. Incremental failure publication replaces end-on
 
 A concrete artifact remains keyed by its existing deterministic namespace-qualified var filename. Current runners treat concrete var identity as unique in a normal run.
 
-If the same concrete var is nevertheless completed more than once, later completed callbacks atomically replace the same path and the path appears only once in `:result-files`; the latest completed snapshot wins.
+If the same concrete var is nevertheless completed more than once, each failing/erroring completion callback atomically replaces the same path and the path appears only once in `:result-files`; the latest successfully published failing/erroring completion snapshot wins. A later `:pass` or `:unknown` completion does not retract, remove, or invalidate an earlier failure artifact: the file records that a completed execution of that var failed during this run, while the runner’s canonical result vector remains authoritative for the status of every execution. Non-failing callbacks perform no filesystem operation and leave successful-path state unchanged.
 
-A successfully published completion-time snapshot is authoritative and is not overwritten merely because the final bulk result is available. This avoids changing a durable artifact later and ensures mutable assertion values are represented as observed at completion time. Final reconciliation may publish a missing artifact, but does not rewrite an already successful concrete artifact.
+A successfully published completion-time failure snapshot is authoritative and is not overwritten merely because the final bulk result is available. This avoids changing a durable artifact later and ensures mutable assertion values are represented as observed at completion time. Final reconciliation may publish a missing artifact, but does not rewrite an already successful concrete artifact.
 
 ## Final reconciliation
 
 After a runner returns normally, the CLI reconciles the final canonical result vector with sink state:
 
-- any failing/erroring concrete entry missed by the callback is written;
-- any concrete entry whose earlier write failed is retried;
+- any failing/erroring concrete identity with no successfully published callback snapshot is written from its latest failing/erroring canonical entry;
+- any concrete identity whose latest required failing/erroring callback snapshot was not successfully published is retried from the matching latest failing/erroring canonical entry when present, even if an older readable snapshot remains at the path; if no matching final entry exists, the callback snapshot retained by the sink is retried directly;
 - synthetic/non-concrete failing/erroring entries are assigned their existing deterministic whole-result filenames and written;
-- already published concrete files are retained without rewriting;
-- `:result-files` is returned in canonical result order and contains only successfully published final `.edn` paths.
+- already published concrete files are retained without rewriting when they represent the identity’s latest required successfully published failing/erroring callback snapshot, including when the canonical vector contains repeated executions; a later pass/unknown does not create a newer required artifact, while an older failure snapshot left behind by a failed later failing/erroring callback is not treated as reconciled and may be replaced by the retry;
+- `:result-files` is returned by first occurrence of each artifact path in canonical result order, followed by any successfully published callback-only paths in completion order, and never contains the same path more than once; it contains only successfully published final `.edn` paths.
 
 This fallback preserves compatibility with injected/third-party runners that return valid canonical results without honoring the callback and preserves existing synthetic filename collision handling.
 
 If the runner aborts with a catchable runner exception after earlier completed failures, the CLI retains those published files. The runner-error outcome remains a runner error with `:result nil` and `:summary nil`, but its `:result-files` reports successfully published paths in completion order. The stderr runner-error diagnostic also points to `.scry-results/` when files survived. No final canonical reconciliation is possible in this case.
+
+If an incremental publication is still unresolved when that runner exception occurs, the outcome additionally carries `:scry.cli/diagnostic-error`. Its phase is `:incremental-result-file-writing`, and its failed-entry count covers unique callback-known concrete identities whose latest required failure snapshot was not published; there is no retry without a final canonical result. The diagnostic details come from each path’s latest incremental exception. Stderr emits the existing bounded failure-diagnostics message and first-var/root-cause lines for the unresolved publication, then the normal `scry CLI error` line and results-directory pointer when at least one artifact survived. The stdout error-summary behavior is unchanged.
 
 ## Diagnostic write failures
 
@@ -153,9 +158,18 @@ Incremental file I/O and serialization are non-authoritative diagnostics, consis
 - final reconciliation retries missing artifacts when a canonical result is available;
 - successfully published files remain listed even if another entry fails.
 
-If all missing artifacts are successfully published during reconciliation, no final `:scry.cli/diagnostic-error` is required. If one or more expected artifacts remain unavailable, the outcome includes the existing bounded top-level diagnostic metadata, with a phase distinguishing incremental publication/final reconciliation where useful, the number of entries still lacking artifacts, and first-entry/root-cause details when derivable. The primary `:scry.cli/outcome-kind` remains unchanged.
+If all missing artifacts are successfully published during reconciliation, no final `:scry.cli/diagnostic-error` is included. If one or more expected artifacts remain unavailable, the outcome includes the existing bounded top-level diagnostic metadata under the following pinned contract:
 
-The sink catches its own failures before returning control to either runner. This is especially important because Kaocha may swallow reporter exceptions while a post-test hook exception could otherwise abort the run.
+- `:phase` is `:final-result-file-reconciliation` after any normal runner return, whether the unresolved path first failed incrementally or only during reconciliation; it is `:incremental-result-file-writing` only when a runner exception prevents reconciliation;
+- `:failed-entry-count` is the number of unique artifact identities whose latest required failing/erroring snapshot remains unpublished, not the number of write attempts or canonical entries; a later pass/unknown creates no required artifact and therefore does not itself leave the identity unresolved, while a readable older snapshot at the same path remains useful and listed in `:result-files` but does not erase the diagnostic for a failed newer failing/erroring snapshot;
+- diagnostic ordering is deterministic: unresolved concrete paths follow first occurrence in canonical result order, synthetic paths follow their assignment order, and a no-reconciliation runner-error uses completion order; `:first-failing-var` and `:first-root-cause` describe the first unresolved item in that order when derivable;
+- after a failed reconciliation retry, `:message`, `:type`, `:root-type`, and `:root-message` describe that latest reconciliation exception; without reconciliation they describe the latest incremental exception for the selected path.
+
+The primary `:scry.cli/outcome-kind` remains unchanged.
+
+The sink catches its own serialization, temporary-write, and atomic-move failures before returning control to either runner. It best-effort deletes the attempt’s temporary file immediately after any catchable failure, without replacing the original diagnostic if cleanup also fails. After normal reconciliation it also best-effort removes any sink-owned temporary files left by failed attempts. Unknown temporary files and files left by uncatchable termination are ignored and remain subject to the next run’s clear/recreate lifecycle.
+
+Containment does not extend to terminal progress writer or flush failures. The composed callback invokes the sink first, then terminal progress. Sink failures are converted to diagnostic state and testing continues; a progress writer/flush exception escapes the callback and is handled as a runner error if the runner propagates it. No `:scry.cli/diagnostic-error` is attached for a pure progress-output failure, and no guarantee is made for a runner that swallows a client callback exception. This keeps filesystem diagnostics non-authoritative without silently redefining failures of the CLI’s primary output channel.
 
 Result-directory preparation failures remain authoritative pre-run `:scry.cli/runner-error` outcomes and still prevent runner invocation.
 
@@ -181,7 +195,7 @@ In scope:
 - preserving successfully written artifacts across later catchable runner failures;
 - state-based and end-to-end regression coverage for timing, detail, fallback, and atomic-file behavior;
 - user/maintainer documentation and changelog updates for the new timing guarantee;
-- generated API docs if the callback docstring contract changes.
+- the public `scry.cli/run` outcome documentation and generated `doc/API.md` must describe preservation of already published `:result-files` on runner errors and the pinned diagnostic phases; callback docstrings/generated adapter API documentation must also be updated when their completed-entry contract changes.
 
 Out of scope:
 
@@ -235,4 +249,4 @@ A controlled child-process interruption test should be used where practical to p
 - Diagnostic file failures do not abort tests or replace the primary test-derived outcome; unresolved failures are represented through bounded diagnostic metadata.
 - Existing CLI output, filename, outcome-kind, exit-code, scoped-result, core/Kaocha dependency, and REPL/API contracts remain stable except where explicitly clarified above.
 - Focused core and optional Kaocha tests, CLI command-line checks, formatting, lint, API-doc checks when applicable, and the appropriate full test slices pass.
-- README, CHANGELOG, AGENTS guidance, generated API docs where applicable, and task implementation notes accurately describe the completed behavior and its durability limits.
+- README, CHANGELOG, AGENTS guidance, the `scry.cli/run` and changed callback docstrings, regenerated API docs, and task implementation notes accurately describe the completed behavior, runner-error artifact preservation, diagnostic phases, and durability limits.

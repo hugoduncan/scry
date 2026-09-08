@@ -672,6 +672,61 @@
         (is (= :fail (:status (edn/read-string
                                (slurp (io/file results-dir "demo.core__repeated.edn"))))))))))
 
+(deftest result-sink-reconciliation-test
+  ;; Reconciliation fills in callback omissions and retries contained failures
+  ;; without replacing a successfully published completion snapshot.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          calls (atom 0)
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (if (= 1 (swap! calls inc))
+                                     (throw (ex-info "temporary disk failure" {}))
+                                     (let [path (io/file results-dir filename)]
+                                       (spit path (pr-str entry))
+                                       (.getPath path))))})
+          callback-entry {:var 'demo.core/callback-failure :status :fail :assertions [:callback]}
+          ignored-entry {:var 'demo.core/callback-ignored :status :error :assertions [:final]}
+          synthetic-entry {:ns 'demo.core :status :error :assertions [:synthetic]}]
+      (cli-results/handle-completed-entry! sink callback-entry)
+      (let [{:keys [result-files unresolved]}
+            (cli-results/reconcile-result-sink! sink [callback-entry ignored-entry synthetic-entry])]
+        (is (= [] unresolved))
+        (is (= ["demo.core__callback-failure.edn"
+                "demo.core__callback-ignored.edn"
+                "demo.core__suite-error-1.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= callback-entry
+               (edn/read-string (slurp (io/file results-dir "demo.core__callback-failure.edn"))))
+            (is (= ignored-entry
+                   (edn/read-string (slurp (io/file results-dir "demo.core__callback-ignored.edn"))))
+                (is (= synthetic-entry
+                       (edn/read-string (slurp (io/file results-dir "demo.core__suite-error-1.edn")))))))))))
+
+(deftest result-sink-exception-snapshot-test
+  ;; Catchable runner failure retains previously published files and describes
+  ;; only unresolved latest callback generations in completion order.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (if (= 'demo.core/unavailable (:var entry))
+                                     (throw (ex-info "disk unavailable" {}))
+                                     (let [path (io/file results-dir filename)]
+                                       (spit path (pr-str entry))
+                                       (.getPath path))))})
+          persisted {:var 'demo.core/persisted :status :fail}
+          unavailable {:var 'demo.core/unavailable :status :error}]
+      (cli-results/handle-completed-entry! sink persisted)
+      (cli-results/handle-completed-entry! sink unavailable)
+      (let [{:keys [result-files unresolved]} (cli-results/sink-exception-snapshot sink)]
+        (is (= ["demo.core__persisted.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= ['demo.core/unavailable] (mapv :var unresolved)))
+        (is (instance? Throwable (:error (first unresolved))))))))
+
 (deftest result-file-assignments-synthetic-entries-test
   ;; Synthetic suite-level entries without concrete vars receive deterministic
   ;; result-file names while var-backed names remain unchanged.

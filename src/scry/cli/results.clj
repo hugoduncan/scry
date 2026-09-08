@@ -141,39 +141,41 @@
   Var-backed filenames keep the existing namespace-prefixed shape. Synthetic
   entries use per-status suite-level names with deterministic collision suffixes
   for file paths when needed."
-  [entries]
-  (let [reserved-var-files (into #{}
-                                 (comp (filter concrete-var-backed-entry?)
-                                       (map result-file-name))
-                                 entries)]
-    (loop [remaining entries
-           counters {}
-           used reserved-var-files
-           assignments []]
-      (if-let [entry (first remaining)]
-        (cond
-          (not (failure-entry? entry))
-          (recur (next remaining) counters used assignments)
+  ([entries]
+   (result-file-assignments entries #{}))
+  ([entries reserved-filenames]
+   (let [reserved-var-files (into (set reserved-filenames)
+                                  (comp (filter concrete-var-backed-entry?)
+                                        (map result-file-name))
+                                  entries)]
+     (loop [remaining entries
+            counters {}
+            used reserved-var-files
+            assignments []]
+       (if-let [entry (first remaining)]
+         (cond
+           (not (failure-entry? entry))
+           (recur (next remaining) counters used assignments)
 
-          (concrete-var-backed-entry? entry)
-          (recur (next remaining)
-                 counters
-                 (conj used (result-file-name entry))
-                 (conj assignments {:entry entry
-                                    :filename (result-file-name entry)}))
+           (concrete-var-backed-entry? entry)
+           (recur (next remaining)
+                  counters
+                  (conj used (result-file-name entry))
+                  (conj assignments {:entry entry
+                                     :filename (result-file-name entry)}))
 
-          :else
-          (let [[counters token] (next-synthetic-token counters (:status entry))
-                filename (->> token
-                              (synthetic-file-name entry)
-                              (unique-file-name used))]
-            (recur (next remaining)
-                   counters
-                   (conj used filename)
-                   (conj assignments {:entry entry
-                                      :filename filename
-                                      :token token}))))
-        assignments))))
+           :else
+           (let [[counters token] (next-synthetic-token counters (:status entry))
+                 filename (->> token
+                               (synthetic-file-name entry)
+                               (unique-file-name used))]
+             (recur (next remaining)
+                    counters
+                    (conj used filename)
+                    (conj assignments {:entry entry
+                                       :filename filename
+                                       :token token}))))
+         assignments)))))
 
 (def default-sanitizer-limits
   {:max-depth 20
@@ -461,13 +463,28 @@
           {:occurrence 0
            :required-generation 0}))
 
+(defn- publish-snapshot!
+  [{:keys [dir publish-entry! state]} var-symbol snapshot]
+  (try
+    (let [path (publish-entry! dir (:filename snapshot) (:entry snapshot))]
+      (swap! state update-in [:identities var-symbol]
+             #(assoc %
+                     :successful-generation (:generation snapshot)
+                     :successful-path path
+                     :latest-error nil))
+      path)
+    (catch Throwable e
+      (swap! state update-in [:identities var-symbol]
+             #(assoc % :latest-error e))
+      nil)))
+
 (defn handle-completed-entry!
   "Synchronously observe one completed canonical entry.
 
   Every concrete entry advances its occurrence ordinal. Only failing/erroring
   concrete entries are published, and contained publication failures are kept in
   sink state for later reconciliation. Returns nil so this is observational."
-  [{:keys [dir publish-entry! state]} entry]
+  [{:keys [state] :as sink} entry]
   (when (concrete-var-backed-entry? entry)
     (let [var-symbol (:var entry)
           failure? (failure-entry? entry)
@@ -477,11 +494,10 @@
              #(assoc (or % identity) :occurrence occurrence))
       (when failure?
         (let [generation (inc (:required-generation identity))
-              filename (result-file-name entry)
               snapshot {:entry entry
                         :occurrence occurrence
                         :generation generation
-                        :filename filename}]
+                        :filename (result-file-name entry)}]
           (swap! state
                  (fn [current]
                    (-> current
@@ -491,17 +507,130 @@
                                           :required-generation generation
                                           :latest-required snapshot
                                           :latest-error nil)))))
-          (try
-            (let [path (publish-entry! dir filename entry)]
-              (swap! state update-in [:identities var-symbol]
-                     #(assoc %
-                             :successful-generation generation
-                             :successful-path path
-                             :latest-error nil)))
-            (catch Throwable e
-              (swap! state update-in [:identities var-symbol]
-                     #(assoc % :latest-error e))))))))
+          (publish-snapshot! sink var-symbol snapshot)))))
   nil)
+
+(defn- canonical-occurrences
+  [entries]
+  (reduce (fn [occurrences [index entry]]
+            (if (concrete-var-backed-entry? entry)
+              (update occurrences (:var entry) (fnil conj []) {:index index :entry entry})
+              occurrences))
+          {}
+          (map-indexed vector entries)))
+
+(defn- callback-reserved-filenames
+  [state]
+  (into #{}
+        (keep (fn [[_ identity]]
+                (when (or (:successful-path identity)
+                          (and (:latest-required identity)
+                               (> (:required-generation identity)
+                                  (or (:successful-generation identity) 0))))
+                  (get-in identity [:latest-required :filename]))))
+        (:identities state)))
+
+(defn- successful-paths-in-order
+  [state assignments successful-synthetic-filenames]
+  (let [canonical-paths
+        (keep (fn [{:keys [entry filename]}]
+                (cond
+                  (concrete-var-backed-entry? entry)
+                  (get-in state [:identities (:var entry) :successful-path])
+
+                  (contains? successful-synthetic-filenames filename)
+                  (.getPath (io/file (:dir state) filename))))
+              assignments)
+        callback-only (keep #(get-in state [:identities % :successful-path])
+                            (:completion-order state))]
+    (vec (distinct (concat canonical-paths callback-only)))))
+
+(defn reconcile-result-sink!
+  "Reconcile a sink with normally returned canonical entries.
+
+  Retries the latest unpublished callback failure using its ordinally matching
+  canonical occurrence when that occurrence still fails. It also publishes the
+  latest failing occurrence for callback-ignoring runners and synthetic entries.
+  Returns only successfully published final paths and unresolved identities; all
+  individual publication failures remain contained."
+  [sink entries]
+  (let [{:keys [state] :as sink} sink
+        occurrences (canonical-occurrences entries)]
+    ;; A callback's all-entry ordinal identifies precisely which duplicate
+    ;; canonical execution may replace its completion-time snapshot.
+    (doseq [[var-symbol identity] (:identities @state)
+            :let [snapshot (:latest-required identity)]
+            :when (and snapshot
+                       (> (:generation snapshot)
+                          (or (:successful-generation identity) 0)))]
+      (let [matching (get-in occurrences [var-symbol (dec (:occurrence snapshot)) :entry])
+            retry (if (failure-entry? matching)
+                    (assoc snapshot :entry matching)
+                    snapshot)]
+        (publish-snapshot! sink var-symbol retry)))
+    ;; An unmatched canonical failure is from a runner which omitted the
+    ;; callback. Publishing the latest one preserves deterministic final state.
+    (doseq [[var-symbol var-occurrences] occurrences
+            :let [callback-count (get-in @state [:identities var-symbol :occurrence] 0)
+                  unmatched (drop callback-count var-occurrences)
+                  latest-failure (last (filter #(failure-entry? (:entry %)) unmatched))]
+            :when latest-failure]
+      (let [identity (identity-state @state var-symbol)
+            generation (inc (:required-generation identity))
+            snapshot {:entry (:entry latest-failure)
+                      :occurrence (inc callback-count)
+                      :generation generation
+                      :filename (result-file-name (:entry latest-failure))}]
+        (swap! state update-in [:identities var-symbol]
+               #(assoc (or % identity)
+                       :required-generation generation
+                       :latest-required snapshot
+                       :latest-error nil))
+        (publish-snapshot! sink var-symbol snapshot)))
+    (let [reserved (callback-reserved-filenames @state)
+          assignments (result-file-assignments entries reserved)
+          synthetic (remove #(concrete-var-backed-entry? (:entry %)) assignments)
+          synthetic-results
+          (mapv (fn [{:keys [entry filename] :as assignment}]
+                  (try
+                    (assoc assignment :path ((:publish-entry! sink) (:dir sink) filename entry))
+                    (catch Throwable e
+                      (assoc assignment :error e))))
+                synthetic)
+          synthetic-errors (filter :error synthetic-results)
+          successful-synthetic-filenames (into #{} (keep #(when (:path %) (:filename %))) synthetic-results)
+          paths (successful-paths-in-order (assoc @state :dir (:dir sink))
+                                           assignments
+                                           successful-synthetic-filenames)
+          unresolved (vec (concat
+                           (for [var-symbol (:completion-order @state)
+                                 :let [identity (get-in @state [:identities var-symbol])]
+                                 :when (and (:latest-required identity)
+                                            (> (:required-generation identity)
+                                               (or (:successful-generation identity) 0)))]
+                             {:var var-symbol
+                              :entry (get-in identity [:latest-required :entry])
+                              :error (:latest-error identity)})
+                           (map #(select-keys % [:entry :error]) synthetic-errors)))]
+      {:result-files (vec (distinct paths))
+       :unresolved unresolved})))
+
+(defn sink-exception-snapshot
+  "Return completed callback artifacts and unresolved failures without retrying."
+  [sink]
+  (let [state (assoc (sink-state sink) :dir (:dir sink))]
+    {:result-files (vec (distinct
+                         (keep #(get-in state [:identities % :successful-path])
+                               (:completion-order state))))
+     :unresolved (vec
+                  (for [var-symbol (:completion-order state)
+                        :let [identity (get-in state [:identities var-symbol])]
+                        :when (and (:latest-required identity)
+                                   (> (:required-generation identity)
+                                      (or (:successful-generation identity) 0)))]
+                    {:var var-symbol
+                     :entry (get-in identity [:latest-required :entry])
+                     :error (:latest-error identity)}))}))
 
 (defn write-result-files!
   "Write readable EDN result files for failing/erroring canonical entries.

@@ -704,6 +704,37 @@
                 (is (= synthetic-entry
                        (edn/read-string (slurp (io/file results-dir "demo.core__suite-error-1.edn")))))))))))
 
+(deftest result-sink-reconciliation-preserves-successful-completion-test
+  ;; A readable completion snapshot remains authoritative after normal return;
+  ;; later pass executions do not retract it or cause final reconciliation to
+  ;; rewrite its completion-time detail.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          publications (atom [])
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (swap! publications conj entry)
+                                   (let [path (io/file results-dir filename)]
+                                     (spit path (pr-str entry))
+                                     (.getPath path)))})
+          completion-entry {:var 'demo.core/repeated
+                            :status :fail
+                            :assertions [:completion-snapshot]}
+          later-pass {:var 'demo.core/repeated
+                      :status :pass
+                      :assertions [:final-pass]}]
+      (cli-results/handle-completed-entry! sink completion-entry)
+      (cli-results/handle-completed-entry! sink later-pass)
+      (let [{:keys [result-files unresolved]}
+            (cli-results/reconcile-result-sink! sink [completion-entry later-pass])
+            artifact (io/file results-dir "demo.core__repeated.edn")]
+        (is (= [] unresolved))
+        (is (= [completion-entry] @publications))
+        (is (= ["demo.core__repeated.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= completion-entry (edn/read-string (slurp artifact))))))))
+
 (deftest result-sink-exception-snapshot-test
   ;; Catchable runner failure retains previously published files and describes
   ;; only unresolved latest callback generations in completion order.

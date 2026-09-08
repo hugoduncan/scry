@@ -409,13 +409,105 @@
                               opts)
                        0)))
 
+(defn- atomic-write-entry!
+  "Publish entry at filename without exposing a partially-written final file."
+  [^java.io.File dir filename entry]
+  (let [target (.toPath (io/file dir filename))
+        temp (java.nio.file.Files/createTempFile
+              (.toPath dir)
+              ".scry-result-"
+              ".tmp"
+              (make-array java.nio.file.attribute.FileAttribute 0))]
+    (try
+      (spit (.toFile temp) (pr-str (edn-readable-data entry)))
+      (java.nio.file.Files/move
+       temp
+       target
+       (into-array java.nio.file.CopyOption
+                   [java.nio.file.StandardCopyOption/ATOMIC_MOVE
+                    java.nio.file.StandardCopyOption/REPLACE_EXISTING]))
+      (.toString target)
+      (catch Throwable e
+        ;; A failed attempt must not leave an apparently complete final path.
+        ;; Cleanup is deliberately secondary to the publication failure.
+        (try
+          (java.nio.file.Files/deleteIfExists temp)
+          (catch Throwable _))
+        (throw e)))))
+
+(defn create-result-sink
+  "Create state for synchronous completed-entry artifact publication.
+
+  `:publish-entry!`, when supplied, receives dir, filename, and canonical entry.
+  It is a narrow filesystem boundary for tests; publication failures are recorded
+  in the sink and never escape a runner callback."
+  ([dir]
+   (create-result-sink dir {}))
+  ([dir {:keys [publish-entry!]
+         :or {publish-entry! atomic-write-entry!}}]
+   {:dir dir
+    :publish-entry! publish-entry!
+    :state (atom {:identities {}
+                  :completion-order []})}))
+
+(defn sink-state
+  "Return the current observable state of a result sink."
+  [sink]
+  @(:state sink))
+
+(defn- identity-state
+  [state var-symbol]
+  (get-in state [:identities var-symbol]
+          {:occurrence 0
+           :required-generation 0}))
+
+(defn handle-completed-entry!
+  "Synchronously observe one completed canonical entry.
+
+  Every concrete entry advances its occurrence ordinal. Only failing/erroring
+  concrete entries are published, and contained publication failures are kept in
+  sink state for later reconciliation. Returns nil so this is observational."
+  [{:keys [dir publish-entry! state]} entry]
+  (when (concrete-var-backed-entry? entry)
+    (let [var-symbol (:var entry)
+          failure? (failure-entry? entry)
+          identity (identity-state @state var-symbol)
+          occurrence (inc (:occurrence identity))]
+      (swap! state update-in [:identities var-symbol]
+             #(assoc (or % identity) :occurrence occurrence))
+      (when failure?
+        (let [generation (inc (:required-generation identity))
+              filename (result-file-name entry)
+              snapshot {:entry entry
+                        :occurrence occurrence
+                        :generation generation
+                        :filename filename}]
+          (swap! state
+                 (fn [current]
+                   (-> current
+                       (update :completion-order #(if (some #{var-symbol} %) % (conj % var-symbol)))
+                       (update-in [:identities var-symbol]
+                                  #(assoc (or % identity)
+                                          :required-generation generation
+                                          :latest-required snapshot
+                                          :latest-error nil)))))
+          (try
+            (let [path (publish-entry! dir filename entry)]
+              (swap! state update-in [:identities var-symbol]
+                     #(assoc %
+                             :successful-generation generation
+                             :successful-path path
+                             :latest-error nil)))
+            (catch Throwable e
+              (swap! state update-in [:identities var-symbol]
+                     #(assoc % :latest-error e))))))))
+  nil)
+
 (defn write-result-files!
   "Write readable EDN result files for failing/erroring canonical entries.
 
   Returns a vector of written file paths."
   [dir entries]
   (mapv (fn [{:keys [entry filename]}]
-          (let [file (io/file dir filename)]
-            (spit file (pr-str (edn-readable-data entry)))
-            (.getPath file)))
+          (atomic-write-entry! dir filename entry))
         (result-file-assignments entries)))

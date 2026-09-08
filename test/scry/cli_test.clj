@@ -587,6 +587,58 @@
         (is (= ['scry.fixtures.passing/arithmetic-passes]
                (mapv :var (:canonical-results (:result outcome)))))))))
 
+(deftest result-sink-completed-entry-test
+  ;; Completed concrete failures are synchronously published as readable EDN;
+  ;; non-failures only advance their matching occurrence ordinal.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          sink (cli-results/create-result-sink results-dir)
+          pass-entry {:var 'demo.core/passes :status :pass}
+          fail-entry {:var 'demo.core/fails
+                      :status :fail
+                      :assertion-summary {:pass 1 :fail 1 :error 0}
+                      :assertions [{:type :fail :expected :left :actual :right}]
+                      :out "body output"
+                      :err ""}]
+      (cli-results/handle-completed-entry! sink pass-entry)
+      (cli-results/handle-completed-entry! sink fail-entry)
+      (let [state (cli-results/sink-state sink)
+            ^java.io.File path (io/file results-dir "demo.core__fails.edn")]
+        (is (= 1 (get-in state [:identities 'demo.core/passes :occurrence])))
+        (is (= 0 (get-in state [:identities 'demo.core/passes :required-generation])))
+        (is (= 1 (get-in state [:identities 'demo.core/fails :occurrence])))
+        (is (= 1 (get-in state [:identities 'demo.core/fails :required-generation])))
+        (is (= 1 (get-in state [:identities 'demo.core/fails :successful-generation])))
+        (is (= fail-entry (edn/read-string (slurp path))))
+        (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp")
+                            (.listFiles ^java.io.File results-dir))))))))
+
+(deftest result-sink-duplicate-and-contained-failure-test
+  ;; A later failed completion remains distinct from an older readable snapshot,
+  ;; while a later pass neither retracts it nor creates an artifact requirement.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          calls (atom 0)
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (if (= 2 (swap! calls inc))
+                                     (throw (ex-info "disk unavailable" {}))
+                                     (spit (io/file results-dir filename) (pr-str entry))))})
+          failed {:var 'demo.core/repeated :status :fail}
+          passed {:var 'demo.core/repeated :status :pass}]
+      (cli-results/handle-completed-entry! sink failed)
+      (cli-results/handle-completed-entry! sink failed)
+      (cli-results/handle-completed-entry! sink passed)
+      (let [identity (get-in (cli-results/sink-state sink) [:identities 'demo.core/repeated])]
+        (is (= 3 (:occurrence identity)))
+        (is (= 2 (:required-generation identity)))
+        (is (= 1 (:successful-generation identity)))
+        (is (= 2 (get-in identity [:latest-required :generation])))
+        (is (instance? Throwable (:latest-error identity)))
+        (is (= :fail (:status (edn/read-string
+                               (slurp (io/file results-dir "demo.core__repeated.edn"))))))))))
+
 (deftest result-file-assignments-synthetic-entries-test
   ;; Synthetic suite-level entries without concrete vars receive deterministic
   ;; result-file names while var-backed names remain unchanged.

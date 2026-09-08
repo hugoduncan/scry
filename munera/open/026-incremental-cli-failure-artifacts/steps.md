@@ -9,15 +9,15 @@
 
 ## Slice 2 — Atomic sink foundation
 
-- [ ] Define the per-run result-sink state and operations in `scry.cli.results`, including concrete completion order, an all-concrete-callback occurrence ordinal, a separate latest required failure generation/snapshot, latest successful required generation/path, latest exception, and owned temporary paths.
-- [ ] Add a one-entry publisher that applies the existing bounded EDN sanitizer, writes and closes a unique temporary file inside `.scry-results/`, and atomically moves it with replacement to the unchanged deterministic final `.edn` filename.
-- [ ] Contain sanitizer, temporary-write, close, atomic-move, and per-attempt cleanup failures in sink state without throwing to a runner or replacing the original publication exception.
-- [ ] Make every concrete callback, including pass/unknown, advance its identity's occurrence ordinal for later canonical matching; synchronously publish only concrete `:fail`/`:error` entries, and make concrete pass/unknown plus all synthetic callbacks artifact-requirement/filesystem no-ops.
-- [ ] Implement duplicate concrete completion semantics so each new failing/erroring callback separately advances the required failure generation, a successful publish replaces the same path, and a later pass/unknown neither retracts nor invalidates an earlier artifact.
-- [ ] Add focused sink tests proving successful final files are readable EDN, retain the detailed canonical entry shape, and use existing filename encoding.
+- [x] Define the initial per-run result-sink state and completed-entry operation in `scry.cli.results`: concrete occurrence ordinal, failure-only required generation/snapshot, latest successful generation/path, latest exception, and completion order. Remaining reconciliation-specific state is Slice 3.
+- [x] Add a one-entry publisher that applies the existing bounded EDN sanitizer, writes a unique temporary file inside `.scry-results/`, and atomically moves it with replacement to the unchanged deterministic final `.edn` filename.
+- [x] Contain sanitizer, temporary-write, close, atomic-move, and per-attempt cleanup failures in sink state without throwing to a runner or replacing the original publication exception.
+- [x] Make every concrete callback, including pass/unknown, advance its identity's occurrence ordinal; synchronously publish only concrete `:fail`/`:error` entries, and make synthetic callbacks artifact-requirement/filesystem no-ops.
+- [x] Implement initial duplicate concrete completion semantics: each failing/erroring callback advances the required generation, a successful publish replaces the deterministic path, and later pass/unknown callbacks do not invalidate it. Reconciliation behavior remains Slice 3.
+- [x] Add focused sink tests proving successful final files are readable EDN, retain detailed canonical entry data, use existing filename encoding, and leave no temporary files on successful publication.
 - [ ] Add focused sink tests proving no final `.edn` path becomes visible before a complete atomic move, temporary paths are never returned, and failed-attempt temporary files are best-effort removed.
-- [ ] Add focused sink tests proving pass/unknown concrete callbacks advance occurrence ordinals without creating required failure generations or filesystem work, synthetic callbacks are no-ops, and duplicate fail/fail, fail/pass, and failed-newer-failure state remains distinct.
-- [ ] Run the focused sink/CLI tests through the development REPL and inspect structured failures before proceeding.
+- [x] Add focused sink tests proving pass/unknown concrete callbacks advance occurrence ordinals without creating required failure generations, synthetic callbacks are no-ops, and duplicate fail/fail, fail/pass, and failed-newer-failure state remains distinct.
+- [x] Run focused sink/CLI tests and inspect outcomes. — `clojure -M:test ... scry.cli-test`: 78 tests/620 assertions; `bb clj-fmt:check` passed.
 
 ## Slice 3 — Final reconciliation and diagnostics
 

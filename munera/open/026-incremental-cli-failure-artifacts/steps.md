@@ -1,3 +1,106 @@
 # Steps
 
-- [ ] Create and review an implementation plan from `design.md` before changing production code.
+## Slice 1 — Characterize completed-entry contracts
+
+- [ ] Run the focused core and optional Kaocha test slices before implementation and record the baseline commands/results in `implementation.md`.
+- [ ] Add a core runner regression proving `:progress-callback` fires once for each concrete execution, in execution order, after the var body and attributable `:each` teardown finish.
+- [ ] Add a core runner regression proving each callback receives the full unprojected canonical entry with final status, assertion summary, assertions, and captured `:each` setup/body/teardown output.
+- [ ] Verify the core callback contract tests pass through the development REPL and record any discovered contract differences in `implementation.md` before changing production code.
+
+## Slice 2 — Atomic sink foundation
+
+- [ ] Define the per-run result-sink state and operations in `scry.cli.results`, including concrete completion order, latest required failure generation/snapshot, latest successful generation/path, latest exception, and owned temporary paths.
+- [ ] Add a one-entry publisher that applies the existing bounded EDN sanitizer, writes and closes a unique temporary file inside `.scry-results/`, and atomically moves it with replacement to the unchanged deterministic final `.edn` filename.
+- [ ] Contain sanitizer, temporary-write, close, atomic-move, and per-attempt cleanup failures in sink state without throwing to a runner or replacing the original publication exception.
+- [ ] Make sink callback handling synchronously publish only concrete `:fail`/`:error` entries; make concrete pass/unknown and all synthetic callbacks filesystem no-ops.
+- [ ] Implement duplicate concrete completion semantics so each new failing/erroring callback advances the required generation, a successful publish replaces the same path, and a later pass/unknown neither retracts nor invalidates an earlier artifact.
+- [ ] Add focused sink tests proving successful final files are readable EDN, retain the detailed canonical entry shape, and use existing filename encoding.
+- [ ] Add focused sink tests proving no final `.edn` path becomes visible before a complete atomic move, temporary paths are never returned, and failed-attempt temporary files are best-effort removed.
+- [ ] Add focused sink tests for pass/unknown/synthetic no-op behavior and duplicate fail/fail, fail/pass, and failed-newer-failure generation state.
+- [ ] Run the focused sink/CLI tests through the development REPL and inspect structured failures before proceeding.
+
+## Slice 3 — Final reconciliation and diagnostics
+
+- [ ] Implement normal-return reconciliation against canonical entries, writing concrete failures missed by callbacks and retrying each unresolved identity from its latest failing/erroring canonical entry or retained callback snapshot.
+- [ ] Preserve successfully published latest completion snapshots without rewriting them during reconciliation, including repeated concrete executions and later pass/unknown entries.
+- [ ] Reuse existing whole-result assignment rules to write synthetic failing/erroring entries with deterministic collision handling during final reconciliation.
+- [ ] Build deduplicated `:result-files` in first canonical artifact occurrence order, then successful callback-only completion order, including only successfully published final `.edn` paths.
+- [ ] Implement deterministic unresolved-item ordering for normal reconciliation: concrete identities in canonical first-occurrence order, callback-only identities in completion order, then synthetic assignments.
+- [ ] Implement exception-path sink snapshots that return successful paths and unresolved concrete identities in completion order without attempting final reconciliation.
+- [ ] Refactor bounded diagnostic metadata construction so normal unresolved writes use phase `:final-result-file-reconciliation`, runner-abort unresolved writes use `:incremental-result-file-writing`, and `:failed-entry-count` counts unique latest-required artifact identities.
+- [ ] Derive diagnostic `:message`, `:type`, `:root-type`, `:root-message`, optional `:first-failing-var`, and optional `:first-root-cause` from the first deterministically ordered unresolved item's latest applicable exception/snapshot.
+- [ ] Best-effort remove every remaining sink-owned temporary file after normal reconciliation while ignoring unknown temporary files.
+- [ ] Add state-level tests for a callback-ignoring runner, transient failure followed by successful retry, persistent partial failure with successful siblings, callback-only artifacts, synthetic collisions, and deterministic diagnostic/result-file order.
+- [ ] Add duplicate-execution reconciliation tests proving an older readable artifact does not falsely reconcile a failed newer failure snapshot and a later pass/unknown creates no new required artifact.
+- [ ] Run focused sink/CLI tests through the development REPL and inspect diagnostic maps and written EDN directly.
+
+## Slice 4 — Core CLI integration
+
+- [ ] Replace the end-only CLI writer flow with per-run sink creation after successful results-directory preparation and before runner invocation.
+- [ ] Compose the CLI callback so sink handling always completes before terminal progress output is attempted, while preserving existing progress text, stream selection, and flush behavior.
+- [ ] Keep terminal writer/flush exceptions outside sink containment and verify a pure progress-output failure follows the existing runner-error path without `:scry.cli/diagnostic-error`.
+- [ ] On normal runner return, validate canonical entries, classify and print the existing summary/seed once, reconcile the sink, emit bounded write diagnostics when needed, and preserve outcome-kind/exit precedence.
+- [ ] On catchable runner exceptions, preserve successful incremental `:result-files` in completion order, attach unresolved incremental diagnostics when present, retain `:result nil`/`:summary nil`, and print the results-directory pointer only when an artifact survived.
+- [ ] Preserve result-directory preparation failures as authoritative pre-run runner errors that do not create a sink or invoke the runner.
+- [ ] Replace the task-025 `:write-result-files` test injection seam with focused sink/publication injection and keep all existing sanitizer/fallback expectations covered.
+- [ ] Add a core CLI test where a failing first var's following var reads the complete EDN before its body starts.
+- [ ] Extend the core timing fixture/test so the immediate file contains assertion detail plus `:each` setup/body/teardown output under existing core ownership semantics.
+- [ ] Add a core CLI test proving a passing first var creates no artifact before the next var starts.
+- [ ] Add a core CLI test proving an earlier artifact remains readable and listed after a later catchable runner exception, with the runner-error stdout/stderr and primary error unchanged.
+- [ ] Add core CLI tests proving transient and persistent incremental write failures do not stop later tests or replace test-derived outcomes, and successful sibling files remain listed.
+- [ ] Re-run result-format projection tests to prove incremental files use unprojected canonical entries independently of the public projection.
+- [ ] Run `scry.clojure-test-test` and `scry.cli-test` as focused REPL slices and inspect `scry.core/last-result` until green.
+- [ ] Commit the completed core sink/CLI slice and record the commit SHA and notable decisions in `steps.md`/`implementation.md`.
+
+## Slice 5 — Kaocha completed-leaf hook
+
+- [ ] Add an adapter-owned Kaocha completion plugin with a leaf `:kaocha.hooks/post-test` hook that calls the callback with `testable->entry` and returns the leaf unchanged.
+- [ ] Make the hook skip groups, skipped leaves, load-error/synthetic nodes, and runs without a callback.
+- [ ] Read finalized merged capture output in `testable->entry`, defensively falling back to the still-readable capture-output buffer when finalized output is absent.
+- [ ] Remove concrete `:end-test-var` callback emission and assertion counting from the reporter while retaining immediate synthetic suite/load-error progress.
+- [ ] Normalize the active plugin list so the adapter completion plugin appears exactly once and last, after capture-output, filter, and all configured/user plugins.
+- [ ] Ensure callback configuration reaches the completion hook without introducing a core load-time dependency on Kaocha or mutating returned leaves.
+- [ ] Update the Kaocha callback docstring to state once-per-concrete-execution, synchronous, full canonical payload, execution ordering, finalized post-hook snapshot, and merged-output semantics.
+- [ ] Add adapter tests proving callback entries are full canonical entries and equal the corresponding final canonical conversion for var, status, counts, assertions, and output.
+- [ ] Add an adapter test with a preceding user `post-test` hook proving the completion callback observes that hook's count/history/output changes and the adapter plugin is last.
+- [ ] Add adapter fixture coverage proving `:each` teardown is complete before callback and included in finalized merged output.
+- [ ] Add adapter tests proving one callback per concrete leaf/execution, no duplicate from reporter events, and no callback for skipped/non-leaf nodes.
+- [ ] Keep and strengthen load/suite-error tests proving synthetic progress still fires and is not treated as a concrete completion.
+- [ ] Run focused `scry.kaocha-test` and `scry.cli-kaocha-test` checks with the `:kaocha` alias and inspect failures before proceeding.
+- [ ] Commit the completed Kaocha hook slice and record the commit SHA and lifecycle findings in `steps.md`/`implementation.md`.
+
+## Slice 6 — Kaocha CLI and interruption coverage
+
+- [ ] Add a Kaocha CLI integration project where the first leaf fails and the next leaf verifies the first final `.edn` is already present and readable before its body runs.
+- [ ] Verify the immediate Kaocha file contains finalized assertion counts/detail and merged setup/body/teardown stdout/stderr output with `:err` empty.
+- [ ] Verify Kaocha synthetic load/suite errors still receive live progress and final synthetic artifacts only during reconciliation.
+- [ ] Add a bounded child-process interruption fixture in which a first failure signals publication and a later var blocks; assert the published file is readable while blocked and remains readable after terminating the child.
+- [ ] Guarantee child-process cleanup with bounded readiness/exit waits and `finally`; if safe platform-independent interruption is unavailable, implement deterministic blocked-run synchronization and document the limitation in `implementation.md`.
+- [ ] Run the focused Kaocha adapter/CLI tests and the interruption test repeatedly enough to rule out timing flakiness without adding sleeps.
+
+## Slice 7 — Compatibility regression pass
+
+- [ ] Re-run and adjust existing robust sanitizer tests for cyclic values, Throwables, bounded strings/collections, and hostile diagnostic values against atomic one-entry publication.
+- [ ] Re-run synthetic naming/collision tests and verify callback-time concrete reservations do not change existing synthetic filenames.
+- [ ] Verify normal pass/fail/load-error/unknown/zero-test outcomes retain summary text, progress text, stderr pointers, result shapes, outcome kinds, and exit codes.
+- [ ] Verify both `-m` and `-X` paths use incremental publication without changing option parsing, selection, or non-zero exception data.
+- [ ] Verify nested core capture isolation, fixture semantics, assertion/output ownership, and behavior with no progress callback remain unchanged.
+- [ ] Verify the core jar namespaces still load without Kaocha and all Kaocha-specific plugin code remains under `src-kaocha/`.
+- [ ] Run `bb clj-fmt:check` and `bb clj-kondo:lint`; fix only task-related formatting/lint findings.
+
+## Slice 8 — Documentation and final verification
+
+- [ ] Update README CLI documentation with synchronous per-completed-failure publication, atomic final-file visibility, temporary-file consumer guidance, reconciliation, and durability limits.
+- [ ] Update CHANGELOG Unreleased with core/Kaocha incremental publication, runner-error artifact preservation, atomic publication, retry, and diagnostic phases.
+- [ ] Update AGENTS CLI guidance with the before-next-var guarantee, runner-error preserved `:result-files`, unresolved diagnostic phases, and final-file-only inspection guidance.
+- [ ] Update the public `scry.cli/run` docstring with preserved runner-error files and the pinned `:final-result-file-reconciliation`/`:incremental-result-file-writing` diagnostic contract.
+- [ ] Update changed core/Kaocha callback docstrings to document synchronous full canonical completed-entry semantics and duplicate execution behavior.
+- [ ] Regenerate `doc/API.md` with `bb api-docs` and inspect the generated CLI and Kaocha sections for the required contract language.
+- [ ] Run `bb api-docs --check` and the focused API-doc content regression command from `AGENTS.md`.
+- [ ] Run the focused core CLI command-line check from `AGENTS.md`.
+- [ ] Run the focused Kaocha adapter and Kaocha CLI command-line checks from `AGENTS.md`.
+- [ ] Run at least one dedicated failing core CLI invocation and one failing Kaocha CLI invocation; inspect their outcome/exit behavior and readable `.scry-results/*.edn` artifacts.
+- [ ] Run `bb test:core`, `bb test:kaocha`, and then `bb test`; record exact commands, counts, and results in `implementation.md`.
+- [ ] Run final `bb clj-fmt:check`, `bb clj-kondo:lint`, and `bb api-docs --check`; record results in `implementation.md`.
+- [ ] Review the final diff against every acceptance criterion and out-of-scope boundary in `design.md`, updating `steps.md` and append-only `implementation.md` with any final decision or deviation.
+- [ ] Commit the documentation/final-verification slice and record its SHA in `steps.md`/`implementation.md`.

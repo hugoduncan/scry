@@ -2,10 +2,10 @@
 
 ## Slice 1 — Characterize completed-entry contracts
 
-- [ ] Run the focused core and optional Kaocha test slices before implementation and record the baseline commands/results in `implementation.md`.
-- [ ] Add a core runner regression proving `:progress-callback` fires once for each concrete execution, in execution order, after the var body and attributable `:each` teardown finish.
-- [ ] Add a core runner regression proving each callback receives the full unprojected canonical entry with final status, assertion summary, assertions, and captured `:each` setup/body/teardown output.
-- [ ] Verify the core callback contract tests pass through the development REPL and record any discovered contract differences in `implementation.md` before changing production code.
+- [x] Run the focused core and optional Kaocha test slices before implementation and record the baseline commands/results in `implementation.md`. — core: 145 tests/779 assertions; optional Kaocha: 33 tests/173 assertions.
+- [x] Add a core runner regression proving `:progress-callback` fires once for each concrete execution, in execution order, after the var body and attributable `:each` teardown finish.
+- [x] Add a core runner regression proving each callback receives the full unprojected canonical entry with final status, assertion summary, assertions, and captured `:each` setup/body/teardown output.
+- [x] Verify the core callback contract tests pass through the development REPL and record any discovered contract differences in `implementation.md` before changing production code. — focused `scry.clojure-test-test`: 65 tests/159 assertions.
 
 ## Slice 2 — Atomic sink foundation
 

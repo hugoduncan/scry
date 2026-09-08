@@ -7,3 +7,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 - no architectural review feedback
 - ambiguity review added 6 new design steps
 - inconsistency review added 3 new design steps
+- Follow-up resolution should preserve runner authority and keep diagnostic I/O non-authoritative; use `src/scry/cli.clj` for outcome/progress composition, `src/scry/cli/results.clj` for naming/sanitization/filesystem lifecycle, `src/scry/clojure_test.clj` for core callback timing, `src-kaocha/scry/kaocha.clj` for hook ordering, and the public `scry.cli/run` contract generated into `doc/API.md` when settling exact semantics.

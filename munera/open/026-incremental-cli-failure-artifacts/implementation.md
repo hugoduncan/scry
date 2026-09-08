@@ -15,3 +15,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 - 2026-09-08 ambiguity re-review found no new design feedback
 - 2026-09-08 inconsistency re-review found no new design feedback
 - 2026-09-08 follow-up handoff: all nine design steps are resolved in `design.md`; regression homes are `test/scry/cli_test.clj`, `test/scry/clojure_test_test.clj`, `test/scry/kaocha_test.clj`, and `test/scry/cli_kaocha_test.clj`. Verify duplicate executions, publication timing, and diagnostic ordering as observable state behavior rather than private call order.
+- 2026-09-08 plan ambiguity review added 3 new design steps

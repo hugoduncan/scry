@@ -52,7 +52,7 @@
 - [ ] Add core CLI tests proving transient and persistent incremental write failures do not stop later tests or replace test-derived outcomes, and successful sibling files remain listed.
 - [ ] Re-run result-format projection tests to prove incremental files use unprojected canonical entries independently of the public projection.
 - [ ] Run `scry.clojure-test-test` and `scry.cli-test` as focused REPL slices and inspect `scry.core/last-result` until green.
-- [ ] Commit the completed core sink/CLI slice and record the commit SHA and notable decisions in `steps.md`/`implementation.md`.
+- [ ] Commit the completed core sink/CLI slice and record the commit SHA and notable decisions in `steps.md`/`implementation.md`. — incremental integration coverage committed as `276b469`; full Slice 4 lifecycle and diagnostic cases remain.
 
 ## Slice 5 — Kaocha completed-leaf hook
 

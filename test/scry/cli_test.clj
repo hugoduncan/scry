@@ -755,6 +755,28 @@
         (is (= [:error :fail :error]
                (mapv (comp :status :entry) unresolved)))))))
 
+(deftest result-sink-callback-only-reservation-test
+  ;; A callback-only concrete artifact reserves its established filename before
+  ;; synthetic reconciliation assigns names, preventing a synthetic overwrite.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          sink (cli-results/create-result-sink results-dir)
+          callback-only {:var 'demo.core/suite-error-1 :status :fail}
+          synthetic {:ns 'demo.core :status :error}]
+      (cli-results/handle-completed-entry! sink callback-only)
+      (let [{:keys [result-files unresolved]}
+            (cli-results/reconcile-result-sink! sink [synthetic])]
+        (is (= [] unresolved))
+        (is (= ["demo.core__suite-error-1--2.edn"
+                "demo.core__suite-error-1.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= callback-only
+               (edn/read-string
+                (slurp (io/file results-dir "demo.core__suite-error-1.edn")))))
+        (is (= synthetic
+               (edn/read-string
+                (slurp (io/file results-dir "demo.core__suite-error-1--2.edn")))))))))
+
 (deftest result-sink-exception-snapshot-test
   ;; Catchable runner failure retains previously published files and describes
   ;; only unresolved latest callback generations in completion order.
@@ -1525,6 +1547,76 @@
       (is (= first-failure
              (edn/read-string (slurp (io/file dir ".scry-results"
                                               "demo.core__transient.edn"))))))))
+
+(deftest run-cli-persistent-publication-diagnostic-test
+  ;; An unrecoverable artifact failure remains diagnostic-only after normal
+  ;; return: successful siblings stay available and the final phase is explicit.
+  (with-temp-dir [dir]
+    (let [unavailable {:var 'demo.core/unavailable
+                       :status :fail
+                       :assertion-summary {:pass 0 :fail 1 :error 0}
+                       :assertions [{:type :fail}]}
+          persisted {:var 'demo.core/persisted
+                     :status :error
+                     :assertion-summary {:pass 0 :fail 0 :error 1}
+                     :assertions [{:type :error}]}
+          sink-factory (fn [results-dir]
+                         (cli-results/create-result-sink
+                          results-dir
+                          {:publish-entry!
+                           (fn [_ filename entry]
+                             (if (= unavailable entry)
+                               (throw (ex-info "disk unavailable" {}))
+                               (let [path (io/file results-dir filename)]
+                                 (spit path (pr-str entry))
+                                 (.getPath path))))}))
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:create-result-sink sink-factory
+                    :run-clojure-test
+                    (fn [opts]
+                      (doseq [entry [unavailable persisted]]
+                        ((:progress-callback opts) entry))
+                      (runner-result [unavailable persisted]))})]
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (= :final-result-file-reconciliation
+             (get-in outcome [:scry.cli/diagnostic-error :phase])))
+      (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
+      (is (= 'demo.core/unavailable
+             (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
+      (is (= ["demo.core__persisted.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (str/includes? (:stderr outcome)
+                         "Failure diagnostics failed while serializing 1 failing entries.")))))
+
+(deftest run-cli-malformed-canonical-preserves-incremental-artifacts-test
+  ;; Once a runner returns, malformed canonical data is a final-reconciliation
+  ;; runner error; completed callback artifacts remain visible without retrying.
+  (with-temp-dir [dir]
+    (let [failure {:var 'demo.core/completed
+                   :status :fail
+                   :assertion-summary {:pass 0 :fail 1 :error 0}
+                   :assertions [{:type :fail}]}
+          sink-factory (fn [results-dir]
+                         (cli-results/create-result-sink
+                          results-dir
+                          {:publish-entry! (fn [& _]
+                                             (throw (ex-info "disk unavailable" {})))}))
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:create-result-sink sink-factory
+                    :run-clojure-test
+                    (fn [opts]
+                      ((:progress-callback opts) failure)
+                      {:summary {} :canonical-results :malformed})})]
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+      (is (= :final-result-file-reconciliation
+             (get-in outcome [:scry.cli/diagnostic-error :phase])))
+      (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
+      (is (= [] (:result-files outcome)))
+      (is (false? (.exists (io/file dir ".scry-results" "demo.core__completed.edn")))))))
 
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned

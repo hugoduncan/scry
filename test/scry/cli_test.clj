@@ -15,6 +15,7 @@
    [scry.fixtures.colliding-b]
    [scry.fixtures.erroring]
    [scry.fixtures.failing]
+   [scry.fixtures.incremental-cli]
    [scry.fixtures.mixed]
    [scry.fixtures.output]
    [scry.fixtures.pathological]
@@ -1551,6 +1552,23 @@
       (is (= failure (:failure @observed)))
       (is (false? (:passing-exists? @observed)))
       (is (= ["demo.core__first-fails.edn"] (result-files dir))))))
+
+(deftest run-cli-native-core-publication-timing-test
+  ;; A real clojure.test execution publishes the first var only after its
+  ;; :each teardown, and before the second var body begins.
+  (with-temp-dir [dir]
+    (reset! scry.fixtures.incremental-cli/results-dir
+            (io/file dir ".scry-results"))
+    (reset! scry.fixtures.incremental-cli/observed-entry nil)
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
+                                   {:namespaces ['scry.fixtures.incremental-cli]}))
+          entry @scry.fixtures.incremental-cli/observed-entry]
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (= :fail (:status entry)))
+      (is (= "each setup\nfirst body\neach teardown\n" (:out entry)))
+      (is (= :fail (:type (first (:assertions entry)))))
+      (is (= ["scry.fixtures.incremental-cli__first-fails-before-next-var.edn"]
+             (result-files dir))))))
 
 (deftest run-cli-retains-incremental-artifacts-on-runner-error-test
   ;; A catchable runner error does not discard an artifact published by an

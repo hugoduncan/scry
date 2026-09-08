@@ -735,6 +735,69 @@
                (mapv #(.getName (io/file %)) result-files)))
         (is (= completion-entry (edn/read-string (slurp artifact))))))))
 
+(deftest result-sink-duplicate-reconciliation-test
+  ;; Duplicate executions retry the exact failed generation's canonical
+  ;; occurrence, or retain its completion snapshot when that occurrence is
+  ;; absent; a later pass has no artifact requirement of its own.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          publications (atom [])
+          calls (atom 0)
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (swap! publications conj entry)
+                                   (if (= 2 (swap! calls inc))
+                                     (throw (ex-info "second generation unavailable" {}))
+                                     (let [path (io/file results-dir filename)]
+                                       (spit path (pr-str entry))
+                                       (.getPath path))))})
+          first-failure {:var 'demo.core/repeated
+                         :status :fail
+                         :assertions [:first-completion]}
+          second-failure {:var 'demo.core/repeated
+                          :status :fail
+                          :assertions [:second-completion]}
+          canonical-second {:var 'demo.core/repeated
+                            :status :fail
+                            :assertions [:second-final]}
+          later-pass {:var 'demo.core/repeated :status :pass}]
+      (cli-results/handle-completed-entry! sink first-failure)
+      (cli-results/handle-completed-entry! sink second-failure)
+      (cli-results/handle-completed-entry! sink later-pass)
+      (let [{:keys [result-files unresolved]}
+            (cli-results/reconcile-result-sink!
+             sink [first-failure canonical-second later-pass])]
+        (is (= [] unresolved))
+        (is (= [first-failure second-failure canonical-second] @publications))
+        (is (= ["demo.core__repeated.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= canonical-second
+               (edn/read-string
+                (slurp (io/file results-dir "demo.core__repeated.edn")))))))
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          calls (atom 0)
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (if (= 2 (swap! calls inc))
+                                     (throw (ex-info "second generation unavailable" {}))
+                                     (let [path (io/file results-dir filename)]
+                                       (spit path (pr-str entry))
+                                       (.getPath path))))})
+          first-failure {:var 'demo.core/missing-occurrence :status :fail}
+          second-failure {:var 'demo.core/missing-occurrence
+                          :status :error
+                          :assertions [:completion-only]}]
+      (cli-results/handle-completed-entry! sink first-failure)
+      (cli-results/handle-completed-entry! sink second-failure)
+      (let [{:keys [unresolved]}
+            (cli-results/reconcile-result-sink! sink [first-failure])]
+        (is (= [] unresolved))
+        (is (= second-failure
+               (edn/read-string
+                (slurp (io/file results-dir "demo.core__missing-occurrence.edn")))))))))
+
 (deftest result-sink-unresolved-order-test
   ;; Normal reconciliation reports unresolved concrete artifacts in canonical
   ;; order, callback-only artifacts in completion order, then synthetic paths.

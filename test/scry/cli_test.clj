@@ -613,6 +613,39 @@
         (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp")
                             (.listFiles ^java.io.File results-dir))))))))
 
+(deftest atomic-result-publication-visibility-and-cleanup-test
+  ;; Final names appear only after a complete temporary artifact has been
+  ;; written and moved; a failed write leaves neither final nor temporary data.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})]
+      (let [filename "demo.core__atomic.edn"
+            target (io/file results-dir filename)
+            original-spit spit
+            observed (atom nil)]
+        (with-redefs [clojure.core/spit
+                      (fn [file content]
+                        (reset! observed {:target-exists? (.exists target)
+                                          :temporary-files (->> (.listFiles ^java.io.File results-dir)
+                                                                (map #(.getName ^java.io.File %))
+                                                                (filter #(str/ends-with? % ".tmp"))
+                                                                vec)})
+                        (original-spit file content))]
+          (#'cli-results/atomic-write-entry! results-dir filename {:status :fail}))
+        (is (= false (:target-exists? @observed)))
+        (is (= 1 (count (:temporary-files @observed))))
+        (is (= {:status :fail} (edn/read-string (slurp target))))
+        (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp")
+                            (.listFiles ^java.io.File results-dir)))))
+      (let [filename "demo.core__failed.edn"
+            target (io/file results-dir filename)]
+        (with-redefs [clojure.core/spit (fn [& _] (throw (ex-info "write failed" {})))]
+          (is (thrown-with-msg? clojure.lang.ExceptionInfo #"write failed"
+                                (#'cli-results/atomic-write-entry!
+                                 results-dir filename {:status :fail}))))
+        (is (false? (.exists target)))
+        (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp")
+                            (.listFiles ^java.io.File results-dir))))))))
+
 (deftest result-sink-duplicate-and-contained-failure-test
   ;; A later failed completion remains distinct from an older readable snapshot,
   ;; while a later pass neither retracts it nor creates an artifact requirement.

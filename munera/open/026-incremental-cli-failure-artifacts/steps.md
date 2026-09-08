@@ -15,7 +15,7 @@
 - [x] Make every concrete callback, including pass/unknown, advance its identity's occurrence ordinal; synchronously publish only concrete `:fail`/`:error` entries, and make synthetic callbacks artifact-requirement/filesystem no-ops.
 - [x] Implement initial duplicate concrete completion semantics: each failing/erroring callback advances the required generation, a successful publish replaces the deterministic path, and later pass/unknown callbacks do not invalidate it. Reconciliation behavior remains Slice 3.
 - [x] Add focused sink tests proving successful final files are readable EDN, retain detailed canonical entry data, use existing filename encoding, and leave no temporary files on successful publication.
-- [ ] Add focused sink tests proving no final `.edn` path becomes visible before a complete atomic move, temporary paths are never returned, and failed-attempt temporary files are best-effort removed.
+- [x] Add focused sink tests proving no final `.edn` path becomes visible before a complete atomic move, temporary paths are never returned, and failed-attempt temporary files are best-effort removed. — direct publisher boundary test confirms final-file absence during temp serialization and cleanup after a contained write failure.
 - [x] Add focused sink tests proving pass/unknown concrete callbacks advance occurrence ordinals without creating required failure generations, synthetic callbacks are no-ops, and duplicate fail/fail, fail/pass, and failed-newer-failure state remains distinct.
 - [x] Run focused sink/CLI tests and inspect outcomes. — `clojure -M:test ... scry.cli-test`: 78 tests/620 assertions; `bb clj-fmt:check` passed.
 

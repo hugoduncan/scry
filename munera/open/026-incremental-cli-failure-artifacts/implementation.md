@@ -12,3 +12,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 2026-09-08 — Design-review follow-up: Kaocha executes plugin hooks left-to-right (`plugin/run-hook*` reduces the active chain), capture-output materializes and removes its buffer in `post-test`, and `run-testables` starts the next leaf only after the current leaf’s full `post-test` chain returns. The adapter completion plugin therefore needs to be appended last after the final configured/ensured plugin chain, not merely placed after capture-output. Existing CLI terminal progress writes/flushes synchronously and does not contain writer failures; the refined design deliberately preserves that behavior while containing sink failures only.
 
 - 2026-09-08 architectural re-review found no new design feedback
+- 2026-09-08 ambiguity re-review found no new design feedback

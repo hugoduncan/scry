@@ -21,17 +21,17 @@
 
 ## Slice 3 — Final reconciliation and diagnostics
 
-- [ ] Implement normal-return reconciliation against canonical entries, writing concrete failures missed by callbacks and retrying each unresolved identity from its latest failing/erroring canonical entry or retained callback snapshot.
+- [ ] Implement normal-return reconciliation by ordinally matching each identity's callback generations to same-identity canonical occurrences; retry an unpublished latest required generation from its matching failing/erroring occurrence or otherwise its retained callback snapshot, and write the latest failing/erroring unmatched occurrence for identities whose callbacks were missed.
 - [ ] Preserve successfully published latest completion snapshots without rewriting them during reconciliation, including repeated concrete executions and later pass/unknown entries.
-- [ ] Reuse existing whole-result assignment rules to write synthetic failing/erroring entries with deterministic collision handling during final reconciliation.
+- [ ] Reuse existing whole-result assignment rules to write synthetic failing/erroring entries with deterministic collision handling during final reconciliation, reserving concrete filenames from canonical entries and callback-only identities with a successful artifact or unresolved required failure (but not pass/unknown-only callback identities) before assigning synthetic paths.
 - [ ] Build deduplicated `:result-files` in first canonical artifact occurrence order, then successful callback-only completion order, including only successfully published final `.edn` paths.
 - [ ] Implement deterministic unresolved-item ordering for normal reconciliation: concrete identities in canonical first-occurrence order, callback-only identities in completion order, then synthetic assignments.
 - [ ] Implement exception-path sink snapshots that return successful paths and unresolved concrete identities in completion order without attempting final reconciliation.
 - [ ] Refactor bounded diagnostic metadata construction so normal unresolved writes use phase `:final-result-file-reconciliation`, runner-abort unresolved writes use `:incremental-result-file-writing`, and `:failed-entry-count` counts unique latest-required artifact identities.
 - [ ] Derive diagnostic `:message`, `:type`, `:root-type`, `:root-message`, optional `:first-failing-var`, and optional `:first-root-cause` from the first deterministically ordered unresolved item's latest applicable exception/snapshot.
 - [ ] Best-effort remove every remaining sink-owned temporary file after normal reconciliation while ignoring unknown temporary files.
-- [ ] Add state-level tests for a callback-ignoring runner, transient failure followed by successful retry, persistent partial failure with successful siblings, callback-only artifacts, synthetic collisions, and deterministic diagnostic/result-file order.
-- [ ] Add duplicate-execution reconciliation tests proving an older readable artifact does not falsely reconcile a failed newer failure snapshot and a later pass/unknown creates no new required artifact.
+- [ ] Add state-level tests for a callback-ignoring runner, transient failure followed by successful retry, persistent partial failure with successful siblings, callback-only artifacts, callback-only concrete filename reservation against synthetic collisions, and deterministic diagnostic/result-file order.
+- [ ] Add duplicate-execution reconciliation tests proving ordinal callback/canonical matching selects the corresponding latest-generation snapshot (falling back to the retained callback snapshot when unmatched), an older readable artifact does not falsely reconcile a failed newer failure snapshot, and a later pass/unknown creates no new required artifact.
 - [ ] Run focused sink/CLI tests through the development REPL and inspect diagnostic maps and written EDN directly.
 
 ## Slice 4 — Core CLI integration
@@ -39,14 +39,16 @@
 - [ ] Replace the end-only CLI writer flow with per-run sink creation after successful results-directory preparation and before runner invocation.
 - [ ] Compose the CLI callback so sink handling always completes before terminal progress output is attempted, while preserving existing progress text, stream selection, and flush behavior.
 - [ ] Keep terminal writer/flush exceptions outside sink containment and verify a pure progress-output failure follows the existing runner-error path without `:scry.cli/diagnostic-error`.
-- [ ] On normal runner return, validate canonical entries, classify and print the existing summary/seed once, reconcile the sink, emit bounded write diagnostics when needed, and preserve outcome-kind/exit precedence.
-- [ ] On catchable runner exceptions, preserve successful incremental `:result-files` in completion order, attach unresolved incremental diagnostics when present, retain `:result nil`/`:summary nil`, and print the results-directory pointer only when an artifact survived.
+- [ ] On normal runner return, validate the complete canonical vector, reconcile the sink before human output, classify and print the existing summary/seed once, emit bounded write diagnostics when needed, and preserve outcome-kind/exit precedence.
+- [ ] Define exception snapshots by lifecycle: runner invocation and canonical-validation failures use no-reconciliation incremental state; failures after validated reconciliation use that reconciled state without retrying; an unexpected reconciliation-orchestration exception snapshots progress without recursively reconciling.
+- [ ] On catchable exceptions after sink creation, preserve snapshot `:result-files`, attach unresolved diagnostics with the lifecycle-appropriate phase, retain `:result nil`/`:summary nil`, and best-effort emit bounded failure-diagnostic/first-detail lines before the normal runner-error line plus a results-directory pointer only when an artifact survived, without allowing a secondary catch-path writer failure to replace the primary error or structured outcome.
 - [ ] Preserve result-directory preparation failures as authoritative pre-run runner errors that do not create a sink or invoke the runner.
 - [ ] Replace the task-025 `:write-result-files` test injection seam with focused sink/publication injection and keep all existing sanitizer/fallback expectations covered.
 - [ ] Add a core CLI test where a failing first var's following var reads the complete EDN before its body starts.
 - [ ] Extend the core timing fixture/test so the immediate file contains assertion detail plus `:each` setup/body/teardown output under existing core ownership semantics.
 - [ ] Add a core CLI test proving a passing first var creates no artifact before the next var starts.
-- [ ] Add a core CLI test proving an earlier artifact remains readable and listed after a later catchable runner exception, with the runner-error stdout/stderr and primary error unchanged.
+- [ ] Add core CLI tests proving earlier artifacts remain readable/listed after runner invocation, malformed/missing canonical result, reconciliation-orchestration, and post-reconciliation output exceptions, with no reconciliation before canonical validation and no second reconciliation after it.
+- [ ] Add a combined unresolved incremental-write/runner-exception regression proving the outcome retains incremental diagnostic metadata and stderr emits bounded failure-diagnostic/first-detail lines, then the runner-error line, then the results-directory pointer only when a sibling artifact survived.
 - [ ] Add core CLI tests proving transient and persistent incremental write failures do not stop later tests or replace test-derived outcomes, and successful sibling files remain listed.
 - [ ] Re-run result-format projection tests to prove incremental files use unprojected canonical entries independently of the public projection.
 - [ ] Run `scry.clojure-test-test` and `scry.cli-test` as focused REPL slices and inspect `scry.core/last-result` until green.
@@ -76,7 +78,7 @@
 - [ ] Verify Kaocha synthetic load/suite errors still receive live progress and final synthetic artifacts only during reconciliation.
 - [ ] Add a bounded child-process interruption fixture in which a first failure signals publication and a later var blocks; assert the published file is readable while blocked and remains readable after terminating the child.
 - [ ] Guarantee child-process cleanup with bounded readiness/exit waits and `finally`; if safe platform-independent interruption is unavailable, implement deterministic blocked-run synchronization and document the limitation in `implementation.md`.
-- [ ] Run the focused Kaocha adapter/CLI tests and the interruption test repeatedly enough to rule out timing flakiness without adding sleeps.
+- [ ] Run the focused Kaocha adapter/CLI slice once, then run the interruption regression 10 consecutive times in one bounded invocation with no sleeps or leaked resources; if child interruption is unsupported, run the deterministic blocked-run fallback 10 times instead and record the platform limitation/fallback in `implementation.md`.
 
 ## Slice 7 — Compatibility regression pass
 

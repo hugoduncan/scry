@@ -36,19 +36,27 @@ retried, never thrown into a runner or used to change the primary outcome.
   snapshot; use a narrow injected construction/publication boundary in tests
   instead of global redefinition.
 - Reuse `failure-entry?`, concrete identity/filename rules,
-  `result-file-assignments`, and `edn-readable-data`. Publish one entry by
-  sanitizing it, writing and closing a uniquely named sink-owned temporary file
-  in `.scry-results/`, then moving it with `ATOMIC_MOVE` and
-  `REPLACE_EXISTING` to the final `.edn` path. Unsupported or failed atomic moves
-  are contained as diagnostic write failures; do not fall back to exposing a
-  non-atomic final file.
+  `result-file-assignments`, and `edn-readable-data`. Extend assignment with an
+  explicit reserved-filename input: before assigning synthetic entries, reserve
+  every concrete filename in the final canonical vector plus every callback-only
+  concrete filename that has a successfully published path or an unresolved
+  required failure generation. Pass/unknown-only callback identities with no
+  artifact state do not reserve paths. This prevents synthetic reconciliation
+  from overwriting an incremental concrete path while retaining existing suffix
+  selection.
+- Publish one entry by sanitizing it, writing and closing a uniquely named
+  sink-owned temporary file in `.scry-results/`, then moving it with
+  `ATOMIC_MOVE` and `REPLACE_EXISTING` to the final `.edn` path. Unsupported or
+  failed atomic moves are contained as diagnostic write failures; do not fall
+  back to exposing a non-atomic final file.
 - Track concrete identities independently from paths: first completion order,
-  latest failing/erroring callback snapshot, a monotonically advancing required
-  failure generation, latest successfully published generation, latest
-  exception, successful final path, and sink-owned temporary paths. This makes a
-  later failed failure snapshot remain unresolved even when an older readable
-  artifact exists, while pass/unknown callbacks neither retract the file nor
-  create a new requirement.
+  a monotonically advancing completion generation for every callback event,
+  latest failing/erroring callback snapshot and its completion generation,
+  latest successfully published required generation, latest exception,
+  successful final path, and sink-owned temporary paths. This makes a later
+  failed failure snapshot remain unresolved even when an older readable artifact
+  exists, while pass/unknown callbacks neither retract the file nor create a new
+  requirement.
 - Make duplicate concrete executions replace the same deterministic path. The
   latest successful failing/erroring completion snapshot wins; final
   reconciliation must not rewrite it merely because equivalent final canonical
@@ -57,11 +65,17 @@ retried, never thrown into a runner or used to change the primary outcome.
 ### Reconciliation, ordering, and diagnostics
 
 - On normal runner return, validate canonical entries and reconcile in canonical
-  order. For each concrete identity whose latest required failure generation is
-  unpublished, retry from its latest failing/erroring canonical entry when one
-  exists; otherwise retry the retained callback snapshot. Write concrete
-  failures missed because a runner ignored the callback, and assign/write
-  synthetic failures with the existing whole-result collision rules.
+  order. Correlate callback generations to same-identity canonical occurrences
+  by ordinal execution order: the first callback for an identity matches the
+  first canonical occurrence of that identity, the second matches the second,
+  and so on. For an unpublished latest required callback generation, retry only
+  from its ordinally matching canonical occurrence when that occurrence is
+  failing/erroring; otherwise retry the retained callback snapshot. Canonical
+  occurrences without a matching callback represent missed callbacks; write the
+  latest failing/erroring unmatched occurrence for that identity. Do not
+  substitute a different older/newer canonical occurrence for a callback
+  generation merely because it fails. Write synthetic failures with the existing
+  whole-result collision rules plus callback-known concrete reservations.
 - Build `:result-files` from the first occurrence of each successfully published
   artifact path in canonical assignment order, then append successful
   callback-only concrete paths in completion order. Deduplicate paths and never
@@ -84,17 +98,39 @@ retried, never thrown into a runner or used to change the primary outcome.
 ### CLI lifecycle and compatibility
 
 - Restructure `run-cli` so the prepared directory and sink remain available to
-  both the normal and runner-exception paths. Keep result-directory preparation
-  authoritative and before runner invocation.
-- On a normal return, retain canonical validation, outcome classification,
-  summary/seed output, final reconciliation, failure-directory diagnostics, and
-  outcome throwing semantics. Preserve the existing summary/output ordering
-  while replacing the end-only bulk writer with sink reconciliation.
-- On a catchable runner exception, return any successful incremental paths in
-  completion order, report unresolved incremental diagnostics when present,
-  and print the results-directory pointer only when at least one artifact
-  survived. Keep `:result nil`, `:summary nil`, the existing stdout error-summary
-  line, runner-error classification, and exit behavior.
+  every catchable exception path after sink creation. Keep result-directory
+  preparation authoritative and before sink creation or runner invocation.
+- Treat canonical validation as the reconciliation eligibility boundary. A
+  `run-normalized` exception, a missing `:canonical-results` vector, or any
+  malformed canonical entry uses the sink's no-reconciliation exception
+  snapshot: preserve successful callback publications and report unresolved
+  callback requirements with phase `:incremental-result-file-writing`.
+- Once the complete canonical vector validates, reconcile immediately, before
+  summary/seed or stderr rendering. All later catchable failures—including
+  summary, seed, failure-diagnostic, and results-directory-pointer output
+  failures—use the resulting reconciled sink snapshot; they do not run a second
+  reconciliation, and unresolved publication metadata has phase
+  `:final-result-file-reconciliation`. An unexpected exception from the
+  reconciliation orchestration itself snapshots the state reached so far and
+  does not recursively retry, although ordinary per-entry publication failures
+  remain contained by the sink.
+- On a normal return, retain outcome classification, summary/seed output,
+  failure-directory diagnostics, and outcome throwing semantics. Preserve the
+  existing ordering among human-facing summary, seed, and stderr output while
+  replacing the end-only bulk writer with the earlier sink reconciliation.
+- On any catchable exception after sink creation, return the selected snapshot's
+  successful paths and attach its unresolved diagnostic metadata when present.
+  For unresolved publication state, stderr first emits the existing bounded
+  failure-diagnostics line plus first-var/root-cause lines when derivable; it
+  then emits the normal `scry CLI error` line and, only when at least one
+  artifact survived, the results-directory pointer. This combined sequence is
+  required for runner aborts as well as other exception outcomes that snapshot
+  unresolved sink state. Catch-path human-output writes are best-effort: a
+  secondary writer failure must not discard the structured runner-error outcome
+  or its sink snapshot, while the original terminal output exception remains the
+  primary `:error`. Keep `:result nil`, `:summary nil`, the existing stdout
+  error-summary line when writable, runner-error classification, and exit
+  behavior. Result-directory preparation failures still have no sink snapshot.
 - A sink failure is always contained before terminal progress runs. A terminal
   writer/flush failure remains outside sink containment and may follow the
   existing runner-error path; a pure progress failure adds no artifact
@@ -153,9 +189,10 @@ Test observable boundaries rather than private call order:
 - **Public docs are generated.** Update source docstrings first, regenerate
   `doc/API.md`, and run the generated-content check to avoid hand-edited drift.
 
-No implementation blocker or unresolved design decision is known. Temporary-file
-name details and the private sink API are implementation choices; only final
-`.edn` names and the behavior pinned by `design.md` are contractual.
+No implementation blocker or unresolved design decision is known after resolving
+the plan-review follow-ups. Temporary-file name details and the private sink API
+are implementation choices; only final `.edn` names and the behavior pinned by
+`design.md` are contractual.
 
 ## Slice order
 
@@ -176,7 +213,13 @@ name details and the private sink API are implementation choices; only final
    callback/final parity and no duplicates.
 6. **Kaocha CLI integration and interruption coverage.** Prove before-next-leaf
    publication, detailed merged fixture output, synthetic behavior, and durable
-   artifacts during a later blocked/interrupted run.
+   artifacts during a later blocked/interrupted run. Run the interruption
+   regression 10 consecutive times in one bounded invocation after the focused
+   Kaocha slice passes once. If child-process interruption is unsupported and
+   the deterministic blocked-run synchronization fallback is used, run that
+   fallback regression 10 consecutive times instead and record the platform
+   limitation and fallback in `implementation.md`; all 10 runs must pass with no
+   leaked child/thread/resource before the slice is complete.
 7. **Compatibility regression pass.** Re-run sanitizer, synthetic collision,
    duplicate execution, result projection, `-m`, `-X`, pass/fail, and pure
    progress-failure coverage; fix only task-scoped regressions.

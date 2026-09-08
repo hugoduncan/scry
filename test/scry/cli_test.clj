@@ -376,6 +376,12 @@
   []
   (java.io.StringWriter.))
 
+(defn- failing-writer
+  [message]
+  (proxy [java.io.StringWriter] []
+    (write [s]
+      (throw (java.io.IOException. ^String message)))))
+
 (defn- run-cli-in
   ([dir opts]
    (run-cli-in dir opts {}))
@@ -1731,6 +1737,61 @@
       (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
       (is (= [] (:result-files outcome)))
       (is (false? (.exists (io/file dir ".scry-results" "demo.core__completed.edn")))))))
+
+(deftest run-cli-lifecycle-exceptions-preserve-reconciled-sink-state-test
+  ;; After a normal runner return, reconciliation and later presentation errors
+  ;; retain the sink snapshot and use the final-reconciliation lifecycle phase.
+  (testing "a reconciliation orchestration exception does not start another reconciliation"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/unpublished
+                     :status :fail
+                     :assertion-summary {:pass 0 :fail 1 :error 0}
+                     :assertions [{:type :fail}]}
+            publications (atom 0)
+            sink-factory (fn [results-dir]
+                           (cli-results/create-result-sink
+                            results-dir
+                            {:publish-entry! (fn [& _]
+                                               (swap! publications inc)
+                                               (throw (ex-info "disk unavailable" {})))}))
+            outcome (run-cli-in
+                     dir
+                     (#'cli/normalize-exec-opts {})
+                     {:create-result-sink sink-factory
+                      :reconcile-result-sink! (fn [& _]
+                                                (throw (ex-info "reconciliation stopped" {})))
+                      :run-clojure-test
+                      (fn [opts]
+                        ((:progress-callback opts) failure)
+                        (runner-result [failure]))})]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (= :final-result-file-reconciliation
+               (get-in outcome [:scry.cli/diagnostic-error :phase])))
+        (is (= 1 @publications))
+        (is (= [] (:result-files outcome))))))
+  (testing "a post-reconciliation summary writer exception retains published files"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/published-before-summary-error
+                     :status :error
+                     :assertion-summary {:pass 0 :fail 0 :error 1}
+                     :assertions [{:type :error}]}
+            err (string-writer)
+            outcome (#'cli/run-cli
+                     (#'cli/normalize-exec-opts {})
+                     (test-boundary
+                      {:cwd (.getPath dir)
+                       :out (failing-writer "summary unavailable")
+                       :err err
+                       :run-clojure-test (fn [opts]
+                                           ((:progress-callback opts) failure)
+                                           (runner-result [failure]))}))]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (= ["demo.core__published-before-summary-error.edn"]
+               (mapv #(.getName (io/file %)) (:result-files outcome))))
+        (is (= failure
+               (edn/read-string
+                (slurp (io/file dir ".scry-results"
+                                "demo.core__published-before-summary-error.edn")))))))))
 
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned

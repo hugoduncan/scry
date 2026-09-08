@@ -457,7 +457,8 @@
    :cwd (System/getProperty "user.dir")
    :run-clojure-test clojure-test/run
    :resolve-kaocha-runner default-resolve-kaocha-runner
-   :create-result-sink results/create-result-sink})
+   :create-result-sink results/create-result-sink
+   :reconcile-result-sink! results/reconcile-result-sink!})
 
 (defn- assertion-counts
   [entries]
@@ -876,7 +877,9 @@
           ;; canonical vector is malformed and cannot be reconciled.
           (swap! runtime assoc :phase :final-result-file-reconciliation)
           (let [entries (canonical-result-entries result)
-                reconciliation (results/reconcile-result-sink! sink entries)
+                reconciliation ((or (:reconcile-result-sink! boundary)
+                                    results/reconcile-result-sink!)
+                                sink entries)
                 diagnostic (unresolved-diagnostic :final-result-file-reconciliation
                                                   (:unresolved reconciliation))
                 summary (cli-summary result entries)

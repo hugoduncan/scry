@@ -56,14 +56,14 @@
 
 ## Slice 5 — Kaocha completed-leaf hook
 
-- [ ] Add an adapter-owned Kaocha completion plugin with a leaf `:kaocha.hooks/post-test` hook that calls the callback with `testable->entry` and returns the leaf unchanged.
-- [ ] Make the hook skip groups, skipped leaves, load-error/synthetic nodes, and runs without a callback.
-- [ ] Read finalized merged capture output in `testable->entry`, defensively falling back to the still-readable capture-output buffer when finalized output is absent.
-- [ ] Remove concrete `:end-test-var` callback emission and assertion counting from the reporter while retaining immediate synthetic suite/load-error progress.
-- [ ] Normalize the active plugin list so the adapter completion plugin appears exactly once and last, after capture-output, filter, and all configured/user plugins.
-- [ ] Ensure callback configuration reaches the completion hook without introducing a core load-time dependency on Kaocha or mutating returned leaves.
-- [ ] Update the Kaocha callback docstring to state once-per-concrete-execution, synchronous, full canonical payload, execution ordering, finalized post-hook snapshot, and merged-output semantics.
-- [ ] Add adapter tests proving callback entries are full canonical entries and equal the corresponding final canonical conversion for var, status, counts, assertions, and output.
+- [x] Add an adapter-owned Kaocha completion plugin with a leaf `:kaocha.hooks/post-test` hook that calls the callback with `testable->entry` and returns the leaf unchanged.
+- [x] Make the hook skip groups, skipped leaves, load-error/synthetic nodes, and runs without a callback.
+- [x] Read finalized merged capture output in `testable->entry`, defensively falling back to the still-readable capture-output buffer when finalized output is absent.
+- [x] Remove concrete `:end-test-var` callback emission and assertion counting from the reporter while retaining immediate synthetic suite/load-error progress.
+- [x] Normalize the active plugin list so the adapter completion plugin appears exactly once and last, after capture-output, filter, and all configured/user plugins.
+- [x] Ensure callback configuration reaches the completion hook without introducing a core load-time dependency on Kaocha or mutating returned leaves.
+- [x] Update the Kaocha callback docstring to state once-per-concrete-execution, synchronous, full canonical payload, execution ordering, finalized post-hook snapshot, and merged-output semantics.
+- [x] Add adapter tests proving callback entries are full canonical entries and equal the corresponding final canonical conversion for var, status, counts, assertions, and output. — callback regression verifies full assertion-bearing entries and suite conversion parity for the failing entry.
 - [ ] Add an adapter test with a preceding user `post-test` hook proving the completion callback observes that hook's count/history/output changes and the adapter plugin is last.
 - [ ] Add adapter fixture coverage proving `:each` teardown is complete before callback and included in finalized merged output.
 - [ ] Add adapter tests proving one callback per concrete leaf/execution, no duplicate from reporter events, and no callback for skipped/non-leaf nodes.

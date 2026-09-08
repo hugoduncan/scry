@@ -478,8 +478,8 @@
              (str "expected argument-error for " (pr-str args))))))))
 
 (deftest kaocha-adapter-progress-callback-test
-  ;; The optional adapter exposes a live end-of-var progress callback before the
-  ;; final scry result is transformed.
+  ;; The optional adapter exposes one finalized, canonical completion entry per
+  ;; concrete leaf before its final suite result is returned.
   (when-kaocha-available
    (with-temp-dir [project]
      (let [sample-ns (unique-ns "progress" "sample-test")
@@ -494,8 +494,13 @@
                run-var (requiring-resolve 'scry.kaocha/run)
                result (run-var {:test-paths ["test"]
                                 :ns-patterns [(exact-ns-pattern sample-ns)]
-                                :progress-callback #(swap! events conj (select-keys % [:var :status]))})]
+                                :progress-callback #(swap! events conj %)})]
            (is (false? (:pass? result)))
-           (is (= [{:var first-var :status :pass}
-                   {:var second-var :status :fail}]
-                  @events))))))))
+           (is (= [first-var second-var] (mapv :var @events)))
+           (is (= [:pass :fail] (mapv :status @events)))
+           (is (= (select-keys (second @events)
+                               [:var :ns :status :assertion-summary])
+                  (first (:results result))))
+           (is (= {:pass 0 :fail 1 :error 0}
+                  (:assertion-summary (second @events))))
+           (is (= :fail (:type (first (:assertions (second @events))))))))))))

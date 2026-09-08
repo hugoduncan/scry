@@ -254,13 +254,13 @@
                 :kaocha/color? true
                 :custom/key :preserved}
            result ((kaocha-var 'apply-runtime-defaults) cfg)]
-       (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter]
+       (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter :scry.kaocha/completed-entry]
               (:kaocha/plugins result)))
        (is (= [] (:kaocha/reporter result)))
        (is (false? (:kaocha/color? result)))
        (is (= :preserved (:custom/key result)))))
    (testing "capture-output and filter plugins are appended when absent"
-     (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter]
+     (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter :scry.kaocha/completed-entry]
             (:kaocha/plugins ((kaocha-var 'apply-runtime-defaults)
                               {:kaocha/plugins [:existing/plugin]})))))))
 
@@ -273,7 +273,7 @@
                    ((kaocha-var 'select-suites) cfg [:integration]))]
      (is (= {:unit true :integration nil} (suite-skip-map resolved)))
      (is (= :preserved (:custom/key resolved)))
-     (is (= [:kaocha.plugin/capture-output :kaocha.plugin/filter]
+     (is (= [:kaocha.plugin/capture-output :kaocha.plugin/filter :scry.kaocha/completed-entry]
             (:kaocha/plugins resolved)))
      (is (= [] (:kaocha/reporter resolved)))
      (is (false? (:kaocha/color? resolved))))))

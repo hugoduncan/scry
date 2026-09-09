@@ -288,6 +288,88 @@
      (is (= {:pass 0 :fail 1 :error 0}
             (:assertion-summary (first @callbacks)))))))
 
+(deftest completed-entry-callback-follows-each-teardown-test
+  ;; A real Kaocha leaf callback is emitted after the :each fixture's teardown,
+  ;; so its canonical snapshot contains the final merged fixture output.
+  (when-kaocha-available
+   (with-temp-project [project]
+     (let [sample-ns (unique-ns "completion" "fixture-test")
+           callbacks (atom [])
+           source (str "(ns " sample-ns "\n"
+                       "  (:require [clojure.test :refer [deftest is use-fixtures]]))\n\n"
+                       "(use-fixtures :each (fn [test-fn]\n"
+                       "                      (println \"each setup\")\n"
+                       "                      (try (test-fn)\n"
+                       "                           (finally (binding [*err* *out*]\n"
+                       "                                      (println \"each teardown\"))))))\n\n"
+                       "(deftest fails-after-fixture\n"
+                       "  (println \"test body\")\n"
+                       "  (is (= :expected :actual)))\n")]
+       (write-temp-project-file project (ns->test-path sample-ns) source)
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [result (kaocha-run {:test-paths ["test"]
+                                   :ns-patterns [(exact-ns-pattern sample-ns)]
+                                   :progress-callback #(swap! callbacks conj %)
+                                   :result-format {:suite {:top-level-keys [:summary :pass? :canonical-results]}}})
+               callback (first @callbacks)
+               final-entry (first (:canonical-results result))]
+           (is (= 1 (count @callbacks)))
+           (is (= final-entry callback))
+           (is (= :fail (:status callback)))
+           (is (str/includes? (:out callback) "each setup"))
+           (is (str/includes? (:out callback) "test body"))
+           (is (str/includes? (:out callback) "each teardown"))
+           (is (= "" (:err callback)))))))))
+
+(deftest completed-entry-plugin-runs-after-user-post-test-hooks-test
+  ;; The adapter completion plugin is last, so its callback observes changes
+  ;; made by an ordinary configured user post-test hook.
+  (when-kaocha-available
+   (with-temp-project [project]
+     (let [sample-ns (unique-ns "completion" "user-hook-test")
+           plugin-id :scry.kaocha-test/add-final-pass-count
+           callbacks (atom [])]
+       (eval `(do
+                (require 'kaocha.plugin)
+                (defmethod kaocha.plugin/-register ~plugin-id [_# plugins#]
+                  (conj plugins#
+                        {:kaocha.plugin/id ~plugin-id
+                         :kaocha.hooks/post-test
+                         (fn [testable# _#]
+                           (update testable# :kaocha.result/pass (fnil + 0) 7))}))))
+       (write-suite-test-ns project sample-ns false)
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [result (kaocha-run {:test-paths ["test"]
+                                   :ns-patterns [(exact-ns-pattern sample-ns)]
+                                   :config {:kaocha/tests [{:kaocha.testable/id :unit
+                                                            :kaocha.testable/type :kaocha.type/clojure.test
+                                                            :kaocha/source-paths []
+                                                            :kaocha/test-paths [(.getAbsolutePath (io/file project "test"))]
+                                                            :kaocha/ns-patterns [(exact-ns-pattern sample-ns)]}]
+                                            :kaocha/plugins [plugin-id]}
+                                   :progress-callback #(swap! callbacks conj %)
+                                   :result-format {:suite {:top-level-keys [:summary :pass? :canonical-results]}}})
+               callback (first @callbacks)
+               final-entry (first (:canonical-results result))]
+           (is (= 1 (count @callbacks)))
+           (is (= 7 (get-in callback [:assertion-summary :pass])))
+           (is (= final-entry callback))))))))
+
+(deftest synthetic-progress-reporter-test
+  ;; Suite/load errors have no completed concrete leaf, so the reporter retains
+  ;; their synthetic progress path without assigning them a concrete var.
+  (when-kaocha-available
+   (let [callbacks (atom [])
+         report ((kaocha-var 'progress-reporter) #(swap! callbacks conj %))]
+     (report {:type :error})
+     (report {:type :error :var #'scry.core/run})
+     (report {:type :fail})
+     (is (= [{:var nil
+              :ns nil
+              :status :error
+              :assertion-summary {:pass 0 :fail 0 :error 1}}]
+            @callbacks)))))
+
 (deftest full-config-selection-and-preservation-test
   ;; Supplied full config is authoritative: no fallback source/test/ns-pattern
   ;; options are merged, while suite selection and runtime defaults still apply.

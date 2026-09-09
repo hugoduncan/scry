@@ -64,8 +64,8 @@
 - [x] Ensure callback configuration reaches the completion hook without introducing a core load-time dependency on Kaocha or mutating returned leaves.
 - [x] Update the Kaocha callback docstring to state once-per-concrete-execution, synchronous, full canonical payload, execution ordering, finalized post-hook snapshot, and merged-output semantics.
 - [x] Add adapter tests proving callback entries are full canonical entries and equal the corresponding final canonical conversion for var, status, counts, assertions, and output. — callback regression verifies full assertion-bearing entries and suite conversion parity for the failing entry.
-- [ ] Add an adapter test with a preceding user `post-test` hook proving the completion callback observes that hook's count/history/output changes and the adapter plugin is last.
-- [ ] Add adapter fixture coverage proving `:each` teardown is complete before callback and included in finalized merged output.
+- [x] Add an adapter test with a preceding user `post-test` hook proving the completion callback observes that hook's count/history/output changes and the adapter plugin is last. — configured hook mutates the leaf pass count; callback and final conversion both observe it.
+- [x] Add adapter fixture coverage proving `:each` teardown is complete before callback and included in finalized merged output. — real temporary Kaocha namespace verifies merged setup/body/teardown output and callback/final-entry parity.
 - [x] Add adapter tests proving one callback per concrete leaf/execution, no duplicate from reporter events, and no callback for skipped/non-leaf nodes. — direct post-test-hook regression confirms exactly one concrete callback and skips group/skipped inputs; focused optional slice: 23 tests/105 assertions.
 - [ ] Keep and strengthen load/suite-error tests proving synthetic progress still fires and is not treated as a concrete completion.
 - [ ] Run focused `scry.kaocha-test` and `scry.cli-kaocha-test` checks with the `:kaocha` alias and inspect failures before proceeding.

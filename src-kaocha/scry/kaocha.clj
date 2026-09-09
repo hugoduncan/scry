@@ -309,15 +309,28 @@
   "Report only synthetic suite/load errors.
 
   Concrete completed entries are emitted by the adapter-owned final post-test
-  hook, after Kaocha's leaf state and capture output are finalized."
+  hook, after Kaocha's leaf state and capture output are finalized. Kaocha's
+  assertion-error events omit :var, so active concrete vars are tracked to keep
+  those errors on the completed-entry path."
   [callback]
-  (fn [event]
-    (when (and (= :error (:type event))
-               (nil? (event-var-symbol event)))
-      (callback {:var nil
-                 :ns nil
-                 :status :error
-                 :assertion-summary {:pass 0 :fail 0 :error 1}}))))
+  (let [active-var (atom nil)]
+    (fn [event]
+      (case (:type event)
+        :begin-test-var
+        (reset! active-var (event-var-symbol event))
+
+        :end-test-var
+        (reset! active-var nil)
+
+        :error
+        (when (and (nil? @active-var)
+                   (nil? (event-var-symbol event)))
+          (callback {:var nil
+                     :ns nil
+                     :status :error
+                     :assertion-summary {:pass 0 :fail 0 :error 1}}))
+
+        nil))))
 
 (defn- apply-progress-reporter
   [cfg progress-callback]

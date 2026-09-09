@@ -295,6 +295,37 @@
              (.countDown release)
              (reset! blocked-run-latches nil))))))))
 
+(deftest kaocha-cli-throwing-var-has-only-concrete-progress-test
+  ;; Kaocha assertion errors omit :var on the reporter event. While a concrete
+  ;; var is active, that event must wait for the completed-leaf callback rather
+  ;; than appearing as an additional synthetic suite error.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [sample-ns (unique-ns "progress-error" "sample-test")
+           error-var (symbol (str sample-ns) "throws")
+           expected-file (result-file-name error-var)]
+       (write-suite-test-ns!
+        project
+        sample-ns
+        "(deftest throws\n  (throw (ex-info \"boom\" {})))\n")
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [outcome (run-cli-in project
+                                   (#'cli/normalize-exec-opts
+                                    {:runner :kaocha
+                                     :dirs "test"
+                                     :ns-patterns [(exact-ns-pattern sample-ns)]
+                                     :kaocha-argv ["--no-randomize"]}))]
+           (is (= 1 (:exit-code outcome)))
+           (is (= ["throws"
+                   (str "See " (.getPath (io/file project ".scry-results"))
+                        " for failure details (1 file).")]
+                  (str/split-lines (:stderr outcome))))
+           (is (not (str/includes? (:stderr outcome) "suite-error-")))
+           (is (= [expected-file] (result-files project)))
+           (is (= error-var
+                  (:var (edn/read-string
+                         (slurp (io/file project ".scry-results" expected-file))))))))))))
+
 (deftest kaocha-cli-surfaces-randomize-seed-on-failure-test
   ;; A failing Kaocha CLI run surfaces the randomize seed on stdout as its own
   ;; line after the summary (replacing Kaocha's stray "Randomized with --seed N"

@@ -359,17 +359,39 @@
   ;; Suite/load errors have no completed concrete leaf, so the reporter retains
   ;; their synthetic progress path without assigning them a concrete var.
   (when-kaocha-available
-   (testing "reporter filters synthetic error events"
+   (testing "reporter filters synthetic and active-var assertion errors"
      (let [callbacks (atom [])
            report ((kaocha-var 'progress-reporter) #(swap! callbacks conj %))]
        (report {:type :error})
        (report {:type :error :var #'scry.core/run})
+       (report {:type :begin-test-var :var #'scry.core/run})
+       (report {:type :error})
+       (report {:type :end-test-var :var #'scry.core/run})
        (report {:type :fail})
        (is (= [{:var nil
                 :ns nil
                 :status :error
                 :assertion-summary {:pass 0 :fail 0 :error 1}}]
               @callbacks))))
+   (testing "a throwing var produces one concrete completion and no synthetic progress"
+     (with-temp-project [project]
+       (let [error-ns (unique-ns "completion" "error-test")
+             error-var (symbol (str error-ns) "throws")
+             callbacks (atom [])]
+         (write-temp-project-file
+          project
+          (ns->test-path error-ns)
+          (str "(ns " error-ns "\n"
+               "  (:require [clojure.test :refer [deftest]]))\n\n"
+               "(deftest throws (throw (ex-info \"boom\" {})))\n"))
+         (with-user-dir-and-ns-cleanup project [error-ns]
+           (let [result (kaocha-run {:test-paths ["test"]
+                                     :ns-patterns [(exact-ns-pattern error-ns)]
+                                     :progress-callback #(swap! callbacks conj %)})]
+             (is (false? (:pass? result)))
+             (is (= [error-var] (mapv :var @callbacks)))
+             (is (= [:error] (mapv :status @callbacks)))
+             (is (= 1 (get-in (first @callbacks) [:assertion-summary :error]))))))))
    (testing "a real load error produces only synthetic progress"
      (with-temp-project [project]
        (let [broken-ns (unique-ns "completion" "broken-test")

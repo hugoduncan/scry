@@ -82,13 +82,13 @@
 
 ## Slice 7 — Compatibility regression pass
 
-- [ ] Re-run and adjust existing robust sanitizer tests for cyclic values, Throwables, bounded strings/collections, and hostile diagnostic values against atomic one-entry publication.
-- [ ] Re-run synthetic naming/collision tests and verify callback-time concrete reservations do not change existing synthetic filenames.
-- [ ] Verify normal pass/fail/load-error/unknown/zero-test outcomes retain summary text, progress text, stderr pointers, result shapes, outcome kinds, and exit codes.
-- [ ] Verify both `-m` and `-X` paths use incremental publication without changing option parsing, selection, or non-zero exception data.
-- [ ] Verify nested core capture isolation, fixture semantics, assertion/output ownership, and behavior with no progress callback remain unchanged.
-- [ ] Verify the core jar namespaces still load without Kaocha and all Kaocha-specific plugin code remains under `src-kaocha/`.
-- [ ] Run `bb clj-fmt:check` and `bb clj-kondo:lint`; fix only task-related formatting/lint findings.
+- [x] Re-run and adjust existing robust sanitizer tests for cyclic values, Throwables, bounded strings/collections, and hostile diagnostic values against atomic one-entry publication. — the focused CLI suite’s real failure artifact and sanitizer regressions passed (87 tests/613 assertions).
+- [x] Re-run synthetic naming/collision tests and verify callback-time concrete reservations do not change existing synthetic filenames. — focused CLI and optional Kaocha CLI regressions passed.
+- [x] Verify normal pass/fail/load-error/unknown/zero-test outcomes retain summary text, progress text, stderr pointers, result shapes, outcome kinds, and exit codes. — `bb test` passed all slices; focused direct failing core invocations retained non-zero outcomes and readable final artifacts.
+- [x] Verify both `-m` and `-X` paths use incremental publication without changing option parsing, selection, or non-zero exception data. — direct `clojure -M:test -m scry.cli --var scry.fixtures.failing/equality-fails` and `clojure -X:test scry.cli/run :vars '[scry.fixtures.failing/equality-fails]'` each exited 1 with a readable final artifact.
+- [x] Verify nested core capture isolation, fixture semantics, assertion/output ownership, and behavior with no progress callback remain unchanged. — core slice passed (85 tests/792 assertions); focused runner slice passed (65 tests/159 assertions).
+- [x] Verify the core jar namespaces still load without Kaocha and all Kaocha-specific plugin code remains under `src-kaocha/`. — `clojure -M -e "(require 'scry.core 'scry.cli)"` passed without the optional alias.
+- [x] Run `bb clj-fmt:check` and `bb clj-kondo:lint`; fix only task-related formatting/lint findings. — both passed with zero lint findings.
 
 ## Slice 8 — Documentation and final verification
 

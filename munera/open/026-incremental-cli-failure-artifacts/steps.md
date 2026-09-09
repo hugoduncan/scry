@@ -66,7 +66,7 @@
 - [x] Add adapter tests proving callback entries are full canonical entries and equal the corresponding final canonical conversion for var, status, counts, assertions, and output. — callback regression verifies full assertion-bearing entries and suite conversion parity for the failing entry.
 - [ ] Add an adapter test with a preceding user `post-test` hook proving the completion callback observes that hook's count/history/output changes and the adapter plugin is last.
 - [ ] Add adapter fixture coverage proving `:each` teardown is complete before callback and included in finalized merged output.
-- [ ] Add adapter tests proving one callback per concrete leaf/execution, no duplicate from reporter events, and no callback for skipped/non-leaf nodes.
+- [x] Add adapter tests proving one callback per concrete leaf/execution, no duplicate from reporter events, and no callback for skipped/non-leaf nodes. — direct post-test-hook regression confirms exactly one concrete callback and skips group/skipped inputs; focused optional slice: 23 tests/105 assertions.
 - [ ] Keep and strengthen load/suite-error tests proving synthetic progress still fires and is not treated as a concrete completion.
 - [ ] Run focused `scry.kaocha-test` and `scry.cli-kaocha-test` checks with the `:kaocha` alias and inspect failures before proceeding.
 - [ ] Commit the completed Kaocha hook slice and record the commit SHA and lifecycle findings in `steps.md`/`implementation.md`.

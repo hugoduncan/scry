@@ -264,6 +264,30 @@
             (:kaocha/plugins ((kaocha-var 'apply-runtime-defaults)
                               {:kaocha/plugins [:existing/plugin]})))))))
 
+(deftest completed-entry-hook-filters-non-concrete-leaves-test
+  ;; Completion observation is limited to runnable concrete leaves and never
+  ;; mutates the testable supplied by Kaocha's post-test chain.
+  (when-kaocha-available
+   (let [hook (kaocha-var 'completed-entry-post-test)
+         callbacks (atom [])
+         plan {:scry.kaocha/progress-callback #(swap! callbacks conj %)}
+         leaf {:kaocha.var/name 'demo.kaocha/fails
+               :kaocha.result/pass 0
+               :kaocha.result/fail 1
+               :kaocha.result/error 0
+               :kaocha.testable/events [{:type :fail
+                                         :expected :expected
+                                         :actual :actual}]}
+         skipped (assoc leaf :kaocha.testable/skip true)
+         group (assoc leaf :kaocha.result/tests [leaf])]
+     (is (identical? leaf (hook leaf plan)))
+     (is (identical? skipped (hook skipped plan)))
+     (is (identical? group (hook group plan)))
+     (is (= ['demo.kaocha/fails] (mapv :var @callbacks)))
+     (is (= :fail (:status (first @callbacks))))
+     (is (= {:pass 0 :fail 1 :error 0}
+            (:assertion-summary (first @callbacks)))))))
+
 (deftest full-config-selection-and-preservation-test
   ;; Supplied full config is authoritative: no fallback source/test/ns-pattern
   ;; options are merged, while suite selection and runtime defaults still apply.

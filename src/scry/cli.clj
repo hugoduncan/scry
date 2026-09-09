@@ -971,11 +971,18 @@
    run is non-zero so `clojure -X` exits non-zero without calling System/exit.
 
    Returned outcome data includes the test `:summary`, `:result-files`, and
-   `:scry.cli/outcome-kind` when a run reaches normal classification. If
-   post-run diagnostic/result-file writing fails, the test-derived outcome is
-   preserved, `:result-files` is empty, and bounded diagnostic metadata is
-   attached as top-level `:scry.cli/diagnostic-error`. The diagnostic map has
-   stable inspectable keys: `:phase`, `:message`, `:type`, `:root-type`,
+   `:scry.cli/outcome-kind` when a run reaches normal classification. Completed
+   concrete failure/error entries are synchronously published as atomic final
+   `.edn` artifacts before the next test var begins; synthetic entries and
+   missed publications are reconciled after a normal runner return. A catchable
+   runner error preserves already published final paths in `:result-files`.
+
+   Contained artifact-publication failures preserve the test-derived outcome and
+   add bounded top-level `:scry.cli/diagnostic-error` metadata only while an
+   artifact remains unresolved. Its `:phase` is
+   `:incremental-result-file-writing` when the runner throws before returning,
+   otherwise `:final-result-file-reconciliation`. The diagnostic map has stable
+   inspectable keys: `:phase`, `:message`, `:type`, `:root-type`,
    `:root-message`, and `:failed-entry-count`; when derivable it also includes
    `:first-failing-var` and `:first-root-cause`.
 

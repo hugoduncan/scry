@@ -92,13 +92,13 @@
 
 ## Slice 8 — Documentation and final verification
 
-- [ ] Update README CLI documentation with synchronous per-completed-failure publication, atomic final-file visibility, temporary-file consumer guidance, reconciliation, and durability limits.
-- [ ] Update CHANGELOG Unreleased with core/Kaocha incremental publication, runner-error artifact preservation, atomic publication, retry, and diagnostic phases.
-- [ ] Update AGENTS CLI guidance with the before-next-var guarantee, runner-error preserved `:result-files`, unresolved diagnostic phases, and final-file-only inspection guidance.
-- [ ] Update the public `scry.cli/run` docstring with preserved runner-error files and the pinned `:final-result-file-reconciliation`/`:incremental-result-file-writing` diagnostic contract.
-- [ ] Update changed core/Kaocha callback docstrings to document synchronous full canonical completed-entry semantics and duplicate execution behavior.
-- [ ] Regenerate `doc/API.md` with `bb api-docs` and inspect the generated CLI and Kaocha sections for the required contract language.
-- [ ] Run `bb api-docs --check` and the focused API-doc content regression command from `AGENTS.md`.
+- [x] Update README CLI documentation with synchronous per-completed-failure publication, atomic final-file visibility, temporary-file consumer guidance, reconciliation, and durability limits.
+- [x] Update CHANGELOG Unreleased with core/Kaocha incremental publication, runner-error artifact preservation, atomic publication, retry, and diagnostic phases.
+- [x] Update AGENTS CLI guidance with the before-next-var guarantee, runner-error preserved `:result-files`, unresolved diagnostic phases, and final-file-only inspection guidance.
+- [x] Update the public `scry.cli/run` docstring with preserved runner-error files and the pinned `:final-result-file-reconciliation`/`:incremental-result-file-writing` diagnostic contract.
+- [x] Update changed core/Kaocha callback docstrings to document synchronous full canonical completed-entry semantics and duplicate execution behavior.
+- [x] Regenerate `doc/API.md` with `bb api-docs` and inspect the generated CLI and Kaocha sections for the required contract language.
+- [x] Run `bb api-docs --check` and the focused API-doc content regression command from `AGENTS.md`. — generated docs and 65-assertion content regression passed.
 - [ ] Run the focused core CLI command-line check from `AGENTS.md`.
 - [ ] Run the focused Kaocha adapter and Kaocha CLI command-line checks from `AGENTS.md`.
 - [ ] Run at least one dedicated failing core CLI invocation and one failing Kaocha CLI invocation; inspect their outcome/exit behavior and readable `.scry-results/*.edn` artifacts.

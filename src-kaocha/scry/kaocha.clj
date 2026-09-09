@@ -64,7 +64,7 @@
               "")
      :err ""}))
 
-(defn completed-entry-post-test
+(defn ^:no-doc completed-entry-post-test
   [testable test-plan]
   (when (and (not (:kaocha.testable/skip testable))
              (:kaocha.var/name testable)
@@ -73,7 +73,7 @@
       (callback (testable->entry testable))))
   testable)
 
-(def completed-entry-hooks
+(def ^:no-doc completed-entry-hooks
   {:kaocha.plugin/id :scry.kaocha/completed-entry
    :kaocha.hooks/post-test completed-entry-post-test})
 

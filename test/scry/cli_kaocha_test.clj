@@ -580,6 +580,56 @@
              (is (= [keep-var]
                     (mapv :var (:canonical-results (:result outcome))))))))))))
 
+(deftest kaocha-cli-forwarded-plugin-runs-before-completion-observer-test
+  ;; Both CLI entry points activate forwarded plugins, and scry's completion
+  ;; observer remains last so incremental artifacts include post-test changes.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [sample-ns (unique-ns "forward-plugin" "sample-test")
+           failing-var (symbol (str sample-ns) "failing-test")
+           expected-file (result-file-name failing-var)
+           plugin-id :scry.cli-kaocha-test/add-forwarded-pass-count]
+       (eval `(do
+                (require 'kaocha.plugin)
+                (defmethod kaocha.plugin/-register ~plugin-id [_# plugins#]
+                  (conj plugins#
+                        {:kaocha.plugin/id ~plugin-id
+                         :kaocha.hooks/post-test
+                         (fn [testable# _#]
+                           (update testable# :kaocha.result/pass (fnil + 0) 7))}))))
+       (write-suite-test-ns!
+        project
+        sample-ns
+        "(deftest failing-test\n  (is (= :expected :actual)))\n")
+       (write-project-file!
+        project
+        "tests.edn"
+        (str "#kaocha/v1\n"
+             "{:tests [{:id :unit\n"
+             "          :type :kaocha.type/clojure.test\n"
+             "          :test-paths [\"test\"]\n"
+             "          :ns-patterns [" (pr-str (exact-ns-pattern sample-ns)) "]}]}"))
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (doseq [[label opts]
+                 [["-m --plugin"
+                   (#'cli/parse-main-args
+                    ["--runner" "kaocha" "--plugin" (str plugin-id)
+                     "--no-randomize"])]
+                  ["-X :plugin"
+                   (#'cli/normalize-exec-opts
+                    {:runner :kaocha :plugin plugin-id :randomize false})]]]
+           (testing label
+             (let [outcome (run-cli-in project opts)
+                   artifact-file (io/file project ".scry-results" expected-file)]
+               (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome))
+                   (pr-str outcome))
+               (is (.isFile artifact-file) (pr-str outcome))
+               (when (.isFile artifact-file)
+                 (let [artifact (edn/read-string (slurp artifact-file))]
+                   (is (= failing-var (:var artifact)))
+                   (is (= 7 (get-in artifact [:assertion-summary :pass])))
+                   (is (= 1 (get-in artifact [:assertion-summary :fail])))))))))))))
+
 (deftest kaocha-cli-forwarded-option-reaches-kaocha-test
   ;; A previously-unsupported Kaocha option (`--no-randomize`) forwards verbatim
   ;; to Kaocha's own parser and demonstrably affects the run: with randomization

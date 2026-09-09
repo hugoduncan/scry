@@ -242,23 +242,48 @@
           focus
           [focus])))
 
+(defn- coerce-plugin-keyword
+  [plugin-selection]
+  (if (keyword? plugin-selection)
+    plugin-selection
+    ((requiring-resolve 'kaocha.runner/parse-kw) (str plugin-selection))))
+
+(defn- coerce-plugin
+  [plugin-selection]
+  (mapv coerce-plugin-keyword
+        (if (and (sequential? plugin-selection)
+                 (not (string? plugin-selection)))
+          plugin-selection
+          [plugin-selection])))
+
 (defn- coerce-kaocha-extra
   "Coerce known raw `:kaocha-extra` values to the types the Kaocha cli-options
    layer expects. Unknown keys are forwarded as-is (the documented `-X`
    mistyped-key trade-off)."
   [extra]
   (cond-> extra
-    (contains? extra :focus) (update :focus coerce-focus)))
+    (contains? extra :focus) (update :focus coerce-focus)
+    (contains? extra :plugin) (update :plugin coerce-plugin)))
+
+(defn- add-selected-plugins
+  [plugins selected]
+  (reduce (fn [plugins plugin-keyword]
+            (ensure-plugin plugins plugin-keyword))
+          plugins
+          selected))
 
 (defn- apply-kaocha-extra
   "Merge raw forwarded `:kaocha-extra` into the resolved config's
    `:kaocha/cli-options`, coercing known values first. Existing config
-   cli-options are authoritative on conflict (OQ2 merge-with-config-wins)."
+   cli-options are authoritative on conflict (OQ2 merge-with-config-wins).
+   Forwarded plugin selections are also activated in `:kaocha/plugins`."
   [cfg extra]
   (if (seq extra)
-    (update cfg :kaocha/cli-options
-            (fn [cli-options]
-              (merge (coerce-kaocha-extra extra) cli-options)))
+    (let [cli-options (merge (coerce-kaocha-extra extra)
+                             (:kaocha/cli-options cfg))]
+      (cond-> (assoc cfg :kaocha/cli-options cli-options)
+        (seq (:plugin cli-options))
+        (update :kaocha/plugins add-selected-plugins (:plugin cli-options))))
     cfg))
 
 (def ^:private default-cli-spec-plugins
@@ -490,9 +515,9 @@
          selectors (concat (suite-selectors opts) (:suites parsed-argv))
          cfg (-> base-cfg
                  (select-suites selectors)
-                 apply-runtime-defaults
                  (apply-kaocha-extra (:kaocha-extra opts))
                  (apply-kaocha-extra (:cli-options parsed-argv))
+                 apply-runtime-defaults
                  (apply-progress-reporter (:progress-callback opts)))
          start (System/nanoTime)
          kaocha-result (capture/without-context

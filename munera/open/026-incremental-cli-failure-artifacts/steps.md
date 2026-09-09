@@ -99,10 +99,10 @@
 - [x] Update changed core/Kaocha callback docstrings to document synchronous full canonical completed-entry semantics and duplicate execution behavior.
 - [x] Regenerate `doc/API.md` with `bb api-docs` and inspect the generated CLI and Kaocha sections for the required contract language.
 - [x] Run `bb api-docs --check` and the focused API-doc content regression command from `AGENTS.md`. — generated docs and 65-assertion content regression passed.
-- [ ] Run the focused core CLI command-line check from `AGENTS.md`.
-- [ ] Run the focused Kaocha adapter and Kaocha CLI command-line checks from `AGENTS.md`.
-- [ ] Run at least one dedicated failing core CLI invocation and one failing Kaocha CLI invocation; inspect their outcome/exit behavior and readable `.scry-results/*.edn` artifacts.
-- [ ] Run `bb test:core`, `bb test:kaocha`, and then `bb test`; record exact commands, counts, and results in `implementation.md`.
-- [ ] Run final `bb clj-fmt:check`, `bb clj-kondo:lint`, and `bb api-docs --check`; record results in `implementation.md`.
-- [ ] Review the final diff against every acceptance criterion and out-of-scope boundary in `design.md`, updating `steps.md` and append-only `implementation.md` with any final decision or deviation.
-- [ ] Commit the documentation/final-verification slice and record its SHA in `steps.md`/`implementation.md`.
+- [x] Run the focused core CLI command-line check from `AGENTS.md`. — `scry.cli-test`: 87 tests/613 assertions.
+- [x] Run the focused Kaocha adapter and Kaocha CLI command-line checks from `AGENTS.md`. — adapter: 26 tests/121 assertions; CLI: 14 tests/98 assertions.
+- [x] Run at least one dedicated failing core CLI invocation and one failing Kaocha CLI invocation; inspect their outcome/exit behavior and readable `.scry-results/*.edn` artifacts. — both exited 1 and produced readable detailed failure EDN.
+- [x] Run `bb test:core`, `bb test:kaocha`, and then `bb test`; record exact commands, counts, and results in `implementation.md`. — all passed: core 85/792; adapter 26/121; Kaocha CLI 14/98; build 7/184; release 17/85.
+- [x] Run final `bb clj-fmt:check`, `bb clj-kondo:lint`, and `bb api-docs --check`; record results in `implementation.md`. — all passed; lint has zero findings.
+- [x] Review the final diff against every acceptance criterion and out-of-scope boundary in `design.md`, updating `steps.md` and append-only `implementation.md` with any final decision or deviation. — complete; no deviations found.
+- [x] Commit the final-verification task-artifact update and record its SHA in `steps.md`/`implementation.md`. — `f603857` (`Verify incremental CLI artifact task`).

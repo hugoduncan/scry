@@ -649,12 +649,3 @@
                              (keep #(get-in state [:identities % :successful-path])
                                    (:completion-order state))))
          :unresolved (ordered-unresolved state [] [])})))
-
-(defn write-result-files!
-  "Write readable EDN result files for failing/erroring canonical entries.
-
-  Returns a vector of written file paths."
-  [dir entries]
-  (mapv (fn [{:keys [entry filename]}]
-          (atomic-write-entry! dir filename entry))
-        (result-file-assignments entries)))

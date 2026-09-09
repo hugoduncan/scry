@@ -85,7 +85,9 @@
                     (str/replace "-" "_"))
         ".clj")
    (str "(ns " ns-name "\n"
-        "  (:require [clojure.test :refer [deftest is]]))\n\n"
+        "  (:require [clojure.edn]\n"
+        "            [clojure.java.io]\n"
+        "            [clojure.test :refer [deftest is use-fixtures]]))\n\n"
         body)))
 
 (defn- write-tests-edn!
@@ -168,6 +170,52 @@
              (is (str/includes? (:out result-data) "integration out"))
              (is (str/includes? (:out result-data) "integration err"))
              (is (= "" (:err result-data))))))))))
+
+(deftest kaocha-cli-publishes-completed-failure-before-next-leaf-test
+  ;; A real Kaocha leaf publishes its detailed artifact synchronously after its
+  ;; :each teardown, so the next leaf can consume a complete final EDN file.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [sample-ns (unique-ns "incremental" "sample-test")
+           failing-var (symbol (str sample-ns) "first-fails")
+           expected-file (result-file-name failing-var)]
+       (write-suite-test-ns!
+        project
+        sample-ns
+        (str "(defn each-fixture [test-fn]\n"
+             "  (println \"each setup\")\n"
+             "  (try (test-fn) (finally (println \"each teardown\"))))\n\n"
+             "(use-fixtures :each each-fixture)\n\n"
+             "(deftest first-fails\n"
+             "  (println \"first body\")\n"
+             "  (binding [*err* *out*] (println \"first err\"))\n"
+             "  (is (= :expected :actual) \"first failure\"))\n\n"
+             "(deftest second-reads-first-artifact\n"
+             "  (let [entry (clojure.edn/read-string\n"
+             "               (slurp (clojure.java.io/file (System/getProperty \"user.dir\")\n"
+             "                                           \".scry-results\"\n"
+             "                                           \"" expected-file "\")))]\n"
+             "    (is (= :fail (:status entry)))\n"
+             "    (is (seq (:assertions entry)))\n"
+             "    (is (every? #(.contains (:out entry) %)\n"
+             "                [\"each setup\" \"first body\" \"first err\" \"each teardown\"]))))\n"))
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [outcome (run-cli-in project
+                                   (#'cli/normalize-exec-opts
+                                    {:runner :kaocha
+                                     :dirs "test"
+                                     :ns-patterns [(exact-ns-pattern sample-ns)]
+                                     :kaocha-argv ["--no-randomize"]}))
+               entry (edn/read-string
+                      (slurp (io/file project ".scry-results" expected-file)))]
+           (is (= 1 (:exit-code outcome)))
+           (is (= [expected-file] (result-files project)))
+           (is (= failing-var (:var entry)))
+           (is (= :fail (:status entry)))
+           (is (seq (:assertions entry)))
+           (is (= "" (:err entry)))
+           (is (every? #(str/includes? (:out entry) %)
+                       ["each setup" "first body" "first err" "each teardown"]))))))))
 
 (deftest kaocha-cli-surfaces-randomize-seed-on-failure-test
   ;; A failing Kaocha CLI run surfaces the randomize seed on stdout as its own

@@ -73,8 +73,8 @@
 
 ## Slice 6 — Kaocha CLI and interruption coverage
 
-- [ ] Add a Kaocha CLI integration project where the first leaf fails and the next leaf verifies the first final `.edn` is already present and readable before its body runs.
-- [ ] Verify the immediate Kaocha file contains finalized assertion counts/detail and merged setup/body/teardown stdout/stderr output with `:err` empty.
+- [x] Add a Kaocha CLI integration project where the first leaf fails and the next leaf verifies the first final `.edn` is already present and readable before its body runs. — real temporary project regression added; focused `scry.cli-kaocha-test`: 12 tests/85 assertions.
+- [x] Verify the immediate Kaocha file contains finalized assertion counts/detail and merged setup/body/teardown stdout/stderr output with `:err` empty. — the next leaf and post-run assertions read the final EDN and verify full merged fixture/body output plus empty `:err`.
 - [ ] Verify Kaocha synthetic load/suite errors still receive live progress and final synthetic artifacts only during reconciliation.
 - [ ] Add a bounded child-process interruption fixture in which a first failure signals publication and a later var blocks; assert the published file is readable while blocked and remains readable after terminating the child.
 - [ ] Guarantee child-process cleanup with bounded readiness/exit waits and `finally`; if safe platform-independent interruption is unavailable, implement deterministic blocked-run synchronization and document the limitation in `implementation.md`.

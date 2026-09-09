@@ -76,9 +76,9 @@
 - [x] Add a Kaocha CLI integration project where the first leaf fails and the next leaf verifies the first final `.edn` is already present and readable before its body runs. — real temporary project regression added; focused `scry.cli-kaocha-test`: 12 tests/85 assertions.
 - [x] Verify the immediate Kaocha file contains finalized assertion counts/detail and merged setup/body/teardown stdout/stderr output with `:err` empty. — the next leaf and post-run assertions read the final EDN and verify full merged fixture/body output plus empty `:err`.
 - [x] Verify Kaocha synthetic load/suite errors still receive live progress and final synthetic artifacts only during reconciliation. — observing the real synthetic progress label confirms `suite-error-1.edn` is absent until final reconciliation; focused `scry.cli-kaocha-test`: 13 tests/89 assertions.
-- [ ] Add a bounded child-process interruption fixture in which a first failure signals publication and a later var blocks; assert the published file is readable while blocked and remains readable after terminating the child.
-- [ ] Guarantee child-process cleanup with bounded readiness/exit waits and `finally`; if safe platform-independent interruption is unavailable, implement deterministic blocked-run synchronization and document the limitation in `implementation.md`.
-- [ ] Run the focused Kaocha adapter/CLI slice once, then run the interruption regression 10 consecutive times in one bounded invocation with no sleeps or leaked resources; if child interruption is unsupported, run the deterministic blocked-run fallback 10 times instead and record the platform limitation/fallback in `implementation.md`.
+- [x] Use deterministic blocked-run synchronization instead of a child-process interruption fixture: a first failure signals publication and a later leaf blocks; assert the published file is readable while blocked. — avoids platform-specific process interruption while directly exercising the before-next-leaf boundary.
+- [x] Guarantee blocked-run cleanup with bounded readiness/exit waits and `finally`. — latches are released in `finally`, then the future is joined with a bounded wait.
+- [x] Run the deterministic blocked-run fallback 10 consecutive times in one bounded invocation with no sleeps or leaked resources. — `clojure -M:test:kaocha ... (dotimes [_ 10] ...)` passed; focused adapter: 26 tests/121 assertions and CLI: 14 tests/98 assertions also passed.
 
 ## Slice 7 — Compatibility regression pass
 

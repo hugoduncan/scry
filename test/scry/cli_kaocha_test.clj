@@ -147,6 +147,15 @@
        sort
        vec))
 
+(def ^:private blocked-run-latches (atom nil))
+
+(defn block-until-test-releases!
+  "Signal that a generated Kaocha leaf is blocked, then await test cleanup."
+  []
+  (let [{:keys [ready release]} @blocked-run-latches]
+    (.countDown ^java.util.concurrent.CountDownLatch ready)
+    (.await ^java.util.concurrent.CountDownLatch release)))
+
 (deftest kaocha-cli-suite-run-test
   ;; Kaocha CLI mode uses the optional adapter dynamically, prints live
   ;; per-var progress, writes detailed EDN files, and preserves merged output.
@@ -235,6 +244,56 @@
            (is (= "" (:err entry)))
            (is (every? #(str/includes? (:out entry) %)
                        ["each setup" "first body" "first err" "each teardown"]))))))))
+
+(deftest kaocha-cli-preserves-published-artifact-during-later-blocked-leaf-test
+  ;; A real running Kaocha suite leaves the first leaf's atomically published
+  ;; artifact readable while the following leaf is deliberately blocked.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [sample-ns (unique-ns "blocked" "sample-test")
+           failing-var (symbol (str sample-ns) "first-fails")
+           expected-file (result-file-name failing-var)
+           ready (java.util.concurrent.CountDownLatch. 1)
+           release (java.util.concurrent.CountDownLatch. 1)
+           outcome (atom ::not-finished)]
+       (write-suite-test-ns!
+        project
+        sample-ns
+        (str "(deftest first-fails\n"
+             "  (is (= :expected :actual) \"first failure\"))\n\n"
+             "(deftest second-blocks\n"
+             "  (scry.cli-kaocha-test/block-until-test-releases!))\n"))
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (reset! blocked-run-latches {:ready ready :release release})
+         (try
+           (let [future-outcome
+                 (future
+                   (reset! outcome
+                           (run-cli-in project
+                                       (#'cli/normalize-exec-opts
+                                        {:runner :kaocha
+                                         :dirs "test"
+                                         :ns-patterns [(exact-ns-pattern sample-ns)]
+                                         :kaocha-argv ["--no-randomize"]}))))]
+             (is (.await ready 5 java.util.concurrent.TimeUnit/SECONDS)
+                 "the second leaf reaches its bounded synchronization point")
+             (let [artifact (io/file project ".scry-results" expected-file)
+                   entry (edn/read-string (slurp artifact))]
+               (is (.exists artifact))
+               (is (= failing-var (:var entry)))
+               (is (= :fail (:status entry)))
+               (is (seq (:assertions entry))))
+             (.countDown release)
+             (let [worker-result (deref future-outcome 5000 ::timed-out)]
+               (is (not= ::timed-out worker-result)
+                   "the released run completes without a leaked worker")
+               (is (= worker-result @outcome))
+               (is (= 1 (:exit-code worker-result)))
+               (is (some #{(.getPath (io/file project ".scry-results" expected-file))}
+                         (:result-files worker-result)))))
+           (finally
+             (.countDown release)
+             (reset! blocked-run-latches nil))))))))
 
 (deftest kaocha-cli-surfaces-randomize-seed-on-failure-test
   ;; A failing Kaocha CLI run surfaces the randomize seed on stdout as its own

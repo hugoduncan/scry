@@ -113,6 +113,25 @@
   []
   (java.io.StringWriter.))
 
+(defn- observing-writer
+  "Return a string-backed writer that calls `observe!` for each written chunk."
+  [observe!]
+  (let [delegate (java.io.StringWriter.)
+        write-chunk! (fn [chunk]
+                       (observe! chunk)
+                       (.write delegate chunk))]
+    (proxy [java.io.Writer] []
+      (write
+        ([value]
+         (write-chunk! (str value)))
+        ([characters offset length]
+         (write-chunk! (.substring (String. ^chars characters)
+                                   offset
+                                   (+ offset length)))))
+      (flush [] (.flush delegate))
+      (close [] (.close delegate))
+      (toString [] (.toString delegate)))))
+
 (defn- run-cli-in
   [dir opts]
   (let [out (string-writer)
@@ -318,6 +337,37 @@
            (is (str/includes? stderr "this-symbol-does-not-resolve-at-load"))
            (is (str/includes? stderr "for failure details"))
            (is (= ["suite-error-1.edn"] (result-files project)))))))))
+
+(deftest kaocha-cli-reconciles-synthetic-load-artifacts-after-live-progress-test
+  ;; Synthetic load errors have no completed leaf. Their live progress arrives
+  ;; before final reconciliation creates the deterministic suite-error artifact.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [broken-ns (unique-ns "synthetic" "broken-test")
+           result-file (io/file project ".scry-results" "suite-error-1.edn")
+           artifact-present-at-progress? (atom ::not-observed)
+           out (string-writer)
+           err (observing-writer
+                (fn [chunk]
+                  (when (str/includes? chunk "suite-error-1\n")
+                    (reset! artifact-present-at-progress? (.exists result-file)))))
+           boundary (test-boundary {:cwd (.getPath project) :out out :err err})]
+       (write-suite-test-ns!
+        project
+        broken-ns
+        "(deftest never-runs\n  (is true))\n\n(this-symbol-does-not-resolve-at-load)\n")
+       (with-user-dir-and-ns-cleanup project [broken-ns]
+         (let [outcome (#'cli/run-cli
+                        (#'cli/normalize-exec-opts
+                         {:runner :kaocha
+                          :dirs "test"
+                          :ns-patterns [(exact-ns-pattern broken-ns)]})
+                        boundary)]
+           (is (= false @artifact-present-at-progress?)
+               "synthetic progress precedes final reconciliation publication")
+           (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
+           (is (= [(.getPath result-file)] (:result-files outcome)))
+           (is (= :error (:status (edn/read-string (slurp result-file)))))))))))
 
 (deftest kaocha-cli-fallback-dirs-test
   ;; In Kaocha mode CLI :dirs maps to fallback :test-paths when there is no

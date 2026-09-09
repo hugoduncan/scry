@@ -55,3 +55,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 - addressed 1 review step; focused Kaocha adapter (26 tests/125 assertions), Kaocha CLI (15/103), format, and lint checks passed.
 - added 1 step to be addressed.
 - addressed 1 review step.
+- added 1 step to be addressed.

@@ -106,3 +106,7 @@
 - [x] Run final `bb clj-fmt:check`, `bb clj-kondo:lint`, and `bb api-docs --check`; record results in `implementation.md`. — all passed; lint has zero findings.
 - [x] Review the final diff against every acceptance criterion and out-of-scope boundary in `design.md`, updating `steps.md` and append-only `implementation.md` with any final decision or deviation. — complete; no deviations found.
 - [x] Commit the final-verification task-artifact update and record its SHA in `steps.md`/`implementation.md`. — `f603857` (`Verify incremental CLI artifact task`).
+
+## Implementation review follow-up
+
+- [ ] Prevent Kaocha assertion-error events from being reported as synthetic suite/load progress while a concrete var is active. `kaocha.report/report-exception` emits `:error` without an event `:var`, so the new reporter currently emits a synthetic callback in addition to the completed-leaf callback for an erroring test var. Restore active-var tracking (for suppression only) or otherwise distinguish concrete errors, and add adapter/CLI regressions with a throwing test var proving exactly one progress item and no synthetic `suite-error-*` label before the concrete completion.

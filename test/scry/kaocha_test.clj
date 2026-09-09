@@ -359,16 +359,37 @@
   ;; Suite/load errors have no completed concrete leaf, so the reporter retains
   ;; their synthetic progress path without assigning them a concrete var.
   (when-kaocha-available
-   (let [callbacks (atom [])
-         report ((kaocha-var 'progress-reporter) #(swap! callbacks conj %))]
-     (report {:type :error})
-     (report {:type :error :var #'scry.core/run})
-     (report {:type :fail})
-     (is (= [{:var nil
-              :ns nil
-              :status :error
-              :assertion-summary {:pass 0 :fail 0 :error 1}}]
-            @callbacks)))))
+   (testing "reporter filters synthetic error events"
+     (let [callbacks (atom [])
+           report ((kaocha-var 'progress-reporter) #(swap! callbacks conj %))]
+       (report {:type :error})
+       (report {:type :error :var #'scry.core/run})
+       (report {:type :fail})
+       (is (= [{:var nil
+                :ns nil
+                :status :error
+                :assertion-summary {:pass 0 :fail 0 :error 1}}]
+              @callbacks))))
+   (testing "a real load error produces only synthetic progress"
+     (with-temp-project [project]
+       (let [broken-ns (unique-ns "completion" "broken-test")
+             callbacks (atom [])]
+         (write-temp-project-file
+          project
+          (ns->test-path broken-ns)
+          (str "(ns " broken-ns "\n"
+               "  (:require [clojure.test :refer [deftest is]]))\n\n"
+               "(deftest unreachable-test (is true))\n"
+               "(unresolvable-symbol)\n"))
+         (with-user-dir-and-ns-cleanup project [broken-ns]
+           (let [result (kaocha-run {:test-paths ["test"]
+                                     :ns-patterns [(exact-ns-pattern broken-ns)]
+                                     :progress-callback #(swap! callbacks conj %)})]
+             (is (false? (:pass? result)))
+             (is (= 1 (count @callbacks)))
+             (is (= [nil] (mapv :var @callbacks)))
+             (is (= [:error] (mapv :status @callbacks)))
+             (is (empty? (:canonical-results result))))))))))
 
 (deftest full-config-selection-and-preservation-test
   ;; Supplied full config is authoritative: no fallback source/test/ns-pattern

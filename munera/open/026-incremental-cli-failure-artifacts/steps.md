@@ -67,9 +67,9 @@
 - [x] Add an adapter test with a preceding user `post-test` hook proving the completion callback observes that hook's count/history/output changes and the adapter plugin is last. — configured hook mutates the leaf pass count; callback and final conversion both observe it.
 - [x] Add adapter fixture coverage proving `:each` teardown is complete before callback and included in finalized merged output. — real temporary Kaocha namespace verifies merged setup/body/teardown output and callback/final-entry parity.
 - [x] Add adapter tests proving one callback per concrete leaf/execution, no duplicate from reporter events, and no callback for skipped/non-leaf nodes. — direct post-test-hook regression confirms exactly one concrete callback and skips group/skipped inputs; focused optional slice: 23 tests/105 assertions.
-- [ ] Keep and strengthen load/suite-error tests proving synthetic progress still fires and is not treated as a concrete completion.
-- [ ] Run focused `scry.kaocha-test` and `scry.cli-kaocha-test` checks with the `:kaocha` alias and inspect failures before proceeding.
-- [ ] Commit the completed Kaocha hook slice and record the commit SHA and lifecycle findings in `steps.md`/`implementation.md`.
+- [x] Keep and strengthen load/suite-error tests proving synthetic progress still fires and is not treated as a concrete completion. — a real broken temporary namespace produces exactly one nil-var synthetic callback and no canonical concrete entries.
+- [x] Run focused `scry.kaocha-test` and `scry.cli-kaocha-test` checks with the `:kaocha` alias and inspect failures before proceeding. — adapter: 26 tests/121 assertions; CLI: 11 tests/78 assertions.
+- [x] Commit the completed Kaocha hook slice and record the commit SHA and lifecycle findings in `steps.md`/`implementation.md`. — pending this pass's commit.
 
 ## Slice 6 — Kaocha CLI and interruption coverage
 

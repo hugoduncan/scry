@@ -52,7 +52,7 @@
 - [x] Add core CLI tests proving transient and persistent incremental write failures do not stop later tests or replace test-derived outcomes, and successful sibling files remain listed. — contained publication-failure and persistent-diagnostic regressions invoke later entries and retain the test-failure outcome plus readable sibling files.
 - [x] Re-run result-format projection tests to prove incremental files use unprojected canonical entries independently of the public projection. — `run-cli-result-format-projection-keeps-detailed-result-files-test` verifies detailed assertions/output remain in the atomic artifact.
 - [x] Run `scry.clojure-test-test` and `scry.cli-test` as focused REPL slices and inspect `scry.core/last-result` until green. — focused command-line fallback passed: CLI 87 tests/610 assertions; runner verification follows in this slice.
-- [ ] Commit the completed core sink/CLI slice and record the commit SHA and notable decisions in `steps.md`/`implementation.md`. — incremental integration coverage committed as `276b469`; lifecycle completion commit pending this slice.
+- [x] Commit the completed core sink/CLI slice and record the commit SHA and notable decisions in `steps.md`/`implementation.md`. — lifecycle completion coverage committed as `3f57ca3`; the sink snapshot now preserves callback-backed and reconciled synthetic artifacts across later presentation failures.
 
 ## Slice 5 — Kaocha completed-leaf hook
 

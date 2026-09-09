@@ -53,4 +53,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 - 2026-09-09 Slice 8 final verification: focused command-line checks passed — `scry.cli-test` 87 tests/613 assertions, `scry.kaocha-test` 26/121, and `scry.cli-kaocha-test` 14/98. Direct failing core (`-m --var scry.fixtures.failing/equality-fails`) and Kaocha (explicit inline `:config`, `failure` suite) CLI runs both exited 1 and produced readable detailed final EDN artifacts. `bb test:core`, `bb test:kaocha`, and `bb test` passed (full: core 85/792, adapter 26/121, Kaocha CLI 14/98, build 7/184, release 17/85); `bb clj-fmt:check`, `bb clj-kondo:lint` (zero findings), and `bb api-docs --check` passed. Final design acceptance/out-of-scope review found no deviations. Task artifacts are committed as `f603857` (`Verify incremental CLI artifact task`).
 - 2026-09-09 implementation review added 1 step to be addressed.
 - addressed 1 review step; focused Kaocha adapter (26 tests/125 assertions), Kaocha CLI (15/103), format, and lint checks passed.
-
+- added 1 step to be addressed.

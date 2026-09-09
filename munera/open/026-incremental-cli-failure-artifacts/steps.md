@@ -110,3 +110,4 @@
 ## Implementation review follow-up
 
 - [x] Prevent Kaocha assertion-error events from being reported as synthetic suite/load progress while a concrete var is active. `kaocha.report/report-exception` emits `:error` without an event `:var`, so the new reporter currently emits a synthetic callback in addition to the completed-leaf callback for an erroring test var. Restore active-var tracking (for suppression only) or otherwise distinguish concrete errors, and add adapter/CLI regressions with a throwing test var proving exactly one progress item and no synthetic `suite-error-*` label before the concrete completion.
+- [ ] Remove the obsolete end-only `scry.cli.results/write-result-files!` helper. The CLI now exclusively uses the incremental sink and reconciliation path, and no source or test references this public function; retaining a second bulk publication entry point leaves an unnecessary, untested alternative lifecycle that can drift from sink semantics.

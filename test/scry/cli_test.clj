@@ -383,6 +383,15 @@
     (write [s]
       (throw (java.io.IOException. ^String message)))))
 
+(defn- writer-failing-on-write
+  [write-number message]
+  (let [writes (atom 0)]
+    (proxy [java.io.Writer] []
+      (write [_ _ _]
+        (when (= write-number (swap! writes inc))
+          (throw (java.io.IOException. ^String message))))
+      (flush []))))
+
 (defn- run-cli-in
   ([dir opts]
    (run-cli-in dir opts {}))
@@ -1809,7 +1818,31 @@
         (is (= failure
                (edn/read-string
                 (slurp (io/file dir ".scry-results"
-                                "demo.core__published-before-summary-error.edn")))))))))
+                                "demo.core__published-before-summary-error.edn"))))))))
+  (testing "a post-summary seed writer exception retains reconciled files"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/published-before-seed-error
+                     :status :fail
+                     :assertion-summary {:pass 0 :fail 1 :error 0}
+                     :assertions [{:type :fail}]}
+            outcome (#'cli/run-cli
+                     (#'cli/normalize-exec-opts {})
+                     (test-boundary
+                      {:cwd (.getPath dir)
+                       :out (writer-failing-on-write 2 "seed unavailable")
+                       :err (string-writer)
+                       :run-clojure-test
+                       (fn [opts]
+                         ((:progress-callback opts) failure)
+                         (assoc (runner-result [failure])
+                                :summary {:pass 0 :fail 1 :error 0 :seed 42}))}))]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (= ["demo.core__published-before-seed-error.edn"]
+               (mapv #(.getName (io/file %)) (:result-files outcome))))
+        (is (= failure
+               (edn/read-string
+                (slurp (io/file dir ".scry-results"
+                                "demo.core__published-before-seed-error.edn")))))))))
 
 (deftest run-cli-reconciled-synthetic-artifact-survives-summary-error-test
   ;; A presentation failure after reconciliation retains synthetic files, which

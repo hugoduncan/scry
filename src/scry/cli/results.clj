@@ -628,18 +628,27 @@
           paths (successful-paths-in-order (assoc @state :dir (:dir sink))
                                            assignments
                                            successful-synthetic-filenames)
-          unresolved (ordered-unresolved @state entries synthetic-errors)]
-      {:result-files (vec (distinct paths))
-       :unresolved unresolved})))
+          unresolved (ordered-unresolved @state entries synthetic-errors)
+          snapshot {:result-files (vec (distinct paths))
+                    :unresolved unresolved}]
+      ;; Later presentation failures need the state reached by this one
+      ;; reconciliation, including synthetic artifacts that have no callback
+      ;; identity. Keep that snapshot rather than trying a second pass.
+      (swap! state assoc :reconciliation-snapshot snapshot)
+      snapshot)))
 
 (defn sink-exception-snapshot
-  "Return completed callback artifacts and unresolved failures without retrying."
+  "Return the latest completed artifact state without retrying.
+
+  Once normal reconciliation has completed, includes its synthetic artifacts
+  and unresolved diagnostics. Before then, returns callback-time state only."
   [sink]
   (let [state (assoc (sink-state sink) :dir (:dir sink))]
-    {:result-files (vec (distinct
-                         (keep #(get-in state [:identities % :successful-path])
-                               (:completion-order state))))
-     :unresolved (ordered-unresolved state [] [])}))
+    (or (:reconciliation-snapshot state)
+        {:result-files (vec (distinct
+                             (keep #(get-in state [:identities % :successful-path])
+                                   (:completion-order state))))
+         :unresolved (ordered-unresolved state [] [])})))
 
 (defn write-result-files!
   "Write readable EDN result files for failing/erroring canonical entries.

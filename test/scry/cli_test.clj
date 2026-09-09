@@ -1811,6 +1811,29 @@
                 (slurp (io/file dir ".scry-results"
                                 "demo.core__published-before-summary-error.edn")))))))))
 
+(deftest run-cli-reconciled-synthetic-artifact-survives-summary-error-test
+  ;; A presentation failure after reconciliation retains synthetic files, which
+  ;; have no callback identity and therefore require the reconciled snapshot.
+  (with-temp-dir [dir]
+    (let [suite-error {:ns 'demo.synthetic
+                       :status :error
+                       :assertion-summary {:pass 0 :fail 0 :error 1}
+                       :assertions [{:type :error :message "load failed"}]}
+          outcome (#'cli/run-cli
+                   (#'cli/normalize-exec-opts {})
+                   (test-boundary
+                    {:cwd (.getPath dir)
+                     :out (failing-writer "summary unavailable")
+                     :err (string-writer)
+                     :run-clojure-test (fn [_] (runner-result [suite-error]))}))]
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+      (is (= ["demo.synthetic__suite-error-1.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (= suite-error
+             (edn/read-string
+              (slurp (io/file dir ".scry-results"
+                              "demo.synthetic__suite-error-1.edn"))))))))
+
 (deftest run-cli-missing-canonical-and-progress-errors-preserve-sink-boundaries-test
   ;; A normal runner return fixes the reconciliation diagnostic phase even when
   ;; no canonical vector is available, while progress writer failures remain

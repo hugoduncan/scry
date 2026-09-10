@@ -411,31 +411,44 @@
                               opts)
                        0)))
 
+(defn- delete-temp-path!
+  [temp]
+  (java.nio.file.Files/deleteIfExists temp))
+
 (defn- atomic-write-entry!
   "Publish entry at filename without exposing a partially-written final file."
-  [^java.io.File dir filename entry]
-  (let [target (.toPath (io/file dir filename))
-        temp (java.nio.file.Files/createTempFile
-              (.toPath dir)
-              ".scry-result-"
-              ".tmp"
-              (make-array java.nio.file.attribute.FileAttribute 0))]
-    (try
-      (spit (.toFile temp) (pr-str (edn-readable-data entry)))
-      (java.nio.file.Files/move
-       temp
-       target
-       (into-array java.nio.file.CopyOption
-                   [java.nio.file.StandardCopyOption/ATOMIC_MOVE
-                    java.nio.file.StandardCopyOption/REPLACE_EXISTING]))
-      (.toString target)
-      (catch Throwable e
-        ;; A failed attempt must not leave an apparently complete final path.
-        ;; Cleanup is deliberately secondary to the publication failure.
-        (try
-          (java.nio.file.Files/deleteIfExists temp)
-          (catch Throwable _))
-        (throw e)))))
+  ([dir filename entry]
+   (atomic-write-entry! dir filename entry {}))
+  ([^java.io.File dir filename entry
+    {:keys [register-temp! release-temp! delete-temp!]
+     :or {register-temp! (constantly nil)
+          release-temp! (constantly nil)
+          delete-temp! delete-temp-path!}}]
+   (let [target (.toPath (io/file dir filename))
+         temp (java.nio.file.Files/createTempFile
+               (.toPath dir)
+               ".scry-result-"
+               ".tmp"
+               (make-array java.nio.file.attribute.FileAttribute 0))]
+     (register-temp! temp)
+     (try
+       (spit (.toFile temp) (pr-str (edn-readable-data entry)))
+       (java.nio.file.Files/move
+        temp
+        target
+        (into-array java.nio.file.CopyOption
+                    [java.nio.file.StandardCopyOption/ATOMIC_MOVE
+                     java.nio.file.StandardCopyOption/REPLACE_EXISTING]))
+       (release-temp! temp)
+       (.toString target)
+       (catch Throwable e
+         ;; Cleanup is secondary to publication. Retain paths whose deletion
+         ;; fails so normal reconciliation can retry only sink-owned files.
+         (try
+           (delete-temp! temp)
+           (release-temp! temp)
+           (catch Throwable _))
+         (throw e))))))
 
 (defn create-result-sink
   "Create state for synchronous completed-entry artifact publication.
@@ -445,12 +458,24 @@
   in the sink and never escape a runner callback."
   ([dir]
    (create-result-sink dir {}))
-  ([dir {:keys [publish-entry!]
-         :or {publish-entry! atomic-write-entry!}}]
-   {:dir dir
-    :publish-entry! publish-entry!
-    :state (atom {:identities {}
-                  :completion-order []})}))
+  ([dir {:keys [publish-entry! delete-temp!]
+         :or {delete-temp! delete-temp-path!}}]
+   (let [state (atom {:identities {}
+                      :completion-order []
+                      :temporary-paths []})
+         register-temp! #(swap! state update :temporary-paths conj %)
+         release-temp! #(swap! state update :temporary-paths
+                               (fn [paths] (into [] (remove #{%}) paths)))
+         publisher (or publish-entry!
+                       #(atomic-write-entry!
+                         %1 %2 %3
+                         {:register-temp! register-temp!
+                          :release-temp! release-temp!
+                          :delete-temp! delete-temp!}))]
+     {:dir dir
+      :publish-entry! publisher
+      :delete-temp! delete-temp!
+      :state state})))
 
 (defn sink-state
   "Return the current observable state of a result sink."
@@ -545,6 +570,16 @@
                             (:completion-order state))]
     (vec (distinct (concat canonical-paths callback-only)))))
 
+(defn- cleanup-temporary-paths!
+  [{:keys [state delete-temp!]}]
+  (doseq [temp (:temporary-paths @state)]
+    (try
+      (delete-temp! temp)
+      (swap! state update :temporary-paths
+             (fn [paths] (into [] (remove #{temp}) paths)))
+      (catch Throwable _)))
+  nil)
+
 (defn- ordered-unresolved
   "Return unresolved artifacts in canonical-first deterministic order.
 
@@ -623,6 +658,7 @@
                     (catch Throwable e
                       (assoc assignment :error e))))
                 synthetic)
+          _ (cleanup-temporary-paths! sink)
           synthetic-errors (filter :error synthetic-results)
           successful-synthetic-filenames (into #{} (keep #(when (:path %) (:filename %))) synthetic-results)
           paths (successful-paths-in-order (assoc @state :dir (:dir sink))

@@ -662,6 +662,38 @@
         (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp")
                             (.listFiles ^java.io.File results-dir))))))))
 
+(deftest result-sink-reconciliation-retries-owned-temp-cleanup-test
+  ;; A failed immediate cleanup remains sink-owned until normal reconciliation;
+  ;; cleanup errors never replace publication diagnostics or delete unknown files.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          unknown-temp (io/file results-dir ".unknown.tmp")
+          publication-error (ex-info "write failed" {:source :publication})
+          delete-attempts (atom 0)
+          delete-temp! (fn [temp]
+                         (if (= 1 (swap! delete-attempts inc))
+                           (throw (ex-info "cleanup failed" {:source :cleanup}))
+                           (java.nio.file.Files/deleteIfExists temp)))
+          sink (cli-results/create-result-sink results-dir {:delete-temp! delete-temp!})
+          entry {:var 'demo.core/cleanup-fails :status :fail}]
+      (spit unknown-temp "unowned")
+      (with-redefs [clojure.core/spit (fn [& _] (throw publication-error))]
+        (cli-results/handle-completed-entry! sink entry)
+        (let [owned-temp (first (:temporary-paths (cli-results/sink-state sink)))]
+          (is (some? owned-temp))
+          (is (java.nio.file.Files/exists owned-temp (make-array java.nio.file.LinkOption 0)))
+          (is (identical? publication-error
+                          (get-in (cli-results/sink-state sink)
+                                  [:identities 'demo.core/cleanup-fails :latest-error])))
+          (let [{:keys [unresolved]} (cli-results/reconcile-result-sink! sink [entry])]
+            (is (= 1 (count unresolved)))
+            (is (identical? publication-error (:error (first unresolved))))
+            (is (empty? (:temporary-paths (cli-results/sink-state sink))))
+            (is (false? (java.nio.file.Files/exists
+                         owned-temp
+                         (make-array java.nio.file.LinkOption 0))))
+            (is (.exists unknown-temp))))))))
+
 (deftest result-sink-duplicate-and-contained-failure-test
   ;; A later failed completion remains distinct from an older readable snapshot,
   ;; while a later pass neither retracts it nor creates an artifact requirement.

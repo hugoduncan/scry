@@ -259,6 +259,7 @@
            expected-file (result-file-name failing-var)
            ready (java.util.concurrent.CountDownLatch. 1)
            release (java.util.concurrent.CountDownLatch. 1)
+           completed (java.util.concurrent.CountDownLatch. 1)
            outcome (atom ::not-finished)
            worker (atom nil)]
        (write-suite-test-ns!
@@ -273,15 +274,18 @@
          (try
            (let [future-outcome
                  (future
-                   (reset! outcome
-                           (run-cli-in project
-                                       (#'cli/normalize-exec-opts
-                                        {:runner :kaocha
-                                         :dirs "test"
-                                         :ns-patterns [(exact-ns-pattern sample-ns)]
-                                         :kaocha-argv ["--no-randomize"]}))))
+                   (try
+                     (reset! outcome
+                             (run-cli-in project
+                                         (#'cli/normalize-exec-opts
+                                          {:runner :kaocha
+                                           :dirs "test"
+                                           :ns-patterns [(exact-ns-pattern sample-ns)]
+                                           :kaocha-argv ["--no-randomize"]})))
+                     (finally
+                       (.countDown completed))))
+                 _ (reset! worker future-outcome)
                  ready? (.await ready 5 java.util.concurrent.TimeUnit/SECONDS)]
-             (reset! worker future-outcome)
              (is ready?
                  "the second leaf reaches its bounded synchronization point")
              (when ready?
@@ -303,10 +307,10 @@
            (finally
              (.countDown release)
              (when-let [future-outcome @worker]
-               (when (= ::timed-out (deref future-outcome 5000 ::timed-out))
+               (when-not (.await completed 5 java.util.concurrent.TimeUnit/SECONDS)
                  (future-cancel future-outcome))
-               (is (future-done? future-outcome)
-                   "the worker is joined or cancelled during cleanup"))
+               (is (.await completed 5 java.util.concurrent.TimeUnit/SECONDS)
+                   "the worker body exits during bounded cleanup"))
              (reset! blocked-run-latches nil))))))))
 
 (deftest kaocha-cli-throwing-var-has-only-concrete-progress-test
@@ -602,7 +606,8 @@
      (let [sample-ns (unique-ns "forward-plugin" "sample-test")
            failing-var (symbol (str sample-ns) "failing-test")
            expected-file (result-file-name failing-var)
-           plugin-id :scry.cli-kaocha-test/add-forwarded-pass-count]
+           plugin-id (keyword "scry.cli-kaocha-test"
+                              (str (gensym "add-forwarded-pass-count-")))]
        (eval `(do
                 (require 'kaocha.plugin)
                 (defmethod kaocha.plugin/-register ~plugin-id [_# plugins#]

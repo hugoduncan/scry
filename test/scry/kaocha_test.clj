@@ -331,7 +331,7 @@
   (when-kaocha-available
    (with-temp-project [project]
      (let [sample-ns (unique-ns "completion" "user-hook-test")
-           plugin-id :scry.kaocha-test/add-final-pass-count
+           plugin-id (keyword "scry.kaocha-test" (str (gensym "add-final-pass-count-")))
            callbacks (atom [])]
        (eval `(do
                 (require 'kaocha.plugin)
@@ -389,7 +389,12 @@
        (report {:type :error})
        (report {:type :end-test-var :var #'scry.core/run})
        (report {:type :fail})
+       (report {:type :error})
        (is (= [{:var nil
+                :ns nil
+                :status :error
+                :assertion-summary {:pass 0 :fail 0 :error 1}}
+               {:var nil
                 :ns nil
                 :status :error
                 :assertion-summary {:pass 0 :fail 0 :error 1}}]

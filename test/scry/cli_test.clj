@@ -890,6 +890,38 @@
                (edn/read-string
                 (slurp (io/file results-dir "demo.core__suite-error-1--2.edn")))))))))
 
+(deftest result-sink-first-completion-order-test
+  ;; Callback-only artifact ordering follows each identity's first concrete
+  ;; completion, even when that completion did not require an artifact.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          first-pass {:var 'demo.core/first :status :pass}
+          second-failure {:var 'demo.core/second :status :fail}
+          first-failure {:var 'demo.core/first :status :error}
+          successful-sink (cli-results/create-result-sink
+                           results-dir
+                           {:publish-entry! (fn [_ filename entry]
+                                              (let [path (io/file results-dir filename)]
+                                                (spit path (pr-str entry))
+                                                (.getPath path)))})]
+      (doseq [entry [first-pass second-failure first-failure]]
+        (cli-results/handle-completed-entry! successful-sink entry))
+      (is (= ['demo.core/first 'demo.core/second]
+             (:completion-order (cli-results/sink-state successful-sink))))
+      (is (= ["demo.core__first.edn" "demo.core__second.edn"]
+             (->> (cli-results/reconcile-result-sink! successful-sink [])
+                  :result-files
+                  (mapv #(.getName (io/file %))))))
+      (let [unresolved-sink (cli-results/create-result-sink
+                             results-dir
+                             {:publish-entry! (fn [& _]
+                                                (throw (ex-info "disk unavailable" {})))})]
+        (doseq [entry [first-pass second-failure first-failure]]
+          (cli-results/handle-completed-entry! unresolved-sink entry))
+        (is (= ['demo.core/first 'demo.core/second]
+               (mapv :var (:unresolved
+                           (cli-results/sink-exception-snapshot unresolved-sink)))))))))
+
 (deftest result-sink-exception-snapshot-test
   ;; Catchable runner failure retains previously published files and describes
   ;; only unresolved latest callback generations in completion order.

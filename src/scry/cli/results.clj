@@ -523,23 +523,23 @@
           failure? (failure-entry? entry)
           identity (identity-state @state var-symbol)
           occurrence (inc (:occurrence identity))]
-      (swap! state update-in [:identities var-symbol]
-             #(assoc (or % identity) :occurrence occurrence))
+      (swap! state
+             (fn [current]
+               (-> current
+                   (update :completion-order #(if (some #{var-symbol} %) % (conj % var-symbol)))
+                   (update-in [:identities var-symbol]
+                              #(assoc (or % identity) :occurrence occurrence)))))
       (when failure?
         (let [generation (inc (:required-generation identity))
               snapshot {:entry entry
                         :occurrence occurrence
                         :generation generation
                         :filename (result-file-name entry)}]
-          (swap! state
-                 (fn [current]
-                   (-> current
-                       (update :completion-order #(if (some #{var-symbol} %) % (conj % var-symbol)))
-                       (update-in [:identities var-symbol]
-                                  #(assoc (or % identity)
-                                          :required-generation generation
-                                          :latest-required snapshot
-                                          :latest-error nil)))))
+          (swap! state update-in [:identities var-symbol]
+                 #(assoc (or % identity)
+                         :required-generation generation
+                         :latest-required snapshot
+                         :latest-error nil))
           (publish-snapshot! sink var-symbol snapshot)))))
   nil)
 

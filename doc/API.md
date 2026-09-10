@@ -291,13 +291,17 @@ Run kaocha tests in-process and return scry's inspectable result map.
                          This option is `-m`-only; the `-X` map path uses
                          `:kaocha-extra`.
      :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
-                         CLI's bounded pass-through (e.g. `:focus`). It is merged
-                         into the resolved config's :kaocha/cli-options with the
-                         resolved :config authoritative on conflict. Known values
-                         are coerced (`:focus` raw string/symbol/keyword scalar or
-                         collection becomes a vector of keywords); unknown keys are
-                         forwarded as-is, so a mistyped key surfaces as a runner or
-                         load error rather than an argument error.
+                         CLI's bounded pass-through (e.g. `:focus` and `:plugin`).
+                         It is merged into the resolved config's
+                         :kaocha/cli-options, with resolved :config authoritative on conflict.
+                         Known values are coerced: a `:focus` raw string/symbol/keyword
+                         scalar or collection becomes a vector of keywords;
+                         `:plugin` accepts a scalar or sequential selection and
+                         likewise becomes a vector of keywords. Selected plugins
+                         are activated in :kaocha/plugins before scry's completion
+                         observer is placed last. Unknown keys are forwarded as-is;
+                         a mistyped key surfaces as a runner or load error rather
+                         than an argument error.
 
    When :config is omitted, the current project's tests.edn is loaded if it
    exists; otherwise a synthetic :unit suite is built from :source-paths,
@@ -320,4 +324,4 @@ Run kaocha tests in-process and return scry's inspectable result map.
    print is suppressed.
 
    Returns the same scoped result model as [`scry.core/run`](#scry.core/run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L409-L499">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L447-L541">Source</a></sub></p>

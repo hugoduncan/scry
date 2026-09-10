@@ -66,3 +66,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 - addressed 3 review steps; focused Kaocha adapter (26 tests/127 assertions), Kaocha CLI (16/118), format, and lint checks passed.
 - 2026-09-09 test-shaper review found no new actionable issues after focused core and Kaocha verification.
 - documentation review added 2 steps to be addressed.
+- addressed 2 review steps.

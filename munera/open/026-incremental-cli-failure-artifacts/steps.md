@@ -126,5 +126,5 @@
 
 ## Documentation review follow-up
 
-- [ ] Update the public `scry.kaocha/run` `:kaocha-extra` documentation to describe `:plugin` coercion and activation in `:kaocha/plugins`, then regenerate `doc/API.md`. The implementation now supports both scalar and sequential plugin selections, while the reference still names only `:focus` among coerced values and does not state that selected plugins are activated.
-- [ ] Add an Unreleased changelog entry for the user-visible fix that makes forwarded Kaocha plugin selections execute in both `-m --plugin` and `-X :plugin` modes. The current task entries cover incremental artifacts but omit this follow-up behavior change.
+- [x] Update the public `scry.kaocha/run` `:kaocha-extra` documentation to describe `:plugin` coercion and activation in `:kaocha/plugins`, then regenerate `doc/API.md`. The implementation now supports both scalar and sequential plugin selections, while the reference still names only `:focus` among coerced values and does not state that selected plugins are activated.
+- [x] Add an Unreleased changelog entry for the user-visible fix that makes forwarded Kaocha plugin selections execute in both `-m --plugin` and `-X :plugin` modes. The current task entries cover incremental artifacts but omit this follow-up behavior change.

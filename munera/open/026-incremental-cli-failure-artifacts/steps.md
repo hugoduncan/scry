@@ -123,3 +123,8 @@
 - [x] Strengthen `kaocha-cli-preserves-published-artifact-during-later-blocked-leaf-test` so cleanup proves the future body has actually exited, rather than treating `future-done?` after `future-cancel` as proof that no task survives. Add a task-completion signal set in the future body's `finally`, retain the future immediately when it is created, and boundedly await completion after release/cancellation on every path.
 - [x] Isolate the adapter and CLI plugin-ordering regressions from pre-existing `kaocha.plugin/-register` methods. Their fixed plugin ids plus unconditional `remove-method` cleanup can delete a registration owned by another test or REPL setup; use per-test unique ids or save and restore any prior method while retaining `finally` cleanup.
 - [x] Extend the `progress-reporter` state regression to emit an unowned `:error` after `:end-test-var` and assert that synthetic progress resumes. The current assertions prove suppression while a var is active but do not detect an observer that fails to clear active-var state and consequently loses a later suite-level error.
+
+## Documentation review follow-up
+
+- [ ] Update the public `scry.kaocha/run` `:kaocha-extra` documentation to describe `:plugin` coercion and activation in `:kaocha/plugins`, then regenerate `doc/API.md`. The implementation now supports both scalar and sequential plugin selections, while the reference still names only `:focus` among coerced values and does not state that selected plugins are activated.
+- [ ] Add an Unreleased changelog entry for the user-visible fix that makes forwarded Kaocha plugin selections execute in both `-m --plugin` and `-X :plugin` modes. The current task entries cover incremental artifacts but omit this follow-up behavior change.

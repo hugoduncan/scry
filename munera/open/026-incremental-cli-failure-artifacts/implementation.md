@@ -70,3 +70,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 - 2026-09-09 documentation re-review found no new actionable issues.
 - code-shaper review added 2 steps to be addressed.
 - addressed 2 review steps.
+- code-shaper re-review added 2 steps to be addressed.

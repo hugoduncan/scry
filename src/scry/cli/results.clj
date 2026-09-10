@@ -564,15 +564,16 @@
         (:identities state)))
 
 (defn- successful-paths-in-order
-  [state assignments successful-synthetic-filenames]
-  (let [canonical-paths
+  [state assignments synthetic-results]
+  (let [synthetic-paths (into {}
+                              (keep (fn [{:keys [filename path]}]
+                                      (when path [filename path])))
+                              synthetic-results)
+        canonical-paths
         (keep (fn [{:keys [entry filename]}]
-                (cond
-                  (concrete-var-backed-entry? entry)
+                (if (concrete-var-backed-entry? entry)
                   (get-in state [:identities (:var entry) :successful-path])
-
-                  (contains? successful-synthetic-filenames filename)
-                  (.getPath (io/file (:dir state) filename))))
+                  (get synthetic-paths filename)))
               assignments)
         callback-only (keep #(get-in state [:identities % :successful-path])
                             (:completion-order state))]
@@ -588,6 +589,16 @@
       (catch Throwable _)))
   nil)
 
+(defn- ordered-identities
+  "Order concrete identities by canonical occurrence, then callback completion."
+  [state entries]
+  (let [canonical-vars (->> entries
+                            (filter concrete-var-backed-entry?)
+                            (map :var)
+                            distinct)]
+    (concat canonical-vars
+            (remove (set canonical-vars) (:completion-order state)))))
+
 (defn- ordered-unresolved
   "Return unresolved artifacts in canonical-first deterministic order.
 
@@ -595,13 +606,7 @@
   then callback-only identities retain completion order, and synthetic
   assignments follow their established assignment order."
   [state entries synthetic-errors]
-  (let [canonical-vars (->> entries
-                            (filter concrete-var-backed-entry?)
-                            (map :var)
-                            distinct)
-        callback-only-vars (remove (set canonical-vars) (:completion-order state))
-        ordered-vars (concat canonical-vars callback-only-vars)
-        unresolved-concrete
+  (let [unresolved-concrete
         (keep (fn [var-symbol]
                 (let [identity (get-in state [:identities var-symbol])]
                   (when (and (:latest-required identity)
@@ -610,45 +615,40 @@
                     {:var var-symbol
                      :entry (get-in identity [:latest-required :entry])
                      :error (:latest-error identity)})))
-              ordered-vars)]
+              (ordered-identities state entries))]
     (vec (concat unresolved-concrete
                  (map #(select-keys % [:entry :error]) synthetic-errors)))))
 
 (defn- reconciliation-work-plan
   [state entries occurrences]
-  (let [canonical-vars (->> entries
-                            (filter concrete-var-backed-entry?)
-                            (map :var)
-                            distinct)
-        callback-only-vars (remove (set canonical-vars) (:completion-order state))]
-    (into []
-          (mapcat
-           (fn [var-symbol]
-             (let [identity (identity-state state var-symbol)
-                   snapshot (:latest-required identity)
-                   callback-count (:occurrence identity)
-                   matching (when snapshot
-                              (get-in occurrences
-                                      [var-symbol (dec (:occurrence snapshot)) :entry]))
-                   retry (when (and snapshot
-                                    (> (:generation snapshot)
-                                       (or (:successful-generation identity) 0)))
-                           {:kind :retry
-                            :var var-symbol
-                            :snapshot (if (failure-entry? matching)
-                                        (assoc snapshot :entry matching)
-                                        snapshot)})
-                   unmatched (drop callback-count (get occurrences var-symbol))
-                   latest-failure (last (filter #(failure-entry? (:entry %)) unmatched))
-                   missed (when latest-failure
-                            {:kind :missed
-                             :var var-symbol
-                             :entry (:entry latest-failure)
-                             :callback-count callback-count})]
-               (cond-> []
-                 retry (conj retry)
-                 missed (conj missed)))))
-          (concat canonical-vars callback-only-vars))))
+  (into []
+        (mapcat
+         (fn [var-symbol]
+           (let [identity (identity-state state var-symbol)
+                 snapshot (:latest-required identity)
+                 callback-count (:occurrence identity)
+                 matching (when snapshot
+                            (get-in occurrences
+                                    [var-symbol (dec (:occurrence snapshot)) :entry]))
+                 retry (when (and snapshot
+                                  (> (:generation snapshot)
+                                     (or (:successful-generation identity) 0)))
+                         {:kind :retry
+                          :var var-symbol
+                          :snapshot (if (failure-entry? matching)
+                                      (assoc snapshot :entry matching)
+                                      snapshot)})
+                 unmatched (drop callback-count (get occurrences var-symbol))
+                 latest-failure (last (filter #(failure-entry? (:entry %)) unmatched))
+                 missed (when latest-failure
+                          {:kind :missed
+                           :var var-symbol
+                           :entry (:entry latest-failure)
+                           :callback-count callback-count})]
+             (cond-> []
+               retry (conj retry)
+               missed (conj missed))))
+         (ordered-identities state entries))))
 
 (defn- execute-reconciliation-work!
   [{:keys [state] :as sink} {:keys [kind var snapshot entry callback-count]}]
@@ -699,10 +699,7 @@
                 synthetic)
           _ (cleanup-temporary-paths! sink)
           synthetic-errors (filter :error synthetic-results)
-          successful-synthetic-filenames (into #{} (keep #(when (:path %) (:filename %))) synthetic-results)
-          paths (successful-paths-in-order (assoc @state :dir (:dir sink))
-                                           assignments
-                                           successful-synthetic-filenames)
+          paths (successful-paths-in-order @state assignments synthetic-results)
           unresolved (ordered-unresolved @state entries synthetic-errors)
           snapshot {:result-files (vec (distinct paths))
                     :unresolved unresolved}]

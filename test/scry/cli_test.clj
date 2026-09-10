@@ -754,6 +754,24 @@
                 (is (= synthetic-entry
                        (edn/read-string (slurp (io/file results-dir "demo.core__suite-error-1.edn")))))))))))
 
+(deftest result-sink-synthetic-result-uses-publisher-path-test
+  ;; Synthetic result paths come from the successful publication result rather
+  ;; than being reconstructed from the sink directory and assigned filename.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          published-path (.getPath (io/file results-dir "publisher-selected.edn"))
+          synthetic-entry {:ns 'demo.core :status :error}
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ _ entry]
+                                   (spit published-path (pr-str entry))
+                                   published-path)})
+          {:keys [result-files unresolved]}
+          (cli-results/reconcile-result-sink! sink [synthetic-entry])]
+      (is (= [] unresolved))
+      (is (= [published-path] result-files))
+      (is (= synthetic-entry (edn/read-string (slurp published-path)))))))
+
 (deftest result-sink-reconciliation-preserves-successful-completion-test
   ;; A readable completion snapshot remains authoritative after normal return;
   ;; later pass executions do not retract it or cause final reconciliation to

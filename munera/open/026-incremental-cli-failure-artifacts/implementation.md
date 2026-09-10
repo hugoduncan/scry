@@ -59,3 +59,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 - addressed 1 review step.
 - added 1 step to be addressed.
 - review found no new actionable issues; corrected 7 stale unchecked steps.
+- test review added 4 steps to be addressed.

@@ -545,21 +545,27 @@
 
 (defn- canonical-occurrences
   [entries]
-  (reduce (fn [occurrences [index entry]]
+  (reduce (fn [occurrences entry]
             (if (concrete-var-backed-entry? entry)
-              (update occurrences (:var entry) (fnil conj []) {:index index :entry entry})
+              (update occurrences (:var entry) (fnil conj []) entry)
               occurrences))
           {}
-          (map-indexed vector entries)))
+          entries))
+
+(defn- unpublished-latest-required
+  [identity]
+  (let [snapshot (:latest-required identity)]
+    (when (and snapshot
+               (> (:generation snapshot)
+                  (or (:successful-generation identity) 0)))
+      snapshot)))
 
 (defn- callback-reserved-filenames
   [state]
   (into #{}
         (keep (fn [[_ identity]]
                 (when (or (:successful-path identity)
-                          (and (:latest-required identity)
-                               (> (:required-generation identity)
-                                  (or (:successful-generation identity) 0))))
+                          (unpublished-latest-required identity))
                   (get-in identity [:latest-required :filename]))))
         (:identities state)))
 
@@ -609,11 +615,9 @@
   (let [unresolved-concrete
         (keep (fn [var-symbol]
                 (let [identity (get-in state [:identities var-symbol])]
-                  (when (and (:latest-required identity)
-                             (> (:required-generation identity)
-                                (or (:successful-generation identity) 0)))
+                  (when-let [snapshot (unpublished-latest-required identity)]
                     {:var var-symbol
-                     :entry (get-in identity [:latest-required :entry])
+                     :entry (:entry snapshot)
                      :error (:latest-error identity)})))
               (ordered-identities state entries))]
     (vec (concat unresolved-concrete
@@ -625,25 +629,23 @@
         (mapcat
          (fn [var-symbol]
            (let [identity (identity-state state var-symbol)
-                 snapshot (:latest-required identity)
+                 snapshot (unpublished-latest-required identity)
                  callback-count (:occurrence identity)
                  matching (when snapshot
                             (get-in occurrences
-                                    [var-symbol (dec (:occurrence snapshot)) :entry]))
-                 retry (when (and snapshot
-                                  (> (:generation snapshot)
-                                     (or (:successful-generation identity) 0)))
+                                    [var-symbol (dec (:occurrence snapshot))]))
+                 retry (when snapshot
                          {:kind :retry
                           :var var-symbol
                           :snapshot (if (failure-entry? matching)
                                       (assoc snapshot :entry matching)
                                       snapshot)})
                  unmatched (drop callback-count (get occurrences var-symbol))
-                 latest-failure (last (filter #(failure-entry? (:entry %)) unmatched))
+                 latest-failure (last (filter failure-entry? unmatched))
                  missed (when latest-failure
                           {:kind :missed
                            :var var-symbol
-                           :entry (:entry latest-failure)
+                           :entry latest-failure
                            :callback-count callback-count})]
              (cond-> []
                retry (conj retry)

@@ -73,3 +73,4 @@ Design orientation inspected the existing core completed-var callback, CLI end-o
 - code-shaper re-review added 2 steps to be addressed.
 - addressed 2 review steps.
 - code-shaper re-review added 2 steps to be addressed.
+- addressed 2 review steps; focused CLI (91 tests/628 assertions), format, and lint checks passed.

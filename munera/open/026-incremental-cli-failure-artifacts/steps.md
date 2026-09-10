@@ -128,3 +128,8 @@
 
 - [x] Update the public `scry.kaocha/run` `:kaocha-extra` documentation to describe `:plugin` coercion and activation in `:kaocha/plugins`, then regenerate `doc/API.md`. The implementation now supports both scalar and sequential plugin selections, while the reference still names only `:focus` among coerced values and does not state that selected plugins are activated.
 - [x] Add an Unreleased changelog entry for the user-visible fix that makes forwarded Kaocha plugin selections execute in both `-m --plugin` and `-X :plugin` modes. The current task entries cover incremental artifacts but omit this follow-up behavior change.
+
+## Code-shaper review follow-up
+
+- [ ] Record an identity's first completion order on every concrete callback, including an initial pass/unknown, rather than adding it only on the identity's first failure. Use that invariant for callback-only result-file and exception-path unresolved ordering, and add a regression where one callback-only identity passes before another identity fails and then fails later.
+- [ ] Make reconciliation publication attempts deterministic instead of traversing the `:identities` and canonical-occurrence maps in hash-map order. Build one locally comprehensible ordered work plan—canonical first-occurrence order followed by callback-only first-completion order—for unresolved callback retries and callback-missed concrete failures, and add a state-level regression that records publisher call order across several identities.

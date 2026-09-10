@@ -636,17 +636,16 @@
     (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})]
       (let [filename "demo.core__atomic.edn"
             target (io/file results-dir filename)
-            original-spit spit
-            observed (atom nil)]
-        (with-redefs [clojure.core/spit
-                      (fn [file content]
-                        (reset! observed {:target-exists? (.exists target)
-                                          :temporary-files (->> (.listFiles ^java.io.File results-dir)
-                                                                (map #(.getName ^java.io.File %))
-                                                                (filter #(str/ends-with? % ".tmp"))
-                                                                vec)})
-                        (original-spit file content))]
-          (#'cli-results/atomic-write-entry! results-dir filename {:status :fail}))
+            observed (atom nil)
+            write-temp! (fn [^java.nio.file.Path temp content]
+                          (reset! observed {:target-exists? (.exists target)
+                                            :temporary-files (->> (.listFiles ^java.io.File results-dir)
+                                                                  (map #(.getName ^java.io.File %))
+                                                                  (filter #(str/ends-with? % ".tmp"))
+                                                                  vec)})
+                          (spit (.toFile temp) content))]
+        (#'cli-results/atomic-write-entry!
+         results-dir filename {:status :fail} {:write-temp! write-temp!})
         (is (= false (:target-exists? @observed)))
         (is (= 1 (count (:temporary-files @observed))))
         (is (= {:status :fail} (edn/read-string (slurp target))))
@@ -654,10 +653,11 @@
                             (.listFiles ^java.io.File results-dir)))))
       (let [filename "demo.core__failed.edn"
             target (io/file results-dir filename)]
-        (with-redefs [clojure.core/spit (fn [& _] (throw (ex-info "write failed" {})))]
-          (is (thrown-with-msg? clojure.lang.ExceptionInfo #"write failed"
-                                (#'cli-results/atomic-write-entry!
-                                 results-dir filename {:status :fail}))))
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"write failed"
+                              (#'cli-results/atomic-write-entry!
+                               results-dir filename {:status :fail}
+                               {:write-temp! (fn [& _]
+                                               (throw (ex-info "write failed" {})))})))
         (is (false? (.exists target)))
         (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp")
                             (.listFiles ^java.io.File results-dir))))))))
@@ -674,25 +674,27 @@
                          (if (= 1 (swap! delete-attempts inc))
                            (throw (ex-info "cleanup failed" {:source :cleanup}))
                            (java.nio.file.Files/deleteIfExists temp)))
-          sink (cli-results/create-result-sink results-dir {:delete-temp! delete-temp!})
+          sink (cli-results/create-result-sink
+                results-dir
+                {:delete-temp! delete-temp!
+                 :write-temp! (fn [& _] (throw publication-error))})
           entry {:var 'demo.core/cleanup-fails :status :fail}]
       (spit unknown-temp "unowned")
-      (with-redefs [clojure.core/spit (fn [& _] (throw publication-error))]
-        (cli-results/handle-completed-entry! sink entry)
-        (let [owned-temp (first (:temporary-paths (cli-results/sink-state sink)))]
-          (is (some? owned-temp))
-          (is (java.nio.file.Files/exists owned-temp (make-array java.nio.file.LinkOption 0)))
-          (is (identical? publication-error
-                          (get-in (cli-results/sink-state sink)
-                                  [:identities 'demo.core/cleanup-fails :latest-error])))
-          (let [{:keys [unresolved]} (cli-results/reconcile-result-sink! sink [entry])]
-            (is (= 1 (count unresolved)))
-            (is (identical? publication-error (:error (first unresolved))))
-            (is (empty? (:temporary-paths (cli-results/sink-state sink))))
-            (is (false? (java.nio.file.Files/exists
-                         owned-temp
-                         (make-array java.nio.file.LinkOption 0))))
-            (is (.exists unknown-temp))))))))
+      (cli-results/handle-completed-entry! sink entry)
+      (let [owned-temp (first (:temporary-paths (cli-results/sink-state sink)))]
+        (is (some? owned-temp))
+        (is (java.nio.file.Files/exists owned-temp (make-array java.nio.file.LinkOption 0)))
+        (is (identical? publication-error
+                        (get-in (cli-results/sink-state sink)
+                                [:identities 'demo.core/cleanup-fails :latest-error])))
+        (let [{:keys [unresolved]} (cli-results/reconcile-result-sink! sink [entry])]
+          (is (= 1 (count unresolved)))
+          (is (identical? publication-error (:error (first unresolved))))
+          (is (empty? (:temporary-paths (cli-results/sink-state sink))))
+          (is (false? (java.nio.file.Files/exists
+                       owned-temp
+                       (make-array java.nio.file.LinkOption 0))))
+          (is (.exists unknown-temp)))))))
 
 (deftest result-sink-duplicate-and-contained-failure-test
   ;; A later failed completion remains distinct from an older readable snapshot,

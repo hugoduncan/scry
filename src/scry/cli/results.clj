@@ -415,15 +415,20 @@
   [temp]
   (java.nio.file.Files/deleteIfExists temp))
 
+(defn- write-temp-entry!
+  [^java.nio.file.Path temp content]
+  (spit (.toFile temp) content))
+
 (defn- atomic-write-entry!
   "Publish entry at filename without exposing a partially-written final file."
   ([dir filename entry]
    (atomic-write-entry! dir filename entry {}))
   ([^java.io.File dir filename entry
-    {:keys [register-temp! release-temp! delete-temp!]
+    {:keys [register-temp! release-temp! delete-temp! write-temp!]
      :or {register-temp! (constantly nil)
           release-temp! (constantly nil)
-          delete-temp! delete-temp-path!}}]
+          delete-temp! delete-temp-path!
+          write-temp! write-temp-entry!}}]
    (let [target (.toPath (io/file dir filename))
          temp (java.nio.file.Files/createTempFile
                (.toPath dir)
@@ -432,7 +437,7 @@
                (make-array java.nio.file.attribute.FileAttribute 0))]
      (register-temp! temp)
      (try
-       (spit (.toFile temp) (pr-str (edn-readable-data entry)))
+       (write-temp! temp (pr-str (edn-readable-data entry)))
        (java.nio.file.Files/move
         temp
         target
@@ -454,12 +459,14 @@
   "Create state for synchronous completed-entry artifact publication.
 
   `:publish-entry!`, when supplied, receives dir, filename, and canonical entry.
-  It is a narrow filesystem boundary for tests; publication failures are recorded
-  in the sink and never escape a runner callback."
+  `:write-temp!` and `:delete-temp!` customize the atomic publisher's filesystem
+  operations. Publication failures are recorded in the sink and never escape a
+  runner callback."
   ([dir]
    (create-result-sink dir {}))
-  ([dir {:keys [publish-entry! delete-temp!]
-         :or {delete-temp! delete-temp-path!}}]
+  ([dir {:keys [publish-entry! delete-temp! write-temp!]
+         :or {delete-temp! delete-temp-path!
+              write-temp! write-temp-entry!}}]
    (let [state (atom {:identities {}
                       :completion-order []
                       :temporary-paths []})
@@ -471,7 +478,8 @@
                          %1 %2 %3
                          {:register-temp! register-temp!
                           :release-temp! release-temp!
-                          :delete-temp! delete-temp!}))]
+                          :delete-temp! delete-temp!
+                          :write-temp! write-temp!}))]
      {:dir dir
       :publish-entry! publisher
       :delete-temp! delete-temp!

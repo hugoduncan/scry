@@ -11,6 +11,10 @@
   [overrides]
   (merge (#'cli/default-boundary) overrides))
 
+(defn- remove-plugin-registration!
+  [plugin-id]
+  (remove-method @(requiring-resolve 'kaocha.plugin/-register) plugin-id))
+
 (defmacro when-kaocha-available
   [& body]
   `(if (try
@@ -255,7 +259,8 @@
            expected-file (result-file-name failing-var)
            ready (java.util.concurrent.CountDownLatch. 1)
            release (java.util.concurrent.CountDownLatch. 1)
-           outcome (atom ::not-finished)]
+           outcome (atom ::not-finished)
+           worker (atom nil)]
        (write-suite-test-ns!
         project
         sample-ns
@@ -274,25 +279,34 @@
                                         {:runner :kaocha
                                          :dirs "test"
                                          :ns-patterns [(exact-ns-pattern sample-ns)]
-                                         :kaocha-argv ["--no-randomize"]}))))]
-             (is (.await ready 5 java.util.concurrent.TimeUnit/SECONDS)
+                                         :kaocha-argv ["--no-randomize"]}))))
+                 ready? (.await ready 5 java.util.concurrent.TimeUnit/SECONDS)]
+             (reset! worker future-outcome)
+             (is ready?
                  "the second leaf reaches its bounded synchronization point")
-             (let [artifact (io/file project ".scry-results" expected-file)
-                   entry (edn/read-string (slurp artifact))]
-               (is (.exists artifact))
-               (is (= failing-var (:var entry)))
-               (is (= :fail (:status entry)))
-               (is (seq (:assertions entry))))
+             (when ready?
+               (let [artifact (io/file project ".scry-results" expected-file)
+                     entry (edn/read-string (slurp artifact))]
+                 (is (.exists artifact))
+                 (is (= failing-var (:var entry)))
+                 (is (= :fail (:status entry)))
+                 (is (seq (:assertions entry)))))
              (.countDown release)
              (let [worker-result (deref future-outcome 5000 ::timed-out)]
                (is (not= ::timed-out worker-result)
                    "the released run completes without a leaked worker")
-               (is (= worker-result @outcome))
-               (is (= 1 (:exit-code worker-result)))
-               (is (some #{(.getPath (io/file project ".scry-results" expected-file))}
-                         (:result-files worker-result)))))
+               (when-not (= ::timed-out worker-result)
+                 (is (= worker-result @outcome))
+                 (is (= 1 (:exit-code worker-result)))
+                 (is (some #{(.getPath (io/file project ".scry-results" expected-file))}
+                           (:result-files worker-result))))))
            (finally
              (.countDown release)
+             (when-let [future-outcome @worker]
+               (when (= ::timed-out (deref future-outcome 5000 ::timed-out))
+                 (future-cancel future-outcome))
+               (is (future-done? future-outcome)
+                   "the worker is joined or cancelled during cleanup"))
              (reset! blocked-run-latches nil))))))))
 
 (deftest kaocha-cli-throwing-var-has-only-concrete-progress-test
@@ -596,39 +610,57 @@
                         {:kaocha.plugin/id ~plugin-id
                          :kaocha.hooks/post-test
                          (fn [testable# _#]
-                           (update testable# :kaocha.result/pass (fnil + 0) 7))}))))
-       (write-suite-test-ns!
-        project
-        sample-ns
-        "(deftest failing-test\n  (is (= :expected :actual)))\n")
-       (write-project-file!
-        project
-        "tests.edn"
-        (str "#kaocha/v1\n"
-             "{:tests [{:id :unit\n"
-             "          :type :kaocha.type/clojure.test\n"
-             "          :test-paths [\"test\"]\n"
-             "          :ns-patterns [" (pr-str (exact-ns-pattern sample-ns)) "]}]}"))
-       (with-user-dir-and-ns-cleanup project [sample-ns]
-         (doseq [[label opts]
-                 [["-m --plugin"
-                   (#'cli/parse-main-args
-                    ["--runner" "kaocha" "--plugin" (str plugin-id)
-                     "--no-randomize"])]
-                  ["-X :plugin"
-                   (#'cli/normalize-exec-opts
-                    {:runner :kaocha :plugin plugin-id :randomize false})]]]
-           (testing label
-             (let [outcome (run-cli-in project opts)
-                   artifact-file (io/file project ".scry-results" expected-file)]
-               (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome))
-                   (pr-str outcome))
-               (is (.isFile artifact-file) (pr-str outcome))
-               (when (.isFile artifact-file)
-                 (let [artifact (edn/read-string (slurp artifact-file))]
-                   (is (= failing-var (:var artifact)))
-                   (is (= 7 (get-in artifact [:assertion-summary :pass])))
-                   (is (= 1 (get-in artifact [:assertion-summary :fail])))))))))))))
+                           (when-let [buffer# (:kaocha.plugin.capture-output/buffer testable#)]
+                             (.write ^java.io.ByteArrayOutputStream buffer#
+                                     (.getBytes "forwarded plugin output")))
+                           (-> testable#
+                               (update :kaocha.result/pass (fnil + 0) 7)
+                               (update :kaocha.testable/events conj
+                                       {:type :pass
+                                        :message "forwarded plugin assertion"
+                                        :expected :hook
+                                        :actual :hook})
+                               (update :kaocha.plugin.capture-output/output
+                                       str "forwarded plugin output")))}))))
+       (try
+         (write-suite-test-ns!
+          project
+          sample-ns
+          "(deftest failing-test\n  (is (= :expected :actual)))\n")
+         (write-project-file!
+          project
+          "tests.edn"
+          (str "#kaocha/v1\n"
+               "{:tests [{:id :unit\n"
+               "          :type :kaocha.type/clojure.test\n"
+               "          :test-paths [\"test\"]\n"
+               "          :ns-patterns [" (pr-str (exact-ns-pattern sample-ns)) "]}]}"))
+         (with-user-dir-and-ns-cleanup project [sample-ns]
+           (doseq [[label opts]
+                   [["-m --plugin"
+                     (#'cli/parse-main-args
+                      ["--runner" "kaocha" "--plugin" (str plugin-id)
+                       "--no-randomize"])]
+                    ["-X :plugin"
+                     (#'cli/normalize-exec-opts
+                      {:runner :kaocha :plugin plugin-id :randomize false})]]]
+             (testing label
+               (let [outcome (run-cli-in project opts)
+                     artifact-file (io/file project ".scry-results" expected-file)]
+                 (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome))
+                     (pr-str outcome))
+                 (is (.isFile artifact-file) (pr-str outcome))
+                 (when (.isFile artifact-file)
+                   (let [artifact (edn/read-string (slurp artifact-file))]
+                     (is (= failing-var (:var artifact)))
+                     (is (= 7 (get-in artifact [:assertion-summary :pass])))
+                     (is (= 1 (get-in artifact [:assertion-summary :fail])))
+                     (is (some #(= "forwarded plugin assertion" (:message %))
+                               (:assertions artifact)))
+                     (is (str/includes? (:out artifact)
+                                        "forwarded plugin output"))))))))
+         (finally
+           (remove-plugin-registration! plugin-id)))))))
 
 (deftest kaocha-cli-forwarded-option-reaches-kaocha-test
   ;; A previously-unsupported Kaocha option (`--no-randomize`) forwards verbatim

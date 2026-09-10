@@ -28,6 +28,10 @@
   ([] ((kaocha-var 'run)))
   ([opts] ((kaocha-var 'run) opts)))
 
+(defn- remove-plugin-registration!
+  [plugin-id]
+  (remove-method @(requiring-resolve 'kaocha.plugin/-register) plugin-id))
+
 (defn- suite-skip-map
   [cfg]
   (into {}
@@ -336,24 +340,41 @@
                         {:kaocha.plugin/id ~plugin-id
                          :kaocha.hooks/post-test
                          (fn [testable# _#]
-                           (update testable# :kaocha.result/pass (fnil + 0) 7))}))))
-       (write-suite-test-ns project sample-ns false)
-       (with-user-dir-and-ns-cleanup project [sample-ns]
-         (let [result (kaocha-run {:test-paths ["test"]
-                                   :ns-patterns [(exact-ns-pattern sample-ns)]
-                                   :config {:kaocha/tests [{:kaocha.testable/id :unit
-                                                            :kaocha.testable/type :kaocha.type/clojure.test
-                                                            :kaocha/source-paths []
-                                                            :kaocha/test-paths [(.getAbsolutePath (io/file project "test"))]
-                                                            :kaocha/ns-patterns [(exact-ns-pattern sample-ns)]}]
-                                            :kaocha/plugins [plugin-id]}
-                                   :progress-callback #(swap! callbacks conj %)
-                                   :result-format {:suite {:top-level-keys [:summary :pass? :canonical-results]}}})
-               callback (first @callbacks)
-               final-entry (first (:canonical-results result))]
-           (is (= 1 (count @callbacks)))
-           (is (= 7 (get-in callback [:assertion-summary :pass])))
-           (is (= final-entry callback))))))))
+                           (when-let [buffer# (:kaocha.plugin.capture-output/buffer testable#)]
+                             (.write ^java.io.ByteArrayOutputStream buffer#
+                                     (.getBytes "user hook output")))
+                           (-> testable#
+                               (update :kaocha.result/pass (fnil + 0) 7)
+                               (update :kaocha.testable/events conj
+                                       {:type :pass
+                                        :message "user hook assertion"
+                                        :expected :hook
+                                        :actual :hook})
+                               (update :kaocha.plugin.capture-output/output
+                                       str "user hook output")))}))))
+       (try
+         (write-suite-test-ns project sample-ns false)
+         (with-user-dir-and-ns-cleanup project [sample-ns]
+           (let [result (kaocha-run {:test-paths ["test"]
+                                     :ns-patterns [(exact-ns-pattern sample-ns)]
+                                     :config {:kaocha/tests [{:kaocha.testable/id :unit
+                                                              :kaocha.testable/type :kaocha.type/clojure.test
+                                                              :kaocha/source-paths []
+                                                              :kaocha/test-paths [(.getAbsolutePath (io/file project "test"))]
+                                                              :kaocha/ns-patterns [(exact-ns-pattern sample-ns)]}]
+                                              :kaocha/plugins [plugin-id]}
+                                     :progress-callback #(swap! callbacks conj %)
+                                     :result-format {:suite {:top-level-keys [:summary :pass? :canonical-results]}}})
+                 callback (first @callbacks)
+                 final-entry (first (:canonical-results result))]
+             (is (= 1 (count @callbacks)))
+             (is (= 7 (get-in callback [:assertion-summary :pass])))
+             (is (some #(= "user hook assertion" (:message %))
+                       (:assertions callback)))
+             (is (str/includes? (:out callback) "user hook output"))
+             (is (= final-entry callback))))
+         (finally
+           (remove-plugin-registration! plugin-id)))))))
 
 (deftest synthetic-progress-reporter-test
   ;; Suite/load errors have no completed concrete leaf, so the reporter retains

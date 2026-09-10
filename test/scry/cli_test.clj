@@ -848,6 +848,32 @@
                (edn/read-string
                 (slurp (io/file results-dir "demo.core__missing-occurrence.edn")))))))))
 
+(deftest result-sink-reconciliation-publication-order-test
+  ;; Concrete reconciliation attempts follow canonical first-occurrence order,
+  ;; then callback-only first-completion order, independent of map traversal.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          publications (atom [])
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ _ entry]
+                                   (swap! publications conj (:var entry))
+                                   (throw (ex-info "disk unavailable" {})))})
+          callback-only {:var 'demo.core/callback-only :status :fail}
+          canonical-second {:var 'demo.core/canonical-second :status :error}
+          canonical-first {:var 'demo.core/canonical-first :status :fail}
+          synthetic {:ns 'demo.core :status :error}]
+      (cli-results/handle-completed-entry! sink callback-only)
+      (cli-results/handle-completed-entry! sink canonical-second)
+      (reset! publications [])
+      (cli-results/reconcile-result-sink!
+       sink [canonical-first canonical-second synthetic])
+      (is (= ['demo.core/canonical-first
+              'demo.core/canonical-second
+              'demo.core/callback-only
+              nil]
+             @publications)))))
+
 (deftest result-sink-unresolved-order-test
   ;; Normal reconciliation reports unresolved concrete artifacts in canonical
   ;; order, callback-only artifacts in completion order, then synthetic paths.

@@ -614,6 +614,62 @@
     (vec (concat unresolved-concrete
                  (map #(select-keys % [:entry :error]) synthetic-errors)))))
 
+(defn- reconciliation-work-plan
+  [state entries occurrences]
+  (let [canonical-vars (->> entries
+                            (filter concrete-var-backed-entry?)
+                            (map :var)
+                            distinct)
+        callback-only-vars (remove (set canonical-vars) (:completion-order state))]
+    (into []
+          (mapcat
+           (fn [var-symbol]
+             (let [identity (identity-state state var-symbol)
+                   snapshot (:latest-required identity)
+                   callback-count (:occurrence identity)
+                   matching (when snapshot
+                              (get-in occurrences
+                                      [var-symbol (dec (:occurrence snapshot)) :entry]))
+                   retry (when (and snapshot
+                                    (> (:generation snapshot)
+                                       (or (:successful-generation identity) 0)))
+                           {:kind :retry
+                            :var var-symbol
+                            :snapshot (if (failure-entry? matching)
+                                        (assoc snapshot :entry matching)
+                                        snapshot)})
+                   unmatched (drop callback-count (get occurrences var-symbol))
+                   latest-failure (last (filter #(failure-entry? (:entry %)) unmatched))
+                   missed (when latest-failure
+                            {:kind :missed
+                             :var var-symbol
+                             :entry (:entry latest-failure)
+                             :callback-count callback-count})]
+               (cond-> []
+                 retry (conj retry)
+                 missed (conj missed)))))
+          (concat canonical-vars callback-only-vars))))
+
+(defn- execute-reconciliation-work!
+  [{:keys [state] :as sink} {:keys [kind var snapshot entry callback-count]}]
+  (case kind
+    :retry
+    (publish-snapshot! sink var snapshot)
+
+    :missed
+    (let [identity (identity-state @state var)
+          generation (inc (:required-generation identity))
+          snapshot {:entry entry
+                    :occurrence (inc callback-count)
+                    :generation generation
+                    :filename (result-file-name entry)}]
+      (swap! state update-in [:identities var]
+             #(assoc (or % identity)
+                     :required-generation generation
+                     :latest-required snapshot
+                     :latest-error nil))
+      (publish-snapshot! sink var snapshot))))
+
 (defn reconcile-result-sink!
   "Reconcile a sink with normally returned canonical entries.
 
@@ -624,38 +680,13 @@
   individual publication failures remain contained."
   [sink entries]
   (let [{:keys [state] :as sink} sink
-        occurrences (canonical-occurrences entries)]
-    ;; A callback's all-entry ordinal identifies precisely which duplicate
-    ;; canonical execution may replace its completion-time snapshot.
-    (doseq [[var-symbol identity] (:identities @state)
-            :let [snapshot (:latest-required identity)]
-            :when (and snapshot
-                       (> (:generation snapshot)
-                          (or (:successful-generation identity) 0)))]
-      (let [matching (get-in occurrences [var-symbol (dec (:occurrence snapshot)) :entry])
-            retry (if (failure-entry? matching)
-                    (assoc snapshot :entry matching)
-                    snapshot)]
-        (publish-snapshot! sink var-symbol retry)))
-    ;; An unmatched canonical failure is from a runner which omitted the
-    ;; callback. Publishing the latest one preserves deterministic final state.
-    (doseq [[var-symbol var-occurrences] occurrences
-            :let [callback-count (get-in @state [:identities var-symbol :occurrence] 0)
-                  unmatched (drop callback-count var-occurrences)
-                  latest-failure (last (filter #(failure-entry? (:entry %)) unmatched))]
-            :when latest-failure]
-      (let [identity (identity-state @state var-symbol)
-            generation (inc (:required-generation identity))
-            snapshot {:entry (:entry latest-failure)
-                      :occurrence (inc callback-count)
-                      :generation generation
-                      :filename (result-file-name (:entry latest-failure))}]
-        (swap! state update-in [:identities var-symbol]
-               #(assoc (or % identity)
-                       :required-generation generation
-                       :latest-required snapshot
-                       :latest-error nil))
-        (publish-snapshot! sink var-symbol snapshot)))
+        occurrences (canonical-occurrences entries)
+        work-plan (reconciliation-work-plan @state entries occurrences)]
+    ;; Perform concrete work in first-canonical order, followed by callback-only
+    ;; first-completion order. This avoids exposing hash-map traversal order to
+    ;; publisher calls or diagnostics.
+    (doseq [work work-plan]
+      (execute-reconciliation-work! sink work))
     (let [reserved (callback-reserved-filenames @state)
           assignments (result-file-assignments entries reserved)
           synthetic (remove #(concrete-var-backed-entry? (:entry %)) assignments)

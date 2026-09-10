@@ -1,0 +1,5 @@
+🔁 The incremental CLI result sink needs separate clocks for duplicate concrete-var executions: an occurrence ordinal advanced by every callback, and a required artifact generation advanced only by failing/erroring callbacks. A pass/unknown must align later canonical occurrences without creating or retracting an artifact requirement.
+
+Do not infer reconciliation from path existence. Compare the latest required generation with the latest successful generation: an older readable file may coexist with an unresolved newer failure snapshot. Match retries to canonical occurrences by ordinal; if no matching failing occurrence exists, retain and retry the callback snapshot. Canonical failures with no callback are reconciliation work.
+
+Use one deterministic identity order—canonical first occurrence, then callback-only first completion—for publication attempts, unresolved diagnostics, and result-file reporting. Reusing one ordering and one “unpublished latest requirement” predicate prevents retries, filename reservations, and diagnostics from drifting apart.

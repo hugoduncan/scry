@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- CLI failure artifacts now publish synchronously and atomically as each concrete failing or erroring var completes, in both core and optional Kaocha modes. Final `.edn` names are never exposed until complete; temporary files are internal and ignored by consumers.
+- CLI reconciliation retries contained artifact-publication failures and writes synthetic suite/load failures after a normal run. Earlier published artifacts survive later catchable runner errors and remain in `:result-files`; unresolved publication diagnostics now identify incremental versus final-reconciliation phases.
+- Forwarded Kaocha plugin selections now execute in both `-m --plugin` and `-X :kaocha-extra {:plugin ...}` modes, while scry's completed-entry observer remains last so incremental artifacts include preceding plugin changes.
+
 ## [0.1.56] - 2026-08-07
 
 - Fixed a "case has int tests, but tested expression is not primitive" performance warning in the invocation-scope classifier by inlining the test-var count as a primitive long in the case test position.

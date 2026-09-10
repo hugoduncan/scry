@@ -457,7 +457,8 @@
    :cwd (System/getProperty "user.dir")
    :run-clojure-test clojure-test/run
    :resolve-kaocha-runner default-resolve-kaocha-runner
-   :write-result-files results/write-result-files!})
+   :create-result-sink results/create-result-sink
+   :reconcile-result-sink! results/reconcile-result-sink!})
 
 (defn- assertion-counts
   [entries]
@@ -738,43 +739,35 @@
 
 (declare error-diagnostic-message)
 
-(defn- diagnostic-error
-  [^Throwable e entries]
-  (let [root (root-cause-throwable e)
-        failing (filter results/failure-entry? entries)
-        first-entry (first failing)
-        first-assertion (first (:assertions first-entry))]
-    (cond-> {:phase :result-file-writing
-             :message (bounded-diagnostic-string (error-diagnostic-message e))
-             :type (symbol (.getName (class e)))
-             :root-type (symbol (.getName (class root)))
-             :root-message (bounded-diagnostic-string
-                            (or (safe-throwable-message root) (.getName (class root))))
-             :failed-entry-count (count failing)}
-      (results/concrete-var-symbol? (:var first-entry))
-      (assoc :first-failing-var (:var first-entry))
+(defn- unresolved-diagnostic
+  [phase unresolved]
+  (when-let [{:keys [var entry error]} (first unresolved)]
+    (let [root (root-cause-throwable error)
+          assertion (first (:assertions entry))]
+      (cond-> {:phase phase
+               :message (bounded-diagnostic-string (error-diagnostic-message error))
+               :type (symbol (.getName (class error)))
+               :root-type (symbol (.getName (class root)))
+               :root-message (bounded-diagnostic-string
+                              (or (safe-throwable-message root) (.getName (class root))))
+               :failed-entry-count (count unresolved)}
+        var (assoc :first-failing-var var)
+        assertion (assoc :first-root-cause
+                         (bounded-diagnostic-string
+                          (or (assertion-cause-text assertion)
+                              (:message assertion))))))))
 
-      first-assertion
-      (assoc :first-root-cause (bounded-diagnostic-string
-                                (or (assertion-cause-text first-assertion)
-                                    (:message first-assertion)))))))
-
-(defn- write-result-files-diagnostic!
-  [{:keys [^java.io.Writer err write-result-files]} dir entries]
-  (try
-    {:result-files ((or write-result-files results/write-result-files!) dir entries)}
-    (catch Throwable e
-      (let [diagnostic (diagnostic-error e entries)]
-        (.write err (str "Failure diagnostics failed while serializing "
-                         (:failed-entry-count diagnostic)
-                         " failing entries.\n"))
-        (when-let [var (:first-failing-var diagnostic)]
-          (.write err (str "First failing var: " var "\n")))
-        (when-let [cause (:first-root-cause diagnostic)]
-          (.write err (str "First root cause: " cause "\n")))
-        (.flush err)
-        {:result-files []
-         :diagnostic-error diagnostic}))))
+(defn- write-unresolved-diagnostic!
+  [boundary diagnostic]
+  (when diagnostic
+    (let [^java.io.Writer err (:err boundary)]
+      (.write err (str "Failure diagnostics failed while serializing "
+                       (:failed-entry-count diagnostic) " failing entries.\n"))
+      (when-let [var (:first-failing-var diagnostic)]
+        (.write err (str "First failing var: " var "\n")))
+      (when-let [cause (:first-root-cause diagnostic)]
+        (.write err (str "First root cause: " cause "\n")))
+      (.flush err))))
 
 (defn- error-outcome-kind
   [^Throwable e]
@@ -870,43 +863,68 @@
 
 (defn- run-cli
   [normalized-options boundary]
-  (try
-    (let [dir (results/prepare-results-dir! boundary)
-          synthetic-counters (atom {})
-          progress-callback #(progress! synthetic-counters boundary %)
-          result (run-normalized normalized-options boundary progress-callback)
-          entries (canonical-result-entries result)
-          summary (cli-summary result entries)
-          outcome-kind (classify-outcome entries summary)
-          code (exit-code outcome-kind)]
-      (write-summary! boundary summary)
-      (when-let [seed (and (contains? failure-outcome-kinds outcome-kind)
-                           (get-in result [:summary :seed]))]
-        (write-seed! boundary seed))
-      (let [{:keys [result-files diagnostic-error]} (write-result-files-diagnostic! boundary dir entries)]
-        (write-failure-diagnostic! boundary dir entries result-files outcome-kind)
-        (cond-> {:exit-code code
-                 :scry.cli/outcome-kind outcome-kind
-                 :result result
-                 :summary summary
-                 :result-files result-files
-                 :error nil}
-          diagnostic-error (assoc :scry.cli/diagnostic-error diagnostic-error))))
-    (catch Throwable e
-      (let [outcome-kind (error-outcome-kind e)
-            message (error-diagnostic-message e)
-            ^java.io.Writer err (:err boundary)]
-        (write-error-summary! boundary outcome-kind)
-        (.write err (str "scry CLI error: " message "\n"))
-        (.flush err)
-        {:exit-code (exit-code outcome-kind)
-         :scry.cli/outcome-kind outcome-kind
-         :result nil
-         :summary nil
-         :result-files []
-         :error {:message message
-                 :data (ex-data e)
-                 :exception e}}))))
+  (let [runtime (atom {})]
+    (try
+      (let [dir (results/prepare-results-dir! boundary)
+            sink ((or (:create-result-sink boundary) results/create-result-sink) dir)
+            synthetic-counters (atom {})
+            progress-callback (fn [entry]
+                                (results/handle-completed-entry! sink entry)
+                                (progress! synthetic-counters boundary entry))]
+        (swap! runtime assoc :dir dir :sink sink :phase :incremental-result-file-writing)
+        (let [result (run-normalized normalized-options boundary progress-callback)]
+          ;; A returned runner result fixes the diagnostic phase even if its
+          ;; canonical vector is malformed and cannot be reconciled.
+          (swap! runtime assoc :phase :final-result-file-reconciliation)
+          (let [entries (canonical-result-entries result)
+                reconciliation ((or (:reconcile-result-sink! boundary)
+                                    results/reconcile-result-sink!)
+                                sink entries)
+                diagnostic (unresolved-diagnostic :final-result-file-reconciliation
+                                                  (:unresolved reconciliation))
+                summary (cli-summary result entries)
+                outcome-kind (classify-outcome entries summary)
+                code (exit-code outcome-kind)]
+            (write-summary! boundary summary)
+            (when-let [seed (and (contains? failure-outcome-kinds outcome-kind)
+                                 (get-in result [:summary :seed]))]
+              (write-seed! boundary seed))
+            (write-unresolved-diagnostic! boundary diagnostic)
+            (write-failure-diagnostic! boundary dir entries (:result-files reconciliation) outcome-kind)
+            (cond-> {:exit-code code
+                     :scry.cli/outcome-kind outcome-kind
+                     :result result
+                     :summary summary
+                     :result-files (:result-files reconciliation)
+                     :error nil}
+              diagnostic (assoc :scry.cli/diagnostic-error diagnostic)))))
+      (catch Throwable e
+        (let [{:keys [dir sink phase]} @runtime
+              snapshot (when sink (results/sink-exception-snapshot sink))
+              diagnostic (when snapshot (unresolved-diagnostic phase (:unresolved snapshot)))
+              outcome-kind (error-outcome-kind e)
+              message (error-diagnostic-message e)
+              result-files (:result-files snapshot)
+              ^java.io.Writer err (:err boundary)]
+          ;; Secondary catch-path output failures must not replace the runner
+          ;; outcome or the durable sink snapshot.
+          (try
+            (write-error-summary! boundary outcome-kind)
+            (write-unresolved-diagnostic! boundary diagnostic)
+            (.write err (str "scry CLI error: " message "\n"))
+            (when (and dir (seq result-files))
+              (.write err (results-dir-pointer dir result-files)))
+            (.flush err)
+            (catch Throwable _))
+          (cond-> {:exit-code (exit-code outcome-kind)
+                   :scry.cli/outcome-kind outcome-kind
+                   :result nil
+                   :summary nil
+                   :result-files (or result-files [])
+                   :error {:message message
+                           :data (ex-data e)
+                           :exception e}}
+            diagnostic (assoc :scry.cli/diagnostic-error diagnostic)))))))
 
 (defn- non-zero-exception
   [message outcome]
@@ -953,11 +971,18 @@
    run is non-zero so `clojure -X` exits non-zero without calling System/exit.
 
    Returned outcome data includes the test `:summary`, `:result-files`, and
-   `:scry.cli/outcome-kind` when a run reaches normal classification. If
-   post-run diagnostic/result-file writing fails, the test-derived outcome is
-   preserved, `:result-files` is empty, and bounded diagnostic metadata is
-   attached as top-level `:scry.cli/diagnostic-error`. The diagnostic map has
-   stable inspectable keys: `:phase`, `:message`, `:type`, `:root-type`,
+   `:scry.cli/outcome-kind` when a run reaches normal classification. Completed
+   concrete failure/error entries are synchronously published as atomic final
+   `.edn` artifacts before the next test var begins; synthetic entries and
+   missed publications are reconciled after a normal runner return. A catchable
+   runner error preserves already published final paths in `:result-files`.
+
+   Contained artifact-publication failures preserve the test-derived outcome and
+   add bounded top-level `:scry.cli/diagnostic-error` metadata only while an
+   artifact remains unresolved. Its `:phase` is
+   `:incremental-result-file-writing` when the runner throws before returning,
+   otherwise `:final-result-file-reconciliation`. The diagnostic map has stable
+   inspectable keys: `:phase`, `:message`, `:type`, `:root-type`,
    `:root-message`, and `:failed-entry-count`; when derivable it also includes
    `:first-failing-var` and `:first-root-cause`.
 

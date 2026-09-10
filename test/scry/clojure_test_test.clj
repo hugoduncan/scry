@@ -379,6 +379,24 @@
       (is (= {:pass 0 :fail 1 :error 1}
              (:assertion-summary (nth @entries 2))))
       (is (= 3 (get-in result [:summary :test])))))
+  (testing "callback observes a completed :each fixture with full canonical data"
+    (let [entries (atom [])
+          result (ct/run {:vars [#'scry.fixtures.output-fixtures/first-output-test
+                                 #'scry.fixtures.output-fixtures/second-output-test]
+                          :result-format
+                          {:suite {:top-level-keys [:canonical-results]}}
+                          :progress-callback #(swap! entries conj %)})
+          first-entry (first @entries)]
+      (is (= [:pass :pass] (mapv :status @entries)))
+      (is (= ['scry.fixtures.output-fixtures/first-output-test
+              'scry.fixtures.output-fixtures/second-output-test]
+             (mapv :var @entries)))
+      (is (= {:pass 1 :fail 0 :error 0}
+             (:assertion-summary first-entry)))
+      (is (= [:pass] (mapv :type (:assertions first-entry))))
+      (is (= "each setup\nfirst body\neach teardown\n" (:out first-entry)))
+      (is (= "" (:err first-entry)))
+      (is (= (:canonical-results result) @entries))))
   (testing "callback writes are not appended to public var output"
     (let [callback-out (java.io.StringWriter.)
           callback-err (java.io.StringWriter.)

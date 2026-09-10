@@ -134,15 +134,15 @@ clojure -X:test scry.cli/run :namespaces '[my.project-test]'
 clojure -X:test scry.cli/run :vars '[my.project-test/specific-test]'
 ```
 
-The CLI prints live per-var progress and a summary. At the start of each run it clears and recreates `.scry-results/` in the current working directory. Failed and erroring vars produce namespace-prefixed EDN files such as:
+The CLI prints live per-var progress and a summary. At the start of each run it clears and recreates `.scry-results/` in the current working directory. When a concrete var completes with a failure or error, its detailed artifact is synchronously written before the next var starts. Publication writes a same-directory temporary file and atomically moves it to the final name, so consumers must inspect only final `.edn` names and ignore temporary files. Failed and erroring vars produce namespace-prefixed EDN files such as:
 
 ```text
 .scry-results/my.project-test__specific-test.edn
 ```
 
-These files contain assertion details, error stack traces, and captured output. Passing runs can leave the directory empty.
+These files contain assertion details, error stack traces, and captured output. Passing vars do not create artifacts, so passing runs can leave the directory empty. If a callback-time publication fails, the CLI records a bounded diagnostic and retries after a normal runner return; synthetic suite/load failures are also written during that final reconciliation. A published artifact is retained if a later catchable runner error aborts the run, and its final path remains in `:result-files`. This improves availability after later hangs or aborts, but cannot guarantee an artifact for an incomplete var, a process killed during that file's write window, power loss, or a filesystem publication failure.
 
-The CLI exits `0` only when at least one concrete test var runs and all tests pass. Structured outcomes expose the authoritative `:scry.cli/outcome-kind`; the `-X` entry point returns the outcome map on success and throws `ex-info` with structured outcome data on non-zero results. Inspect the outcome and `.scry-results/*.edn` rather than parsing progress or diagnostic text.
+The CLI exits `0` only when at least one concrete test var runs and all tests pass. Structured outcomes expose the authoritative `:scry.cli/outcome-kind`; the `-X` entry point returns the outcome map on success and throws `ex-info` with structured outcome data on non-zero results. When artifact publication remains unresolved, `:scry.cli/diagnostic-error` distinguishes `:incremental-result-file-writing` (runner threw before returning) from `:final-result-file-reconciliation` (after a normal runner return). Inspect the outcome and final `.scry-results/*.edn` files rather than parsing progress or diagnostic text.
 
 See the [`scry.cli/run` reference](doc/API.md#scry.cli/run) for outcome kinds, result-file behavior, and error data. Run `clojure -M:test -m scry.cli --help` for the supported main-style options.
 

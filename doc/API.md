@@ -54,7 +54,9 @@ Function.
 
 Normalizes EDN options, runs the shared CLI implementation, and returns the successful structured outcome map. When the CLI result is non-zero, throws `ex-info` with `:type :scry.cli/non-zero`, `:exit-code`, `:scry.cli/outcome-kind`, `:summary`, `:error`, and `:outcome` data so `clojure -X` exits non-zero without calling `System/exit`.
 
-When a run reaches normal classification, outcome data includes the test `:summary`, `:result-files`, and `:scry.cli/outcome-kind`. If post-run diagnostic/result-file writing fails, the test-derived outcome is preserved, `:result-files` is empty, and bounded diagnostic metadata is attached as top-level `:scry.cli/diagnostic-error`. The diagnostic map has stable inspectable keys: `:phase`, `:message`, `:type`, `:root-type`, `:root-message`, and `:failed-entry-count`; when derivable it also includes `:first-failing-var` and `:first-root-cause`.
+When a run reaches normal classification, outcome data includes the test `:summary`, `:result-files`, and `:scry.cli/outcome-kind`. Completed concrete failure/error entries are synchronously published as atomic final `.edn` artifacts before the next test var begins; synthetic entries and missed publications are reconciled after a normal runner return. A catchable runner error preserves already published final paths in `:result-files`.
+
+Contained artifact-publication failures preserve the test-derived outcome and add bounded top-level `:scry.cli/diagnostic-error` metadata only while an artifact remains unresolved. Its `:phase` is `:incremental-result-file-writing` when the runner throws before returning, otherwise `:final-result-file-reconciliation`. The diagnostic map has stable inspectable keys: `:phase`, `:message`, `:type`, `:root-type`, `:root-message`, and `:failed-entry-count`; when derivable it also includes `:first-failing-var` and `:first-root-cause`.
 
 The structured outcome's `:scry.cli/outcome-kind` is authoritative for exit status; only `:scry.cli/pass` exits `0`. The outcome kinds are:
 
@@ -75,7 +77,7 @@ clojure -X:test:kaocha scry.cli/run :runner :kaocha :suite :unit
 ```
 
 Main-style CLI usage is run through project aliases, for example `clojure -M:test -m scry.cli` and `clojure -M:test:kaocha -m scry.cli --runner kaocha unit`.
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L948-L968">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src/scry/cli.clj#L966-L993">Source</a></sub></p>
 
 -----
 # <a name="scry.core">scry.core</a>
@@ -266,7 +268,13 @@ Run kaocha tests in-process and return scry's inspectable result map.
      :test-paths         fallback test dirs when no :config or tests.edn exists
      :ns-patterns        fallback namespace-name regex strings
      :result-format      suite-scope formatting overrides
-     :progress-callback  optional function called after each completed test var
+     :progress-callback  optional synchronous function called once after each
+                         completed concrete test-var execution. It receives the
+                         full, unprojected canonical entry (assertions and
+                         merged captured output included) in execution order,
+                         after all preceding post-test hooks. A var executed
+                         multiple times produces multiple callbacks; synthetic
+                         suite/load errors may use a non-concrete entry.
      :kaocha-argv        a vector of raw `-m` CLI strings forwarded verbatim by
                          the scry CLI in Kaocha mode (every token that is not a
                          scry-owned flag: unknown `--flags`, their values, and
@@ -283,13 +291,17 @@ Run kaocha tests in-process and return scry's inspectable result map.
                          This option is `-m`-only; the `-X` map path uses
                          `:kaocha-extra`.
      :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
-                         CLI's bounded pass-through (e.g. `:focus`). It is merged
-                         into the resolved config's :kaocha/cli-options with the
-                         resolved :config authoritative on conflict. Known values
-                         are coerced (`:focus` raw string/symbol/keyword scalar or
-                         collection becomes a vector of keywords); unknown keys are
-                         forwarded as-is, so a mistyped key surfaces as a runner or
-                         load error rather than an argument error.
+                         CLI's bounded pass-through (e.g. `:focus` and `:plugin`).
+                         It is merged into the resolved config's
+                         :kaocha/cli-options, with resolved :config authoritative on conflict.
+                         Known values are coerced: a `:focus` raw string/symbol/keyword
+                         scalar or collection becomes a vector of keywords;
+                         `:plugin` accepts a scalar or sequential selection and
+                         likewise becomes a vector of keywords. Selected plugins
+                         are activated in :kaocha/plugins before scry's completion
+                         observer is placed last. Unknown keys are forwarded as-is;
+                         a mistyped key surfaces as a runner or load error rather
+                         than an argument error.
 
    When :config is omitted, the current project's tests.edn is loaded if it
    exists; otherwise a synthetic :unit suite is built from :source-paths,
@@ -312,4 +324,4 @@ Run kaocha tests in-process and return scry's inspectable result map.
    print is suppressed.
 
    Returns the same scoped result model as [`scry.core/run`](#scry.core/run).
-<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L410-L494">Source</a></sub></p>
+<p><sub><a href="https://github.com/hugoduncan/scry/blob/master/src-kaocha/scry/kaocha.clj#L447-L541">Source</a></sub></p>

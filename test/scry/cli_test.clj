@@ -15,6 +15,7 @@
    [scry.fixtures.colliding-b]
    [scry.fixtures.erroring]
    [scry.fixtures.failing]
+   [scry.fixtures.incremental-cli]
    [scry.fixtures.mixed]
    [scry.fixtures.output]
    [scry.fixtures.pathological]
@@ -376,6 +377,21 @@
   []
   (java.io.StringWriter.))
 
+(defn- failing-writer
+  [message]
+  (proxy [java.io.StringWriter] []
+    (write [s]
+      (throw (java.io.IOException. ^String message)))))
+
+(defn- writer-failing-on-write
+  [write-number message]
+  (let [writes (atom 0)]
+    (proxy [java.io.Writer] []
+      (write [_ _ _]
+        (when (= write-number (swap! writes inc))
+          (throw (java.io.IOException. ^String message))))
+      (flush []))))
+
 (defn- run-cli-in
   ([dir opts]
    (run-cli-in dir opts {}))
@@ -586,6 +602,392 @@
         (is (= [] (result-files dir)))
         (is (= ['scry.fixtures.passing/arithmetic-passes]
                (mapv :var (:canonical-results (:result outcome)))))))))
+
+(deftest result-sink-completed-entry-test
+  ;; Completed concrete failures are synchronously published as readable EDN;
+  ;; non-failures only advance their matching occurrence ordinal.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          sink (cli-results/create-result-sink results-dir)
+          pass-entry {:var 'demo.core/passes :status :pass}
+          fail-entry {:var 'demo.core/fails
+                      :status :fail
+                      :assertion-summary {:pass 1 :fail 1 :error 0}
+                      :assertions [{:type :fail :expected :left :actual :right}]
+                      :out "body output"
+                      :err ""}]
+      (cli-results/handle-completed-entry! sink pass-entry)
+      (cli-results/handle-completed-entry! sink fail-entry)
+      (let [state (cli-results/sink-state sink)
+            ^java.io.File path (io/file results-dir "demo.core__fails.edn")]
+        (is (= 1 (get-in state [:identities 'demo.core/passes :occurrence])))
+        (is (= 0 (get-in state [:identities 'demo.core/passes :required-generation])))
+        (is (= 1 (get-in state [:identities 'demo.core/fails :occurrence])))
+        (is (= 1 (get-in state [:identities 'demo.core/fails :required-generation])))
+        (is (= 1 (get-in state [:identities 'demo.core/fails :successful-generation])))
+        (is (= fail-entry (edn/read-string (slurp path))))
+        (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp")
+                            (.listFiles ^java.io.File results-dir))))))))
+
+(deftest atomic-result-publication-visibility-and-cleanup-test
+  ;; Final names appear only after a complete temporary artifact has been
+  ;; written and moved; a failed write leaves neither final nor temporary data.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})]
+      (let [filename "demo.core__atomic.edn"
+            target (io/file results-dir filename)
+            observed (atom nil)
+            write-temp! (fn [^java.nio.file.Path temp content]
+                          (reset! observed {:target-exists? (.exists target)
+                                            :temporary-files (->> (.listFiles ^java.io.File results-dir)
+                                                                  (map #(.getName ^java.io.File %))
+                                                                  (filter #(str/ends-with? % ".tmp"))
+                                                                  vec)})
+                          (spit (.toFile temp) content))]
+        (#'cli-results/atomic-write-entry!
+         results-dir filename {:status :fail} {:write-temp! write-temp!})
+        (is (= false (:target-exists? @observed)))
+        (is (= 1 (count (:temporary-files @observed))))
+        (is (= {:status :fail} (edn/read-string (slurp target))))
+        (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp")
+                            (.listFiles ^java.io.File results-dir)))))
+      (let [filename "demo.core__failed.edn"
+            target (io/file results-dir filename)]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"write failed"
+                              (#'cli-results/atomic-write-entry!
+                               results-dir filename {:status :fail}
+                               {:write-temp! (fn [& _]
+                                               (throw (ex-info "write failed" {})))})))
+        (is (false? (.exists target)))
+        (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp")
+                            (.listFiles ^java.io.File results-dir))))))))
+
+(deftest result-sink-reconciliation-retries-owned-temp-cleanup-test
+  ;; A failed immediate cleanup remains sink-owned until normal reconciliation;
+  ;; cleanup errors never replace publication diagnostics or delete unknown files.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          unknown-temp (io/file results-dir ".unknown.tmp")
+          publication-error (ex-info "write failed" {:source :publication})
+          delete-attempts (atom 0)
+          delete-temp! (fn [temp]
+                         (if (= 1 (swap! delete-attempts inc))
+                           (throw (ex-info "cleanup failed" {:source :cleanup}))
+                           (java.nio.file.Files/deleteIfExists temp)))
+          sink (cli-results/create-result-sink
+                results-dir
+                {:delete-temp! delete-temp!
+                 :write-temp! (fn [& _] (throw publication-error))})
+          entry {:var 'demo.core/cleanup-fails :status :fail}]
+      (spit unknown-temp "unowned")
+      (cli-results/handle-completed-entry! sink entry)
+      (let [owned-temp (first (:temporary-paths (cli-results/sink-state sink)))]
+        (is (some? owned-temp))
+        (is (java.nio.file.Files/exists owned-temp (make-array java.nio.file.LinkOption 0)))
+        (is (identical? publication-error
+                        (get-in (cli-results/sink-state sink)
+                                [:identities 'demo.core/cleanup-fails :latest-error])))
+        (let [{:keys [unresolved]} (cli-results/reconcile-result-sink! sink [entry])]
+          (is (= 1 (count unresolved)))
+          (is (identical? publication-error (:error (first unresolved))))
+          (is (empty? (:temporary-paths (cli-results/sink-state sink))))
+          (is (false? (java.nio.file.Files/exists
+                       owned-temp
+                       (make-array java.nio.file.LinkOption 0))))
+          (is (.exists unknown-temp)))))))
+
+(deftest result-sink-duplicate-and-contained-failure-test
+  ;; A later failed completion remains distinct from an older readable snapshot,
+  ;; while a later pass neither retracts it nor creates an artifact requirement.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          calls (atom 0)
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (if (= 2 (swap! calls inc))
+                                     (throw (ex-info "disk unavailable" {}))
+                                     (spit (io/file results-dir filename) (pr-str entry))))})
+          failed {:var 'demo.core/repeated :status :fail}
+          passed {:var 'demo.core/repeated :status :pass}]
+      (cli-results/handle-completed-entry! sink failed)
+      (cli-results/handle-completed-entry! sink failed)
+      (cli-results/handle-completed-entry! sink passed)
+      (let [identity (get-in (cli-results/sink-state sink) [:identities 'demo.core/repeated])]
+        (is (= 3 (:occurrence identity)))
+        (is (= 2 (:required-generation identity)))
+        (is (= 1 (:successful-generation identity)))
+        (is (= 2 (get-in identity [:latest-required :generation])))
+        (is (instance? Throwable (:latest-error identity)))
+        (is (= :fail (:status (edn/read-string
+                               (slurp (io/file results-dir "demo.core__repeated.edn"))))))))))
+
+(deftest result-sink-reconciliation-test
+  ;; Reconciliation fills in callback omissions and retries contained failures
+  ;; without replacing a successfully published completion snapshot.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          calls (atom 0)
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (if (= 1 (swap! calls inc))
+                                     (throw (ex-info "temporary disk failure" {}))
+                                     (let [path (io/file results-dir filename)]
+                                       (spit path (pr-str entry))
+                                       (.getPath path))))})
+          callback-entry {:var 'demo.core/callback-failure :status :fail :assertions [:callback]}
+          ignored-entry {:var 'demo.core/callback-ignored :status :error :assertions [:final]}
+          synthetic-entry {:ns 'demo.core :status :error :assertions [:synthetic]}]
+      (cli-results/handle-completed-entry! sink callback-entry)
+      (let [{:keys [result-files unresolved]}
+            (cli-results/reconcile-result-sink! sink [callback-entry ignored-entry synthetic-entry])]
+        (is (= [] unresolved))
+        (is (= ["demo.core__callback-failure.edn"
+                "demo.core__callback-ignored.edn"
+                "demo.core__suite-error-1.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= callback-entry
+               (edn/read-string (slurp (io/file results-dir "demo.core__callback-failure.edn"))))
+            (is (= ignored-entry
+                   (edn/read-string (slurp (io/file results-dir "demo.core__callback-ignored.edn"))))
+                (is (= synthetic-entry
+                       (edn/read-string (slurp (io/file results-dir "demo.core__suite-error-1.edn")))))))))))
+
+(deftest result-sink-synthetic-result-uses-publisher-path-test
+  ;; Synthetic result paths come from the successful publication result rather
+  ;; than being reconstructed from the sink directory and assigned filename.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          published-path (.getPath (io/file results-dir "publisher-selected.edn"))
+          synthetic-entry {:ns 'demo.core :status :error}
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ _ entry]
+                                   (spit published-path (pr-str entry))
+                                   published-path)})
+          {:keys [result-files unresolved]}
+          (cli-results/reconcile-result-sink! sink [synthetic-entry])]
+      (is (= [] unresolved))
+      (is (= [published-path] result-files))
+      (is (= synthetic-entry (edn/read-string (slurp published-path)))))))
+
+(deftest result-sink-reconciliation-preserves-successful-completion-test
+  ;; A readable completion snapshot remains authoritative after normal return;
+  ;; later pass executions do not retract it or cause final reconciliation to
+  ;; rewrite its completion-time detail.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          publications (atom [])
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (swap! publications conj entry)
+                                   (let [path (io/file results-dir filename)]
+                                     (spit path (pr-str entry))
+                                     (.getPath path)))})
+          completion-entry {:var 'demo.core/repeated
+                            :status :fail
+                            :assertions [:completion-snapshot]}
+          later-pass {:var 'demo.core/repeated
+                      :status :pass
+                      :assertions [:final-pass]}]
+      (cli-results/handle-completed-entry! sink completion-entry)
+      (cli-results/handle-completed-entry! sink later-pass)
+      (let [{:keys [result-files unresolved]}
+            (cli-results/reconcile-result-sink! sink [completion-entry later-pass])
+            artifact (io/file results-dir "demo.core__repeated.edn")]
+        (is (= [] unresolved))
+        (is (= [completion-entry] @publications))
+        (is (= ["demo.core__repeated.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= completion-entry (edn/read-string (slurp artifact))))))))
+
+(deftest result-sink-duplicate-reconciliation-test
+  ;; Duplicate executions retry the exact failed generation's canonical
+  ;; occurrence, or retain its completion snapshot when that occurrence is
+  ;; absent; a later pass has no artifact requirement of its own.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          publications (atom [])
+          calls (atom 0)
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (swap! publications conj entry)
+                                   (if (= 2 (swap! calls inc))
+                                     (throw (ex-info "second generation unavailable" {}))
+                                     (let [path (io/file results-dir filename)]
+                                       (spit path (pr-str entry))
+                                       (.getPath path))))})
+          first-failure {:var 'demo.core/repeated
+                         :status :fail
+                         :assertions [:first-completion]}
+          second-failure {:var 'demo.core/repeated
+                          :status :fail
+                          :assertions [:second-completion]}
+          canonical-second {:var 'demo.core/repeated
+                            :status :fail
+                            :assertions [:second-final]}
+          later-pass {:var 'demo.core/repeated :status :pass}]
+      (cli-results/handle-completed-entry! sink first-failure)
+      (cli-results/handle-completed-entry! sink second-failure)
+      (cli-results/handle-completed-entry! sink later-pass)
+      (let [{:keys [result-files unresolved]}
+            (cli-results/reconcile-result-sink!
+             sink [first-failure canonical-second later-pass])]
+        (is (= [] unresolved))
+        (is (= [first-failure second-failure canonical-second] @publications))
+        (is (= ["demo.core__repeated.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= canonical-second
+               (edn/read-string
+                (slurp (io/file results-dir "demo.core__repeated.edn")))))))
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          calls (atom 0)
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (if (= 2 (swap! calls inc))
+                                     (throw (ex-info "second generation unavailable" {}))
+                                     (let [path (io/file results-dir filename)]
+                                       (spit path (pr-str entry))
+                                       (.getPath path))))})
+          first-failure {:var 'demo.core/missing-occurrence :status :fail}
+          second-failure {:var 'demo.core/missing-occurrence
+                          :status :error
+                          :assertions [:completion-only]}]
+      (cli-results/handle-completed-entry! sink first-failure)
+      (cli-results/handle-completed-entry! sink second-failure)
+      (let [{:keys [unresolved]}
+            (cli-results/reconcile-result-sink! sink [first-failure])]
+        (is (= [] unresolved))
+        (is (= second-failure
+               (edn/read-string
+                (slurp (io/file results-dir "demo.core__missing-occurrence.edn")))))))))
+
+(deftest result-sink-reconciliation-publication-order-test
+  ;; Concrete reconciliation attempts follow canonical first-occurrence order,
+  ;; then callback-only first-completion order, independent of map traversal.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          publications (atom [])
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ _ entry]
+                                   (swap! publications conj (:var entry))
+                                   (throw (ex-info "disk unavailable" {})))})
+          callback-only {:var 'demo.core/callback-only :status :fail}
+          canonical-second {:var 'demo.core/canonical-second :status :error}
+          canonical-first {:var 'demo.core/canonical-first :status :fail}
+          synthetic {:ns 'demo.core :status :error}]
+      (cli-results/handle-completed-entry! sink callback-only)
+      (cli-results/handle-completed-entry! sink canonical-second)
+      (reset! publications [])
+      (cli-results/reconcile-result-sink!
+       sink [canonical-first canonical-second synthetic])
+      (is (= ['demo.core/canonical-first
+              'demo.core/canonical-second
+              'demo.core/callback-only
+              nil]
+             @publications)))))
+
+(deftest result-sink-unresolved-order-test
+  ;; Normal reconciliation reports unresolved concrete artifacts in canonical
+  ;; order, callback-only artifacts in completion order, then synthetic paths.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [& _] (throw (ex-info "disk unavailable" {})))})
+          callback-only {:var 'demo.core/callback-only :status :fail}
+          canonical-first {:var 'demo.core/canonical-first :status :error}
+          synthetic {:ns 'demo.core :status :error}]
+      (cli-results/handle-completed-entry! sink callback-only)
+      (cli-results/handle-completed-entry! sink canonical-first)
+      (let [{:keys [unresolved]} (cli-results/reconcile-result-sink!
+                                  sink [canonical-first synthetic])]
+        (is (= ['demo.core/canonical-first 'demo.core/callback-only nil]
+               (mapv :var unresolved)))
+        (is (= [:error :fail :error]
+               (mapv (comp :status :entry) unresolved)))))))
+
+(deftest result-sink-callback-only-reservation-test
+  ;; A callback-only concrete artifact reserves its established filename before
+  ;; synthetic reconciliation assigns names, preventing a synthetic overwrite.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          sink (cli-results/create-result-sink results-dir)
+          callback-only {:var 'demo.core/suite-error-1 :status :fail}
+          synthetic {:ns 'demo.core :status :error}]
+      (cli-results/handle-completed-entry! sink callback-only)
+      (let [{:keys [result-files unresolved]}
+            (cli-results/reconcile-result-sink! sink [synthetic])]
+        (is (= [] unresolved))
+        (is (= ["demo.core__suite-error-1--2.edn"
+                "demo.core__suite-error-1.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= callback-only
+               (edn/read-string
+                (slurp (io/file results-dir "demo.core__suite-error-1.edn")))))
+        (is (= synthetic
+               (edn/read-string
+                (slurp (io/file results-dir "demo.core__suite-error-1--2.edn")))))))))
+
+(deftest result-sink-first-completion-order-test
+  ;; Callback-only artifact ordering follows each identity's first concrete
+  ;; completion, even when that completion did not require an artifact.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          first-pass {:var 'demo.core/first :status :pass}
+          second-failure {:var 'demo.core/second :status :fail}
+          first-failure {:var 'demo.core/first :status :error}
+          successful-sink (cli-results/create-result-sink
+                           results-dir
+                           {:publish-entry! (fn [_ filename entry]
+                                              (let [path (io/file results-dir filename)]
+                                                (spit path (pr-str entry))
+                                                (.getPath path)))})]
+      (doseq [entry [first-pass second-failure first-failure]]
+        (cli-results/handle-completed-entry! successful-sink entry))
+      (is (= ['demo.core/first 'demo.core/second]
+             (:completion-order (cli-results/sink-state successful-sink))))
+      (is (= ["demo.core__first.edn" "demo.core__second.edn"]
+             (->> (cli-results/reconcile-result-sink! successful-sink [])
+                  :result-files
+                  (mapv #(.getName (io/file %))))))
+      (let [unresolved-sink (cli-results/create-result-sink
+                             results-dir
+                             {:publish-entry! (fn [& _]
+                                                (throw (ex-info "disk unavailable" {})))})]
+        (doseq [entry [first-pass second-failure first-failure]]
+          (cli-results/handle-completed-entry! unresolved-sink entry))
+        (is (= ['demo.core/first 'demo.core/second]
+               (mapv :var (:unresolved
+                           (cli-results/sink-exception-snapshot unresolved-sink)))))))))
+
+(deftest result-sink-exception-snapshot-test
+  ;; Catchable runner failure retains previously published files and describes
+  ;; only unresolved latest callback generations in completion order.
+  (with-temp-dir [dir]
+    (let [results-dir (cli-results/prepare-results-dir! {:cwd (.getPath dir)})
+          sink (cli-results/create-result-sink
+                results-dir
+                {:publish-entry! (fn [_ filename entry]
+                                   (if (= 'demo.core/unavailable (:var entry))
+                                     (throw (ex-info "disk unavailable" {}))
+                                     (let [path (io/file results-dir filename)]
+                                       (spit path (pr-str entry))
+                                       (.getPath path))))})
+          persisted {:var 'demo.core/persisted :status :fail}
+          unavailable {:var 'demo.core/unavailable :status :error}]
+      (cli-results/handle-completed-entry! sink persisted)
+      (cli-results/handle-completed-entry! sink unavailable)
+      (let [{:keys [result-files unresolved]} (cli-results/sink-exception-snapshot sink)]
+        (is (= ["demo.core__persisted.edn"]
+               (mapv #(.getName (io/file %)) result-files)))
+        (is (= ['demo.core/unavailable] (mapv :var unresolved)))
+        (is (instance? Throwable (:error (first unresolved))))))))
 
 (deftest result-file-assignments-synthetic-entries-test
   ;; Synthetic suite-level entries without concrete vars receive deterministic
@@ -1195,184 +1597,6 @@
       (assert-pathological-cli-outcome outcome files data (:out result) (:err result))
       (is (str/includes? (:err result) "for failure details")))))
 
-(deftest cli-diagnostic-fallback-is-bounded-and-cycle-safe-test
-  ;; Fallback diagnostics must not recurse forever or emit unbounded strings when
-  ;; result-file serialization itself fails or the first failing assertion is
-  ;; pathological.
-  (testing "root-cause helpers tolerate cyclic and deep cause chains"
-    (let [cyclic (proxy [RuntimeException] ["cycle"]
-                   (getCause [] this))
-          deep (reduce (fn [cause n]
-                         (RuntimeException. (str "cause-" n) cause))
-                       (RuntimeException. "root")
-                       (range 20))]
-      (is (str/includes? (#'cli/throwable-cause-text cyclic) "cycle"))
-      (is (str/includes? (#'cli/throwable-cause-text deep) "cause-"))))
-  (testing "diagnostic-error and stderr fallback bound hostile strings"
-    (with-temp-dir [dir]
-      (let [^String long-message (apply str (repeat 21000 "x"))
-            cyclic (proxy [RuntimeException] [long-message]
-                     (getCause [] this))
-            entries [{:var 'scry.fixtures.pathological/bounded-diagnostic
-                      :ns 'scry.fixtures.pathological
-                      :status :error
-                      :assertion-summary {:pass 0 :fail 0 :error 1}
-                      :assertions [{:type :error
-                                    :message long-message
-                                    :actual cyclic}]}]
-            out (string-writer)
-            err (string-writer)]
-        (let [outcome (#'cli/run-cli
-                       (#'cli/normalize-exec-opts {})
-                       (test-boundary {:cwd (.getPath dir)
-                                       :out out
-                                       :err err
-                                       :write-result-files (fn [& _]
-                                                             (throw cyclic))
-                                       :run-clojure-test (fn [_]
-                                                           (runner-result entries))}))
-              diagnostic (:scry.cli/diagnostic-error outcome)
-              stderr (str err)]
-          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-          (is (<= (count (:message diagnostic)) 20100))
-          (is (<= (count (:root-message diagnostic)) 20100))
-          (is (<= (count (:first-root-cause diagnostic)) 20100))
-          (is (str/includes? (:first-root-cause diagnostic) ":max-string-length"))
-          (is (<= (count stderr) 20500))
-          (is (str/includes? stderr ":max-string-length"))))))
-  (testing "fallback diagnostics tolerate throwing toString values"
-    (with-temp-dir [dir]
-      (let [hostile (proxy [Object] []
-                      (toString []
-                        (throw (RuntimeException. "toString exploded"))))
-            entries [{:var 'scry.fixtures.pathological/hostile-diagnostic
-                      :ns 'scry.fixtures.pathological
-                      :status :error
-                      :assertion-summary {:pass 0 :fail 0 :error 1}
-                      :assertions [{:type :error
-                                    :message hostile
-                                    :actual {:via [{:type 'pathological.Root
-                                                    :message hostile}]
-                                             :cause hostile}}]}]
-            out (string-writer)
-            err (string-writer)]
-        (let [outcome (#'cli/run-cli
-                       (#'cli/normalize-exec-opts {})
-                       (test-boundary {:cwd (.getPath dir)
-                                       :out out
-                                       :err err
-                                       :write-result-files (fn [& _]
-                                                             (throw (ex-info "write exploded" {})))
-                                       :run-clojure-test (fn [_]
-                                                           (runner-result entries))}))
-              diagnostic (:scry.cli/diagnostic-error outcome)
-              stderr (str err)]
-          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-          (is (= 'scry.fixtures.pathological/hostile-diagnostic
-                 (:first-failing-var diagnostic)))
-          (is (str/includes? (:first-root-cause diagnostic) "<unprintable"))
-          (is (str/includes? stderr "<unprintable"))
-          (is (not (str/includes? stderr "runner-error")))))))
-  (testing "fallback diagnostics tolerate Throwable actual accessors that throw"
-    (with-temp-dir [dir]
-      (let [hostile (proxy [RuntimeException] ["outer"]
-                      (getMessage []
-                        (throw (RuntimeException. "message exploded")))
-                      (getCause []
-                        (throw (RuntimeException. "cause exploded"))))
-            entries [{:var 'scry.fixtures.pathological/hostile-throwable-diagnostic
-                      :ns 'scry.fixtures.pathological
-                      :status :error
-                      :assertion-summary {:pass 0 :fail 0 :error 1}
-                      :assertions [{:type :error
-                                    :message "outer"
-                                    :actual hostile}]}]
-            out (string-writer)
-            err (string-writer)]
-        (let [outcome (#'cli/run-cli
-                       (#'cli/normalize-exec-opts {})
-                       (test-boundary {:cwd (.getPath dir)
-                                       :out out
-                                       :err err
-                                       :write-result-files (fn [& _]
-                                                             (throw (ex-info "write exploded" {})))
-                                       :run-clojure-test (fn [_]
-                                                           (runner-result entries))}))
-              diagnostic (:scry.cli/diagnostic-error outcome)
-              stderr (str err)]
-          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-          (is (= 'scry.fixtures.pathological/hostile-throwable-diagnostic
-                 (:first-failing-var diagnostic)))
-          (is (str/includes? (:first-root-cause diagnostic)
-                             "<unavailable message: java.lang.RuntimeException>"))
-          (is (str/includes? stderr "First root cause:"))
-          (is (not (str/includes? stderr "runner-error"))))))))
-
-(deftest map-shaped-assertion-actual-via-is-bounded-test
-  (testing "map-shaped assertion actual via is bounded and tolerant"
-    (with-temp-dir [dir]
-      (let [long-message (apply str (repeat 21000 "y"))
-            cyclic-via (cycle [{:type 'pathological.Root
-                                :message long-message}])
-            entries [{:var 'scry.fixtures.pathological/map-shaped-actual
-                      :ns 'scry.fixtures.pathological
-                      :status :error
-                      :assertion-summary {:pass 0 :fail 0 :error 1}
-                      :assertions [{:type :error
-                                    :message "outer"
-                                    :actual {:via cyclic-via
-                                             :cause long-message}}]}]
-            out (string-writer)
-            err (string-writer)]
-        (let [outcome (#'cli/run-cli
-                       (#'cli/normalize-exec-opts {})
-                       (test-boundary {:cwd (.getPath dir)
-                                       :out out
-                                       :err err
-                                       :write-result-files (fn [& _]
-                                                             (throw (ex-info "write exploded" {})))
-                                       :run-clojure-test (fn [_]
-                                                           (runner-result entries))}))
-              diagnostic (:scry.cli/diagnostic-error outcome)
-              stderr (str err)]
-          (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-          (is (= 'scry.fixtures.pathological/map-shaped-actual
-                 (:first-failing-var diagnostic)))
-          (is (<= (count (:first-root-cause diagnostic)) 20100))
-          (is (str/includes? (:first-root-cause diagnostic)
-                             ":max-string-length"))
-          (is (str/includes? stderr "First root cause:"))
-          (is (<= (count stderr) 20500)))))))
-
-(deftest run-cli-result-file-write-failure-is-diagnostic-test
-  ;; Result-file serialization failure is post-run diagnostics: the summary and
-  ;; test-derived outcome survive, with bounded diagnostic metadata attached.
-  (with-temp-dir [dir]
-    (let [out (string-writer)
-          err (string-writer)
-          summary-before-write? (atom false)]
-      (let [outcome (#'cli/run-cli
-                     (#'cli/normalize-exec-opts
-                      {:vars ['scry.fixtures.failing/equality-fails]})
-                     (test-boundary {:cwd (.getPath dir)
-                                     :out out
-                                     :err err
-                                     :write-result-files (fn [& _]
-                                                           (reset! summary-before-write?
-                                                                   (str/includes? (str out) "Assertions:"))
-                                                           (throw (ex-info "write exploded" {})))}))]
-        (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-        (is (= [] (:result-files outcome)))
-        (is (= :result-file-writing
-               (get-in outcome [:scry.cli/diagnostic-error :phase])))
-        (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
-        (is (= 'scry.fixtures.failing/equality-fails
-               (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
-        (is @summary-before-write?)
-        (is (str/includes? (str out) "Assertions:"))
-        (is (str/includes? (str err)
-                           "Failure diagnostics failed while serializing 1 failing entries."))))))
-
 (deftest run-exec-pathological-fixtures-through-real-runner-test
   ;; Exercise the -X/run-with-boundary path through the real clojure-test runner
   ;; so structured non-zero ex-data preserves the test-derived outcome for
@@ -1398,193 +1622,410 @@
       (assert-pathological-cli-outcome outcome files result-data (str out) (str err))
       (is (not (contains? outcome :scry.cli/diagnostic-error))))))
 
-(deftest run-exec-result-file-write-failure-is-diagnostic-test
-  ;; The -X path preserves the same post-run diagnostic failure semantics in
-  ;; structured non-zero ex-data: no duplicate summary fields and no runner-error.
+(deftest run-cli-reconciles-callback-ignoring-runner-test
+  ;; A runner that never invokes progress still receives the established final
+  ;; artifact through normal reconciliation.
   (with-temp-dir [dir]
-    (let [out (string-writer)
-          err (string-writer)
-          thrown (try
-                   (#'cli/run-with-boundary
-                    {:vars ['scry.fixtures.failing/equality-fails]}
-                    (test-boundary {:cwd (.getPath dir)
-                                    :out out
-                                    :err err
-                                    :write-result-files (fn [& _]
-                                                          (throw (ex-info "write exploded" {})))}))
-                   nil
-                   (catch clojure.lang.ExceptionInfo e e))
-          data (ex-data thrown)
-          outcome (:outcome data)]
-      (is (some? thrown))
-      (is (= :scry.cli/non-zero (:type data)))
-      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind data)))
+    (let [entry {:var 'demo.core/missed-callback
+                 :ns 'demo.core
+                 :status :fail
+                 :assertion-summary {:pass 0 :fail 1 :error 0}
+                 :assertions [{:type :fail}]}
+          outcome (run-cli-in dir (#'cli/normalize-exec-opts {})
+                              {:run-clojure-test (fn [_] (runner-result [entry]))})]
       (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
-      (is (= [] (:result-files outcome)))
-      (is (= (:summary data) (:summary outcome)))
-      (is (= :result-file-writing
+      (is (= ["demo.core__missed-callback.edn"] (result-files dir)))
+      (is (= entry (edn/read-string
+                    (slurp (io/file dir ".scry-results" "demo.core__missed-callback.edn"))))))))
+
+(deftest run-cli-publishes-completed-failure-before-next-entry-test
+  ;; A completed failure is atomically readable before the runner advances to
+  ;; the next entry, while a passing entry creates no artifact.
+  (with-temp-dir [dir]
+    (let [failure {:var 'demo.core/first-fails
+                   :status :fail
+                   :assertion-summary {:pass 1 :fail 1 :error 0}
+                   :assertions [{:type :fail :expected :left :actual :right}]
+                   :out "setup\nbody\nteardown\n"
+                   :err ""}
+          passing {:var 'demo.core/then-passes
+                   :status :pass
+                   :assertion-summary {:pass 1 :fail 0 :error 0}
+                   :assertions []}
+          observed (atom nil)
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:run-clojure-test
+                    (fn [opts]
+                      ((:progress-callback opts) failure)
+                      (let [failure-file (io/file dir ".scry-results"
+                                                  "demo.core__first-fails.edn")
+                            passing-file (io/file dir ".scry-results"
+                                                  "demo.core__then-passes.edn")]
+                        (reset! observed {:failure (edn/read-string (slurp failure-file))
+                                          :passing-exists? (.exists passing-file)}))
+                      ((:progress-callback opts) passing)
+                      (runner-result [failure passing]))})]
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (= failure (:failure @observed)))
+      (is (false? (:passing-exists? @observed)))
+      (is (= ["demo.core__first-fails.edn"] (result-files dir))))))
+
+(deftest run-cli-native-core-publication-timing-test
+  ;; A real clojure.test execution publishes the first var only after its
+  ;; :each teardown, and before the second var body begins.
+  (with-temp-dir [dir]
+    (reset! scry.fixtures.incremental-cli/results-dir
+            (io/file dir ".scry-results"))
+    (reset! scry.fixtures.incremental-cli/observed-entry nil)
+    (let [outcome (run-cli-in dir (#'cli/normalize-exec-opts
+                                   {:namespaces ['scry.fixtures.incremental-cli]}))
+          entry @scry.fixtures.incremental-cli/observed-entry]
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (= :fail (:status entry)))
+      (is (= "each setup\nfirst body\neach teardown\n" (:out entry)))
+      (is (= :fail (:type (first (:assertions entry)))))
+      (is (= ["scry.fixtures.incremental-cli__first-fails-before-next-var.edn"]
+             (result-files dir))))))
+
+(deftest run-cli-retains-incremental-artifacts-on-runner-error-test
+  ;; A catchable runner error does not discard an artifact published by an
+  ;; already-completed failing entry, and the outcome retains that path.
+  (with-temp-dir [dir]
+    (let [failure {:var 'demo.core/published-before-error
+                   :status :error
+                   :assertion-summary {:pass 0 :fail 0 :error 1}
+                   :assertions [{:type :error :message "completed"}]}
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:run-clojure-test
+                    (fn [opts]
+                      ((:progress-callback opts) failure)
+                      (throw (ex-info "runner stopped" {})))})]
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+      (is (= ["demo.core__published-before-error.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (= failure
+             (edn/read-string
+              (slurp (io/file dir ".scry-results"
+                              "demo.core__published-before-error.edn")))))
+      (is (str/includes? (:stderr outcome) "scry CLI error: runner stopped"))
+      (is (str/includes? (:stderr outcome) "for failure details")))))
+
+(deftest run-cli-runner-error-retains-unresolved-publication-diagnostic-test
+  ;; A runner abort after contained incremental failure preserves a successful
+  ;; sibling, retains incremental diagnostic metadata, and emits diagnostics
+  ;; before the ordinary runner-error report.
+  (with-temp-dir [dir]
+    (let [unavailable {:var 'demo.core/unavailable-before-abort
+                       :status :fail
+                       :assertion-summary {:pass 0 :fail 1 :error 0}
+                       :assertions [{:type :fail :message "unavailable artifact"}]}
+          persisted {:var 'demo.core/persisted-before-abort
+                     :status :error
+                     :assertion-summary {:pass 0 :fail 0 :error 1}
+                     :assertions [{:type :error :message "persisted artifact"}]}
+          sink-factory (fn [results-dir]
+                         (cli-results/create-result-sink
+                          results-dir
+                          {:publish-entry!
+                           (fn [_ filename entry]
+                             (if (= unavailable entry)
+                               (throw (ex-info "disk unavailable" {}))
+                               (let [path (io/file results-dir filename)]
+                                 (spit path (pr-str entry))
+                                 (.getPath path))))}))
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:create-result-sink sink-factory
+                    :run-clojure-test
+                    (fn [opts]
+                      ((:progress-callback opts) unavailable)
+                      ((:progress-callback opts) persisted)
+                      (throw (ex-info "runner aborted" {})))})
+          ^String stderr (:stderr outcome)
+          diagnostics-index (.indexOf stderr "Failure diagnostics failed")
+          runner-error-index (.indexOf stderr "scry CLI error: runner aborted")
+          pointer-index (.indexOf stderr "for failure details")]
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+      (is (= :incremental-result-file-writing
              (get-in outcome [:scry.cli/diagnostic-error :phase])))
       (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
-      (is (= 'scry.fixtures.failing/equality-fails
+      (is (= 'demo.core/unavailable-before-abort
              (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
-      (is (not (contains? outcome :summary-text)))
-      (is (str/includes? (str out) "Assertions:"))
-      (is (str/includes? (str err)
+      (is (= ["demo.core__persisted-before-abort.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (= persisted
+             (edn/read-string
+              (slurp (io/file dir ".scry-results"
+                              "demo.core__persisted-before-abort.edn")))))
+      (is (<= 0 diagnostics-index))
+      (is (< diagnostics-index runner-error-index pointer-index)))))
+
+(deftest run-cli-contained-publication-failure-test
+  ;; Publication I/O is diagnostic-only: a transient failure is reconciled and
+  ;; a persistent failure leaves the test-derived outcome and sibling artifact.
+  (with-temp-dir [dir]
+    (let [first-failure {:var 'demo.core/transient
+                         :status :fail
+                         :assertion-summary {:pass 0 :fail 1 :error 0}
+                         :assertions [{:type :fail}]}
+          second-failure {:var 'demo.core/persisted
+                          :status :error
+                          :assertion-summary {:pass 0 :fail 0 :error 1}
+                          :assertions [{:type :error}]}
+          calls (atom 0)
+          sink-factory (fn [results-dir]
+                         (cli-results/create-result-sink
+                          results-dir
+                          {:publish-entry!
+                           (fn [_ filename entry]
+                             (if (= 1 (swap! calls inc))
+                               (throw (ex-info "transient disk failure" {}))
+                               (let [path (io/file results-dir filename)]
+                                 (spit path (pr-str entry))
+                                 (.getPath path))))}))
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:create-result-sink sink-factory
+                    :run-clojure-test
+                    (fn [opts]
+                      (doseq [entry [first-failure second-failure]]
+                        ((:progress-callback opts) entry))
+                      (runner-result [first-failure second-failure]))})]
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (not (contains? outcome :scry.cli/diagnostic-error)))
+      (is (= ["demo.core__transient.edn" "demo.core__persisted.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (= first-failure
+             (edn/read-string (slurp (io/file dir ".scry-results"
+                                              "demo.core__transient.edn"))))))))
+
+(deftest run-cli-persistent-publication-diagnostic-test
+  ;; An unrecoverable artifact failure remains diagnostic-only after normal
+  ;; return: successful siblings stay available and the final phase is explicit.
+  (with-temp-dir [dir]
+    (let [unavailable {:var 'demo.core/unavailable
+                       :status :fail
+                       :assertion-summary {:pass 0 :fail 1 :error 0}
+                       :assertions [{:type :fail}]}
+          persisted {:var 'demo.core/persisted
+                     :status :error
+                     :assertion-summary {:pass 0 :fail 0 :error 1}
+                     :assertions [{:type :error}]}
+          sink-factory (fn [results-dir]
+                         (cli-results/create-result-sink
+                          results-dir
+                          {:publish-entry!
+                           (fn [_ filename entry]
+                             (if (= unavailable entry)
+                               (throw (ex-info "disk unavailable" {}))
+                               (let [path (io/file results-dir filename)]
+                                 (spit path (pr-str entry))
+                                 (.getPath path))))}))
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:create-result-sink sink-factory
+                    :run-clojure-test
+                    (fn [opts]
+                      (doseq [entry [unavailable persisted]]
+                        ((:progress-callback opts) entry))
+                      (runner-result [unavailable persisted]))})]
+      (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome)))
+      (is (= :final-result-file-reconciliation
+             (get-in outcome [:scry.cli/diagnostic-error :phase])))
+      (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
+      (is (= 'demo.core/unavailable
+             (get-in outcome [:scry.cli/diagnostic-error :first-failing-var])))
+      (is (= ["demo.core__persisted.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (str/includes? (:stderr outcome)
                          "Failure diagnostics failed while serializing 1 failing entries.")))))
 
-(deftest run-cli-load-error-result-file-write-failure-is-diagnostic-test
-  ;; Diagnostic-write failures preserve synthetic load-error outcomes and still
-  ;; emit both the bounded fallback warning and the normal load-error stderr
-  ;; detail/pointer semantics.
+(deftest run-cli-malformed-canonical-preserves-incremental-artifacts-test
+  ;; Once a runner returns, malformed canonical data is a final-reconciliation
+  ;; runner error; completed callback artifacts remain visible without retrying.
   (with-temp-dir [dir]
-    (let [root-cause (RuntimeException. "load root cause")
-          load-failure (ex-info "compile failed" {} root-cause)
-          synthetic-error {:var nil
-                           :ns nil
-                           :status :error
-                           :assertion-summary {:pass 0 :fail 0 :error 1}
-                           :assertions [{:type :error
-                                         :message "Failed loading tests:"
-                                         :expected nil
-                                         :actual load-failure}]
-                           :out ""
-                           :err ""}
-          out (string-writer)
-          err (string-writer)
+    (let [failure {:var 'demo.core/completed
+                   :status :fail
+                   :assertion-summary {:pass 0 :fail 1 :error 0}
+                   :assertions [{:type :fail}]}
+          sink-factory (fn [results-dir]
+                         (cli-results/create-result-sink
+                          results-dir
+                          {:publish-entry! (fn [& _]
+                                             (throw (ex-info "disk unavailable" {})))}))
+          outcome (run-cli-in
+                   dir
+                   (#'cli/normalize-exec-opts {})
+                   {:create-result-sink sink-factory
+                    :run-clojure-test
+                    (fn [opts]
+                      ((:progress-callback opts) failure)
+                      {:summary {} :canonical-results :malformed})})]
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+      (is (= :final-result-file-reconciliation
+             (get-in outcome [:scry.cli/diagnostic-error :phase])))
+      (is (= 1 (get-in outcome [:scry.cli/diagnostic-error :failed-entry-count])))
+      (is (= [] (:result-files outcome)))
+      (is (false? (.exists (io/file dir ".scry-results" "demo.core__completed.edn")))))))
+
+(deftest run-cli-lifecycle-exceptions-preserve-reconciled-sink-state-test
+  ;; After a normal runner return, reconciliation and later presentation errors
+  ;; retain the sink snapshot and use the final-reconciliation lifecycle phase.
+  (testing "a reconciliation orchestration exception does not start another reconciliation"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/unpublished
+                     :status :fail
+                     :assertion-summary {:pass 0 :fail 1 :error 0}
+                     :assertions [{:type :fail}]}
+            publications (atom 0)
+            sink-factory (fn [results-dir]
+                           (cli-results/create-result-sink
+                            results-dir
+                            {:publish-entry! (fn [& _]
+                                               (swap! publications inc)
+                                               (throw (ex-info "disk unavailable" {})))}))
+            outcome (run-cli-in
+                     dir
+                     (#'cli/normalize-exec-opts {})
+                     {:create-result-sink sink-factory
+                      :reconcile-result-sink! (fn [& _]
+                                                (throw (ex-info "reconciliation stopped" {})))
+                      :run-clojure-test
+                      (fn [opts]
+                        ((:progress-callback opts) failure)
+                        (runner-result [failure]))})]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (= :final-result-file-reconciliation
+               (get-in outcome [:scry.cli/diagnostic-error :phase])))
+        (is (= 1 @publications))
+        (is (= [] (:result-files outcome))))))
+  (testing "a post-reconciliation summary writer exception retains published files"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/published-before-summary-error
+                     :status :error
+                     :assertion-summary {:pass 0 :fail 0 :error 1}
+                     :assertions [{:type :error}]}
+            err (string-writer)
+            outcome (#'cli/run-cli
+                     (#'cli/normalize-exec-opts {})
+                     (test-boundary
+                      {:cwd (.getPath dir)
+                       :out (failing-writer "summary unavailable")
+                       :err err
+                       :run-clojure-test (fn [opts]
+                                           ((:progress-callback opts) failure)
+                                           (runner-result [failure]))}))]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (= ["demo.core__published-before-summary-error.edn"]
+               (mapv #(.getName (io/file %)) (:result-files outcome))))
+        (is (= failure
+               (edn/read-string
+                (slurp (io/file dir ".scry-results"
+                                "demo.core__published-before-summary-error.edn"))))))))
+  (testing "a post-summary seed writer exception retains reconciled files"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/published-before-seed-error
+                     :status :fail
+                     :assertion-summary {:pass 0 :fail 1 :error 0}
+                     :assertions [{:type :fail}]}
+            outcome (#'cli/run-cli
+                     (#'cli/normalize-exec-opts {})
+                     (test-boundary
+                      {:cwd (.getPath dir)
+                       :out (writer-failing-on-write 2 "seed unavailable")
+                       :err (string-writer)
+                       :run-clojure-test
+                       (fn [opts]
+                         ((:progress-callback opts) failure)
+                         (assoc (runner-result [failure])
+                                :summary {:pass 0 :fail 1 :error 0 :seed 42}))}))]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (= ["demo.core__published-before-seed-error.edn"]
+               (mapv #(.getName (io/file %)) (:result-files outcome))))
+        (is (= failure
+               (edn/read-string
+                (slurp (io/file dir ".scry-results"
+                                "demo.core__published-before-seed-error.edn")))))))))
+
+(deftest run-cli-reconciled-synthetic-artifact-survives-summary-error-test
+  ;; A presentation failure after reconciliation retains synthetic files, which
+  ;; have no callback identity and therefore require the reconciled snapshot.
+  (with-temp-dir [dir]
+    (let [suite-error {:ns 'demo.synthetic
+                       :status :error
+                       :assertion-summary {:pass 0 :fail 0 :error 1}
+                       :assertions [{:type :error :message "load failed"}]}
           outcome (#'cli/run-cli
                    (#'cli/normalize-exec-opts {})
-                   (test-boundary {:cwd (.getPath dir)
-                                   :out out
-                                   :err err
-                                   :write-result-files (fn [& _]
-                                                         (throw (ex-info "write exploded" {})))
-                                   :run-clojure-test (fn [opts]
-                                                       ((:progress-callback opts) synthetic-error)
-                                                       (runner-result [synthetic-error]))}))
-          diagnostic (:scry.cli/diagnostic-error outcome)
-          stderr (str err)]
-      (is (= 1 (:exit-code outcome)))
-      (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
-      (is (= [] (:result-files outcome)))
-      (is (= "Assertions: 0 passed, 0 failed, 1 errored\nTests: 0 passed, 0 failed, 1 errored\n"
-             (str out)))
-      (is (= :result-file-writing (:phase diagnostic)))
-      (is (= 1 (:failed-entry-count diagnostic)))
-      (is (not (contains? diagnostic :first-failing-var)))
-      (is (str/includes? (:first-root-cause diagnostic) "java.lang.RuntimeException"))
-      (is (str/includes? (:first-root-cause diagnostic) "load root cause"))
-      (is (str/includes? stderr "suite-error-1"))
-      (is (str/includes? stderr
-                         "Failure diagnostics failed while serializing 1 failing entries."))
-      (is (str/includes? stderr "First root cause: java.lang.RuntimeException: load root cause"))
-      (is (str/includes? stderr "Load error: Failed loading tests:"))
-      (is (str/includes? stderr "java.lang.RuntimeException: load root cause"))
-      (is (str/includes? stderr "See "))
-      (is (str/includes? stderr "for failure details")))))
+                   (test-boundary
+                    {:cwd (.getPath dir)
+                     :out (failing-writer "summary unavailable")
+                     :err (string-writer)
+                     :run-clojure-test (fn [_] (runner-result [suite-error]))}))]
+      (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+      (is (= ["demo.synthetic__suite-error-1.edn"]
+             (mapv #(.getName (io/file %)) (:result-files outcome))))
+      (is (= suite-error
+             (edn/read-string
+              (slurp (io/file dir ".scry-results"
+                              "demo.synthetic__suite-error-1.edn"))))))))
 
-(deftest run-cli-unknown-result-file-write-failure-is-diagnostic-test
-  ;; Diagnostic-write failures preserve unknown-result outcomes and still emit
-  ;; the existing unknown-result result-directory pointer semantics.
-  (with-temp-dir [dir]
-    (let [unknown-entry {:var 'scry.fixtures.unknown/no-assertions
-                         :ns 'scry.fixtures.unknown
-                         :status :unknown
-                         :assertion-summary {:pass 0 :fail 0 :error 0}
-                         :assertions []
-                         :out ""
-                         :err ""}
-          out (string-writer)
-          err (string-writer)
-          outcome (#'cli/run-cli
-                   (#'cli/normalize-exec-opts {})
-                   (test-boundary {:cwd (.getPath dir)
-                                   :out out
-                                   :err err
-                                   :write-result-files (fn [& _]
-                                                         (throw (ex-info "write exploded" {})))
-                                   :run-clojure-test (fn [opts]
-                                                       ((:progress-callback opts) unknown-entry)
-                                                       (runner-result [unknown-entry]))}))
-          diagnostic (:scry.cli/diagnostic-error outcome)
-          stderr (str err)]
-      (is (= 1 (:exit-code outcome)))
-      (is (= :scry.cli/unknown-result (:scry.cli/outcome-kind outcome)))
-      (is (= [] (:result-files outcome)))
-      (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored, 1 unknown\n"
-             (str out)))
-      (is (= :result-file-writing (:phase diagnostic)))
-      (is (= 0 (:failed-entry-count diagnostic)))
-      (is (not (contains? diagnostic :first-failing-var)))
-      (is (not (contains? diagnostic :first-root-cause)))
-      (is (str/starts-with? stderr "no-assertions\n"))
-      (is (str/includes? stderr
-                         "Failure diagnostics failed while serializing 0 failing entries."))
-      (is (str/includes? stderr "See "))
-      (is (str/includes? stderr "for failure details")))))
-
-(deftest run-cli-pass-result-file-write-failure-is-diagnostic-test
-  ;; Diagnostic-write failures are post-run even for green runs: they attach
-  ;; bounded diagnostic metadata, but do not make a passing test run fail.
-  (with-temp-dir [dir]
-    (let [out (string-writer)
-          err (string-writer)
-          outcome (#'cli/run-cli
-                   (#'cli/normalize-exec-opts
-                    {:vars ['scry.fixtures.failing/also-passes]})
-                   (test-boundary {:cwd (.getPath dir)
-                                   :out out
-                                   :err err
-                                   :write-result-files (fn [& _]
-                                                         (throw (ex-info "write exploded" {})))}))
-          diagnostic (:scry.cli/diagnostic-error outcome)
-          stderr (str err)]
-      (is (= 0 (:exit-code outcome)))
-      (is (= :scry.cli/pass (:scry.cli/outcome-kind outcome)))
-      (is (= [] (:result-files outcome)))
-      (is (str/includes? (str out)
-                         "Assertions: 1 passed, 0 failed, 0 errored\nTests: 1 passed, 0 failed, 0 errored\n"))
-      (is (= :result-file-writing (:phase diagnostic)))
-      (is (= 0 (:failed-entry-count diagnostic)))
-      (is (= 'clojure.lang.ExceptionInfo (:type diagnostic)))
-      (is (= 'clojure.lang.ExceptionInfo (:root-type diagnostic)))
-      (is (= "write exploded" (:message diagnostic)))
-      (is (= "write exploded" (:root-message diagnostic)))
-      (is (not (contains? diagnostic :first-failing-var)))
-      (is (not (contains? diagnostic :first-root-cause)))
-      (is (str/includes? stderr
-                         "Failure diagnostics failed while serializing 0 failing entries."))
-      (is (not (str/includes? stderr "for failure details"))))))
-
-(deftest run-cli-zero-tests-result-file-write-failure-is-diagnostic-test
-  ;; Diagnostic-write failures preserve zero-tests outcomes and do not emit the
-  ;; failure-details pointer text because zero-tests is not a failure-details outcome.
-  (with-temp-dir [dir]
-    (let [out (string-writer)
-          err (string-writer)
-          outcome (#'cli/run-cli
-                   (#'cli/normalize-exec-opts
-                    {:namespaces ['clojure.core]})
-                   (test-boundary {:cwd (.getPath dir)
-                                   :out out
-                                   :err err
-                                   :write-result-files (fn [& _]
-                                                         (throw (ex-info "write exploded" {})))}))
-          diagnostic (:scry.cli/diagnostic-error outcome)
-          stderr (str err)]
-      (is (= 1 (:exit-code outcome)))
-      (is (= :scry.cli/zero-tests (:scry.cli/outcome-kind outcome)))
-      (is (= [] (:result-files outcome)))
-      (is (= "Assertions: 0 passed, 0 failed, 0 errored\nTests: 0 passed, 0 failed, 0 errored\n"
-             (str out)))
-      (is (= :result-file-writing (:phase diagnostic)))
-      (is (= 0 (:failed-entry-count diagnostic)))
-      (is (= "write exploded" (:message diagnostic)))
-      (is (= "write exploded" (:root-message diagnostic)))
-      (is (not (contains? diagnostic :first-failing-var)))
-      (is (not (contains? diagnostic :first-root-cause)))
-      (is (str/includes? stderr
-                         "Failure diagnostics failed while serializing 0 failing entries."))
-      (is (not (str/includes? stderr "for failure details"))))))
+(deftest run-cli-missing-canonical-and-progress-errors-preserve-sink-boundaries-test
+  ;; A normal runner return fixes the reconciliation diagnostic phase even when
+  ;; no canonical vector is available, while progress writer failures remain
+  ;; outside contained artifact diagnostics.
+  (testing "missing canonical results retain a completed artifact without reconciliation"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/published-without-canonical-results
+                     :status :fail
+                     :assertion-summary {:pass 0 :fail 1 :error 0}
+                     :assertions [{:type :fail}]}
+            outcome (run-cli-in
+                     dir
+                     (#'cli/normalize-exec-opts {})
+                     {:run-clojure-test
+                      (fn [opts]
+                        ((:progress-callback opts) failure)
+                        {:summary {}})})]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (= ["demo.core__published-without-canonical-results.edn"]
+               (mapv #(.getName (io/file %)) (:result-files outcome))))
+        (is (not (contains? outcome :scry.cli/diagnostic-error)))
+        (is (= failure
+               (edn/read-string
+                (slurp (io/file dir ".scry-results"
+                                "demo.core__published-without-canonical-results.edn"))))))))
+  (testing "a progress writer failure is a runner error, not an artifact diagnostic"
+    (with-temp-dir [dir]
+      (let [failure {:var 'demo.core/progress-output-fails
+                     :status :fail
+                     :assertion-summary {:pass 0 :fail 1 :error 0}
+                     :assertions [{:type :fail}]}
+            outcome (#'cli/run-cli
+                     (#'cli/normalize-exec-opts {})
+                     (test-boundary
+                      {:cwd (.getPath dir)
+                       :out (string-writer)
+                       :err (failing-writer "progress unavailable")
+                       :run-clojure-test
+                       (fn [opts]
+                         ((:progress-callback opts) failure)
+                         (runner-result [failure]))}))]
+        (is (= :scry.cli/runner-error (:scry.cli/outcome-kind outcome)))
+        (is (not (contains? outcome :scry.cli/diagnostic-error)))
+        (is (= ["demo.core__progress-output-fails.edn"]
+               (mapv #(.getName (io/file %)) (:result-files outcome))))
+        (is (= failure
+               (edn/read-string
+                (slurp (io/file dir ".scry-results"
+                                "demo.core__progress-output-fails.edn")))))))))
 
 (deftest run-cli-result-format-projection-keeps-detailed-result-files-test
   ;; User-supplied result-format projection is preserved for the returned

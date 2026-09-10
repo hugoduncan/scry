@@ -11,6 +11,10 @@
   [overrides]
   (merge (#'cli/default-boundary) overrides))
 
+(defn- remove-plugin-registration!
+  [plugin-id]
+  (remove-method @(requiring-resolve 'kaocha.plugin/-register) plugin-id))
+
 (defmacro when-kaocha-available
   [& body]
   `(if (try
@@ -85,7 +89,9 @@
                     (str/replace "-" "_"))
         ".clj")
    (str "(ns " ns-name "\n"
-        "  (:require [clojure.test :refer [deftest is]]))\n\n"
+        "  (:require [clojure.edn]\n"
+        "            [clojure.java.io]\n"
+        "            [clojure.test :refer [deftest is use-fixtures]]))\n\n"
         body)))
 
 (defn- write-tests-edn!
@@ -111,6 +117,25 @@
   []
   (java.io.StringWriter.))
 
+(defn- observing-writer
+  "Return a string-backed writer that calls `observe!` for each written chunk."
+  [observe!]
+  (let [delegate (java.io.StringWriter.)
+        write-chunk! (fn [chunk]
+                       (observe! chunk)
+                       (.write delegate chunk))]
+    (proxy [java.io.Writer] []
+      (write
+        ([value]
+         (write-chunk! (str value)))
+        ([characters offset length]
+         (write-chunk! (.substring (String. ^chars characters)
+                                   offset
+                                   (+ offset length)))))
+      (flush [] (.flush delegate))
+      (close [] (.close delegate))
+      (toString [] (.toString delegate)))))
+
 (defn- run-cli-in
   [dir opts]
   (let [out (string-writer)
@@ -125,6 +150,15 @@
        (map #(.getName ^java.io.File %))
        sort
        vec))
+
+(def ^:private blocked-run-latches (atom nil))
+
+(defn block-until-test-releases!
+  "Signal that a generated Kaocha leaf is blocked, then await test cleanup."
+  []
+  (let [{:keys [ready release]} @blocked-run-latches]
+    (.countDown ^java.util.concurrent.CountDownLatch ready)
+    (.await ^java.util.concurrent.CountDownLatch release)))
 
 (deftest kaocha-cli-suite-run-test
   ;; Kaocha CLI mode uses the optional adapter dynamically, prints live
@@ -168,6 +202,147 @@
              (is (str/includes? (:out result-data) "integration out"))
              (is (str/includes? (:out result-data) "integration err"))
              (is (= "" (:err result-data))))))))))
+
+(deftest kaocha-cli-publishes-completed-failure-before-next-leaf-test
+  ;; A real Kaocha leaf publishes its detailed artifact synchronously after its
+  ;; :each teardown, so the next leaf can consume a complete final EDN file.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [sample-ns (unique-ns "incremental" "sample-test")
+           failing-var (symbol (str sample-ns) "first-fails")
+           expected-file (result-file-name failing-var)]
+       (write-suite-test-ns!
+        project
+        sample-ns
+        (str "(defn each-fixture [test-fn]\n"
+             "  (println \"each setup\")\n"
+             "  (try (test-fn) (finally (println \"each teardown\"))))\n\n"
+             "(use-fixtures :each each-fixture)\n\n"
+             "(deftest first-fails\n"
+             "  (println \"first body\")\n"
+             "  (binding [*err* *out*] (println \"first err\"))\n"
+             "  (is (= :expected :actual) \"first failure\"))\n\n"
+             "(deftest second-reads-first-artifact\n"
+             "  (let [entry (clojure.edn/read-string\n"
+             "               (slurp (clojure.java.io/file (System/getProperty \"user.dir\")\n"
+             "                                           \".scry-results\"\n"
+             "                                           \"" expected-file "\")))]\n"
+             "    (is (= :fail (:status entry)))\n"
+             "    (is (seq (:assertions entry)))\n"
+             "    (is (every? #(.contains (:out entry) %)\n"
+             "                [\"each setup\" \"first body\" \"first err\" \"each teardown\"]))))\n"))
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [outcome (run-cli-in project
+                                   (#'cli/normalize-exec-opts
+                                    {:runner :kaocha
+                                     :dirs "test"
+                                     :ns-patterns [(exact-ns-pattern sample-ns)]
+                                     :kaocha-argv ["--no-randomize"]}))
+               entry (edn/read-string
+                      (slurp (io/file project ".scry-results" expected-file)))]
+           (is (= 1 (:exit-code outcome)))
+           (is (= [expected-file] (result-files project)))
+           (is (= failing-var (:var entry)))
+           (is (= :fail (:status entry)))
+           (is (seq (:assertions entry)))
+           (is (= "" (:err entry)))
+           (is (every? #(str/includes? (:out entry) %)
+                       ["each setup" "first body" "first err" "each teardown"]))))))))
+
+(deftest kaocha-cli-preserves-published-artifact-during-later-blocked-leaf-test
+  ;; A real running Kaocha suite leaves the first leaf's atomically published
+  ;; artifact readable while the following leaf is deliberately blocked.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [sample-ns (unique-ns "blocked" "sample-test")
+           failing-var (symbol (str sample-ns) "first-fails")
+           expected-file (result-file-name failing-var)
+           ready (java.util.concurrent.CountDownLatch. 1)
+           release (java.util.concurrent.CountDownLatch. 1)
+           completed (java.util.concurrent.CountDownLatch. 1)
+           outcome (atom ::not-finished)
+           worker (atom nil)]
+       (write-suite-test-ns!
+        project
+        sample-ns
+        (str "(deftest first-fails\n"
+             "  (is (= :expected :actual) \"first failure\"))\n\n"
+             "(deftest second-blocks\n"
+             "  (scry.cli-kaocha-test/block-until-test-releases!))\n"))
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (reset! blocked-run-latches {:ready ready :release release})
+         (try
+           (let [future-outcome
+                 (future
+                   (try
+                     (reset! outcome
+                             (run-cli-in project
+                                         (#'cli/normalize-exec-opts
+                                          {:runner :kaocha
+                                           :dirs "test"
+                                           :ns-patterns [(exact-ns-pattern sample-ns)]
+                                           :kaocha-argv ["--no-randomize"]})))
+                     (finally
+                       (.countDown completed))))
+                 _ (reset! worker future-outcome)
+                 ready? (.await ready 5 java.util.concurrent.TimeUnit/SECONDS)]
+             (is ready?
+                 "the second leaf reaches its bounded synchronization point")
+             (when ready?
+               (let [artifact (io/file project ".scry-results" expected-file)
+                     entry (edn/read-string (slurp artifact))]
+                 (is (.exists artifact))
+                 (is (= failing-var (:var entry)))
+                 (is (= :fail (:status entry)))
+                 (is (seq (:assertions entry)))))
+             (.countDown release)
+             (let [worker-result (deref future-outcome 5000 ::timed-out)]
+               (is (not= ::timed-out worker-result)
+                   "the released run completes without a leaked worker")
+               (when-not (= ::timed-out worker-result)
+                 (is (= worker-result @outcome))
+                 (is (= 1 (:exit-code worker-result)))
+                 (is (some #{(.getPath (io/file project ".scry-results" expected-file))}
+                           (:result-files worker-result))))))
+           (finally
+             (.countDown release)
+             (when-let [future-outcome @worker]
+               (when-not (.await completed 5 java.util.concurrent.TimeUnit/SECONDS)
+                 (future-cancel future-outcome))
+               (is (.await completed 5 java.util.concurrent.TimeUnit/SECONDS)
+                   "the worker body exits during bounded cleanup"))
+             (reset! blocked-run-latches nil))))))))
+
+(deftest kaocha-cli-throwing-var-has-only-concrete-progress-test
+  ;; Kaocha assertion errors omit :var on the reporter event. While a concrete
+  ;; var is active, that event must wait for the completed-leaf callback rather
+  ;; than appearing as an additional synthetic suite error.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [sample-ns (unique-ns "progress-error" "sample-test")
+           error-var (symbol (str sample-ns) "throws")
+           expected-file (result-file-name error-var)]
+       (write-suite-test-ns!
+        project
+        sample-ns
+        "(deftest throws\n  (throw (ex-info \"boom\" {})))\n")
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [outcome (run-cli-in project
+                                   (#'cli/normalize-exec-opts
+                                    {:runner :kaocha
+                                     :dirs "test"
+                                     :ns-patterns [(exact-ns-pattern sample-ns)]
+                                     :kaocha-argv ["--no-randomize"]}))]
+           (is (= 1 (:exit-code outcome)))
+           (is (= ["throws"
+                   (str "See " (.getPath (io/file project ".scry-results"))
+                        " for failure details (1 file).")]
+                  (str/split-lines (:stderr outcome))))
+           (is (not (str/includes? (:stderr outcome) "suite-error-")))
+           (is (= [expected-file] (result-files project)))
+           (is (= error-var
+                  (:var (edn/read-string
+                         (slurp (io/file project ".scry-results" expected-file))))))))))))
 
 (deftest kaocha-cli-surfaces-randomize-seed-on-failure-test
   ;; A failing Kaocha CLI run surfaces the randomize seed on stdout as its own
@@ -270,6 +445,37 @@
            (is (str/includes? stderr "this-symbol-does-not-resolve-at-load"))
            (is (str/includes? stderr "for failure details"))
            (is (= ["suite-error-1.edn"] (result-files project)))))))))
+
+(deftest kaocha-cli-reconciles-synthetic-load-artifacts-after-live-progress-test
+  ;; Synthetic load errors have no completed leaf. Their live progress arrives
+  ;; before final reconciliation creates the deterministic suite-error artifact.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [broken-ns (unique-ns "synthetic" "broken-test")
+           result-file (io/file project ".scry-results" "suite-error-1.edn")
+           artifact-present-at-progress? (atom ::not-observed)
+           out (string-writer)
+           err (observing-writer
+                (fn [chunk]
+                  (when (str/includes? chunk "suite-error-1\n")
+                    (reset! artifact-present-at-progress? (.exists result-file)))))
+           boundary (test-boundary {:cwd (.getPath project) :out out :err err})]
+       (write-suite-test-ns!
+        project
+        broken-ns
+        "(deftest never-runs\n  (is true))\n\n(this-symbol-does-not-resolve-at-load)\n")
+       (with-user-dir-and-ns-cleanup project [broken-ns]
+         (let [outcome (#'cli/run-cli
+                        (#'cli/normalize-exec-opts
+                         {:runner :kaocha
+                          :dirs "test"
+                          :ns-patterns [(exact-ns-pattern broken-ns)]})
+                        boundary)]
+           (is (= false @artifact-present-at-progress?)
+               "synthetic progress precedes final reconciliation publication")
+           (is (= :scry.cli/load-error (:scry.cli/outcome-kind outcome)))
+           (is (= [(.getPath result-file)] (:result-files outcome)))
+           (is (= :error (:status (edn/read-string (slurp result-file)))))))))))
 
 (deftest kaocha-cli-fallback-dirs-test
   ;; In Kaocha mode CLI :dirs maps to fallback :test-paths when there is no
@@ -392,6 +598,75 @@
              (is (= [keep-var]
                     (mapv :var (:canonical-results (:result outcome))))))))))))
 
+(deftest kaocha-cli-forwarded-plugin-runs-before-completion-observer-test
+  ;; Both CLI entry points activate forwarded plugins, and scry's completion
+  ;; observer remains last so incremental artifacts include post-test changes.
+  (when-kaocha-available
+   (with-temp-dir [project]
+     (let [sample-ns (unique-ns "forward-plugin" "sample-test")
+           failing-var (symbol (str sample-ns) "failing-test")
+           expected-file (result-file-name failing-var)
+           plugin-id (keyword "scry.cli-kaocha-test"
+                              (str (gensym "add-forwarded-pass-count-")))]
+       (eval `(do
+                (require 'kaocha.plugin)
+                (defmethod kaocha.plugin/-register ~plugin-id [_# plugins#]
+                  (conj plugins#
+                        {:kaocha.plugin/id ~plugin-id
+                         :kaocha.hooks/post-test
+                         (fn [testable# _#]
+                           (when-let [buffer# (:kaocha.plugin.capture-output/buffer testable#)]
+                             (.write ^java.io.ByteArrayOutputStream buffer#
+                                     (.getBytes "forwarded plugin output")))
+                           (-> testable#
+                               (update :kaocha.result/pass (fnil + 0) 7)
+                               (update :kaocha.testable/events conj
+                                       {:type :pass
+                                        :message "forwarded plugin assertion"
+                                        :expected :hook
+                                        :actual :hook})
+                               (update :kaocha.plugin.capture-output/output
+                                       str "forwarded plugin output")))}))))
+       (try
+         (write-suite-test-ns!
+          project
+          sample-ns
+          "(deftest failing-test\n  (is (= :expected :actual)))\n")
+         (write-project-file!
+          project
+          "tests.edn"
+          (str "#kaocha/v1\n"
+               "{:tests [{:id :unit\n"
+               "          :type :kaocha.type/clojure.test\n"
+               "          :test-paths [\"test\"]\n"
+               "          :ns-patterns [" (pr-str (exact-ns-pattern sample-ns)) "]}]}"))
+         (with-user-dir-and-ns-cleanup project [sample-ns]
+           (doseq [[label opts]
+                   [["-m --plugin"
+                     (#'cli/parse-main-args
+                      ["--runner" "kaocha" "--plugin" (str plugin-id)
+                       "--no-randomize"])]
+                    ["-X :plugin"
+                     (#'cli/normalize-exec-opts
+                      {:runner :kaocha :plugin plugin-id :randomize false})]]]
+             (testing label
+               (let [outcome (run-cli-in project opts)
+                     artifact-file (io/file project ".scry-results" expected-file)]
+                 (is (= :scry.cli/test-failure (:scry.cli/outcome-kind outcome))
+                     (pr-str outcome))
+                 (is (.isFile artifact-file) (pr-str outcome))
+                 (when (.isFile artifact-file)
+                   (let [artifact (edn/read-string (slurp artifact-file))]
+                     (is (= failing-var (:var artifact)))
+                     (is (= 7 (get-in artifact [:assertion-summary :pass])))
+                     (is (= 1 (get-in artifact [:assertion-summary :fail])))
+                     (is (some #(= "forwarded plugin assertion" (:message %))
+                               (:assertions artifact)))
+                     (is (str/includes? (:out artifact)
+                                        "forwarded plugin output"))))))))
+         (finally
+           (remove-plugin-registration! plugin-id)))))))
+
 (deftest kaocha-cli-forwarded-option-reaches-kaocha-test
   ;; A previously-unsupported Kaocha option (`--no-randomize`) forwards verbatim
   ;; to Kaocha's own parser and demonstrably affects the run: with randomization
@@ -478,8 +753,8 @@
              (str "expected argument-error for " (pr-str args))))))))
 
 (deftest kaocha-adapter-progress-callback-test
-  ;; The optional adapter exposes a live end-of-var progress callback before the
-  ;; final scry result is transformed.
+  ;; The optional adapter exposes one finalized, canonical completion entry per
+  ;; concrete leaf before its final suite result is returned.
   (when-kaocha-available
    (with-temp-dir [project]
      (let [sample-ns (unique-ns "progress" "sample-test")
@@ -494,8 +769,13 @@
                run-var (requiring-resolve 'scry.kaocha/run)
                result (run-var {:test-paths ["test"]
                                 :ns-patterns [(exact-ns-pattern sample-ns)]
-                                :progress-callback #(swap! events conj (select-keys % [:var :status]))})]
+                                :progress-callback #(swap! events conj %)})]
            (is (false? (:pass? result)))
-           (is (= [{:var first-var :status :pass}
-                   {:var second-var :status :fail}]
-                  @events))))))))
+           (is (= [first-var second-var] (mapv :var @events)))
+           (is (= [:pass :fail] (mapv :status @events)))
+           (is (= (select-keys (second @events)
+                               [:var :ns :status :assertion-summary])
+                  (first (:results result))))
+           (is (= {:pass 0 :fail 1 :error 0}
+                  (:assertion-summary (second @events))))
+           (is (= :fail (:type (first (:assertions (second @events))))))))))))

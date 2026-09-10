@@ -200,8 +200,12 @@
      :dirs               source dirs to scan for test namespaces (default [\"test\"])
      :ns-pattern         regex matched against namespace names during discovery
      :result-format      per-scope result formatting overrides
-     :progress-callback  optional function called with each canonical var entry
-                         after that var's final status is known
+     :progress-callback  optional synchronous function called once for each
+                         completed concrete var execution, in execution order.
+                         It receives the full unprojected canonical entry after
+                         the var body and attributable :each fixture teardown
+                         have completed. Repeated executions of the same var
+                         produce separate callback entries.
 
    Results use :results as the canonical collection and may include :failures
    as a filtered compatibility collection, depending on the selected format."

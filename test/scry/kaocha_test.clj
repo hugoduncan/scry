@@ -28,6 +28,10 @@
   ([] ((kaocha-var 'run)))
   ([opts] ((kaocha-var 'run) opts)))
 
+(defn- remove-plugin-registration!
+  [plugin-id]
+  (remove-method @(requiring-resolve 'kaocha.plugin/-register) plugin-id))
+
 (defn- suite-skip-map
   [cfg]
   (into {}
@@ -254,15 +258,186 @@
                 :kaocha/color? true
                 :custom/key :preserved}
            result ((kaocha-var 'apply-runtime-defaults) cfg)]
-       (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter]
+       (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter :scry.kaocha/completed-entry]
               (:kaocha/plugins result)))
        (is (= [] (:kaocha/reporter result)))
        (is (false? (:kaocha/color? result)))
        (is (= :preserved (:custom/key result)))))
    (testing "capture-output and filter plugins are appended when absent"
-     (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter]
+     (is (= [:existing/plugin :kaocha.plugin/capture-output :kaocha.plugin/filter :scry.kaocha/completed-entry]
             (:kaocha/plugins ((kaocha-var 'apply-runtime-defaults)
                               {:kaocha/plugins [:existing/plugin]})))))))
+
+(deftest completed-entry-hook-filters-non-concrete-leaves-test
+  ;; Completion observation is limited to runnable concrete leaves and never
+  ;; mutates the testable supplied by Kaocha's post-test chain.
+  (when-kaocha-available
+   (let [hook (kaocha-var 'completed-entry-post-test)
+         callbacks (atom [])
+         plan {:scry.kaocha/progress-callback #(swap! callbacks conj %)}
+         leaf {:kaocha.var/name 'demo.kaocha/fails
+               :kaocha.result/pass 0
+               :kaocha.result/fail 1
+               :kaocha.result/error 0
+               :kaocha.testable/events [{:type :fail
+                                         :expected :expected
+                                         :actual :actual}]}
+         skipped (assoc leaf :kaocha.testable/skip true)
+         group (assoc leaf :kaocha.result/tests [leaf])]
+     (is (identical? leaf (hook leaf plan)))
+     (is (identical? skipped (hook skipped plan)))
+     (is (identical? group (hook group plan)))
+     (is (= ['demo.kaocha/fails] (mapv :var @callbacks)))
+     (is (= :fail (:status (first @callbacks))))
+     (is (= {:pass 0 :fail 1 :error 0}
+            (:assertion-summary (first @callbacks)))))))
+
+(deftest completed-entry-callback-follows-each-teardown-test
+  ;; A real Kaocha leaf callback is emitted after the :each fixture's teardown,
+  ;; so its canonical snapshot contains the final merged fixture output.
+  (when-kaocha-available
+   (with-temp-project [project]
+     (let [sample-ns (unique-ns "completion" "fixture-test")
+           callbacks (atom [])
+           source (str "(ns " sample-ns "\n"
+                       "  (:require [clojure.test :refer [deftest is use-fixtures]]))\n\n"
+                       "(use-fixtures :each (fn [test-fn]\n"
+                       "                      (println \"each setup\")\n"
+                       "                      (try (test-fn)\n"
+                       "                           (finally (binding [*err* *out*]\n"
+                       "                                      (println \"each teardown\"))))))\n\n"
+                       "(deftest fails-after-fixture\n"
+                       "  (println \"test body\")\n"
+                       "  (is (= :expected :actual)))\n")]
+       (write-temp-project-file project (ns->test-path sample-ns) source)
+       (with-user-dir-and-ns-cleanup project [sample-ns]
+         (let [result (kaocha-run {:test-paths ["test"]
+                                   :ns-patterns [(exact-ns-pattern sample-ns)]
+                                   :progress-callback #(swap! callbacks conj %)
+                                   :result-format {:suite {:top-level-keys [:summary :pass? :canonical-results]}}})
+               callback (first @callbacks)
+               final-entry (first (:canonical-results result))]
+           (is (= 1 (count @callbacks)))
+           (is (= final-entry callback))
+           (is (= :fail (:status callback)))
+           (is (str/includes? (:out callback) "each setup"))
+           (is (str/includes? (:out callback) "test body"))
+           (is (str/includes? (:out callback) "each teardown"))
+           (is (= "" (:err callback)))))))))
+
+(deftest completed-entry-plugin-runs-after-user-post-test-hooks-test
+  ;; The adapter completion plugin is last, so its callback observes changes
+  ;; made by an ordinary configured user post-test hook.
+  (when-kaocha-available
+   (with-temp-project [project]
+     (let [sample-ns (unique-ns "completion" "user-hook-test")
+           plugin-id (keyword "scry.kaocha-test" (str (gensym "add-final-pass-count-")))
+           callbacks (atom [])]
+       (eval `(do
+                (require 'kaocha.plugin)
+                (defmethod kaocha.plugin/-register ~plugin-id [_# plugins#]
+                  (conj plugins#
+                        {:kaocha.plugin/id ~plugin-id
+                         :kaocha.hooks/post-test
+                         (fn [testable# _#]
+                           (when-let [buffer# (:kaocha.plugin.capture-output/buffer testable#)]
+                             (.write ^java.io.ByteArrayOutputStream buffer#
+                                     (.getBytes "user hook output")))
+                           (-> testable#
+                               (update :kaocha.result/pass (fnil + 0) 7)
+                               (update :kaocha.testable/events conj
+                                       {:type :pass
+                                        :message "user hook assertion"
+                                        :expected :hook
+                                        :actual :hook})
+                               (update :kaocha.plugin.capture-output/output
+                                       str "user hook output")))}))))
+       (try
+         (write-suite-test-ns project sample-ns false)
+         (with-user-dir-and-ns-cleanup project [sample-ns]
+           (let [result (kaocha-run {:test-paths ["test"]
+                                     :ns-patterns [(exact-ns-pattern sample-ns)]
+                                     :config {:kaocha/tests [{:kaocha.testable/id :unit
+                                                              :kaocha.testable/type :kaocha.type/clojure.test
+                                                              :kaocha/source-paths []
+                                                              :kaocha/test-paths [(.getAbsolutePath (io/file project "test"))]
+                                                              :kaocha/ns-patterns [(exact-ns-pattern sample-ns)]}]
+                                              :kaocha/plugins [plugin-id]}
+                                     :progress-callback #(swap! callbacks conj %)
+                                     :result-format {:suite {:top-level-keys [:summary :pass? :canonical-results]}}})
+                 callback (first @callbacks)
+                 final-entry (first (:canonical-results result))]
+             (is (= 1 (count @callbacks)))
+             (is (= 7 (get-in callback [:assertion-summary :pass])))
+             (is (some #(= "user hook assertion" (:message %))
+                       (:assertions callback)))
+             (is (str/includes? (:out callback) "user hook output"))
+             (is (= final-entry callback))))
+         (finally
+           (remove-plugin-registration! plugin-id)))))))
+
+(deftest synthetic-progress-reporter-test
+  ;; Suite/load errors have no completed concrete leaf, so the reporter retains
+  ;; their synthetic progress path without assigning them a concrete var.
+  (when-kaocha-available
+   (testing "reporter filters synthetic and active-var assertion errors"
+     (let [callbacks (atom [])
+           report ((kaocha-var 'progress-reporter) #(swap! callbacks conj %))]
+       (report {:type :error})
+       (report {:type :error :var #'scry.core/run})
+       (report {:type :begin-test-var :var #'scry.core/run})
+       (report {:type :error})
+       (report {:type :end-test-var :var #'scry.core/run})
+       (report {:type :fail})
+       (report {:type :error})
+       (is (= [{:var nil
+                :ns nil
+                :status :error
+                :assertion-summary {:pass 0 :fail 0 :error 1}}
+               {:var nil
+                :ns nil
+                :status :error
+                :assertion-summary {:pass 0 :fail 0 :error 1}}]
+              @callbacks))))
+   (testing "a throwing var produces one concrete completion and no synthetic progress"
+     (with-temp-project [project]
+       (let [error-ns (unique-ns "completion" "error-test")
+             error-var (symbol (str error-ns) "throws")
+             callbacks (atom [])]
+         (write-temp-project-file
+          project
+          (ns->test-path error-ns)
+          (str "(ns " error-ns "\n"
+               "  (:require [clojure.test :refer [deftest]]))\n\n"
+               "(deftest throws (throw (ex-info \"boom\" {})))\n"))
+         (with-user-dir-and-ns-cleanup project [error-ns]
+           (let [result (kaocha-run {:test-paths ["test"]
+                                     :ns-patterns [(exact-ns-pattern error-ns)]
+                                     :progress-callback #(swap! callbacks conj %)})]
+             (is (false? (:pass? result)))
+             (is (= [error-var] (mapv :var @callbacks)))
+             (is (= [:error] (mapv :status @callbacks)))
+             (is (= 1 (get-in (first @callbacks) [:assertion-summary :error]))))))))
+   (testing "a real load error produces only synthetic progress"
+     (with-temp-project [project]
+       (let [broken-ns (unique-ns "completion" "broken-test")
+             callbacks (atom [])]
+         (write-temp-project-file
+          project
+          (ns->test-path broken-ns)
+          (str "(ns " broken-ns "\n"
+               "  (:require [clojure.test :refer [deftest is]]))\n\n"
+               "(deftest unreachable-test (is true))\n"
+               "(unresolvable-symbol)\n"))
+         (with-user-dir-and-ns-cleanup project [broken-ns]
+           (let [result (kaocha-run {:test-paths ["test"]
+                                     :ns-patterns [(exact-ns-pattern broken-ns)]
+                                     :progress-callback #(swap! callbacks conj %)})]
+             (is (false? (:pass? result)))
+             (is (= 1 (count @callbacks)))
+             (is (= [nil] (mapv :var @callbacks)))
+             (is (= [:error] (mapv :status @callbacks)))
+             (is (empty? (:canonical-results result))))))))))
 
 (deftest full-config-selection-and-preservation-test
   ;; Supplied full config is authoritative: no fallback source/test/ns-pattern
@@ -273,7 +448,7 @@
                    ((kaocha-var 'select-suites) cfg [:integration]))]
      (is (= {:unit true :integration nil} (suite-skip-map resolved)))
      (is (= :preserved (:custom/key resolved)))
-     (is (= [:kaocha.plugin/capture-output :kaocha.plugin/filter]
+     (is (= [:kaocha.plugin/capture-output :kaocha.plugin/filter :scry.kaocha/completed-entry]
             (:kaocha/plugins resolved)))
      (is (= [] (:kaocha/reporter resolved)))
      (is (false? (:kaocha/color? resolved))))))

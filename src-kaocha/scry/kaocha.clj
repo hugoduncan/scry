@@ -15,6 +15,7 @@
    [kaocha.api :as api]
    [kaocha.config :as config]
    [kaocha.plugin :as plugin]
+   [kaocha.plugin.capture-output :as capture-output]
    [kaocha.type :as type]
    [scry.capture :as capture]))
 
@@ -54,8 +55,31 @@
      :status (status fail error pass)
      :assertion-summary {:pass pass :fail fail :error error}
      :assertions assertions
-     :out (or (:kaocha.plugin.capture-output/output t) "")
+     ;; Capture-output normally materializes and removes its buffer before this
+     ;; adapter-owned final post-test hook runs. Read the buffer defensively for
+     ;; a compatible plugin chain that has not materialized it yet.
+     :out (or (:kaocha.plugin.capture-output/output t)
+              (capture-output/read-buffer
+               (:kaocha.plugin.capture-output/buffer t))
+              "")
      :err ""}))
+
+(defn ^:no-doc completed-entry-post-test
+  [testable test-plan]
+  (when (and (not (:kaocha.testable/skip testable))
+             (:kaocha.var/name testable)
+             (not (seq (:kaocha.result/tests testable))))
+    (when-let [callback (::progress-callback test-plan)]
+      (callback (testable->entry testable))))
+  testable)
+
+(def ^:no-doc completed-entry-hooks
+  {:kaocha.plugin/id :scry.kaocha/completed-entry
+   :kaocha.hooks/post-test completed-entry-post-test})
+
+(defmethod plugin/-register :scry.kaocha/completed-entry
+  [_ plugins]
+  (conj plugins completed-entry-hooks))
 
 (defn- result->scry
   ([kaocha-result] (result->scry kaocha-result nil))
@@ -176,16 +200,20 @@
       (not (some #{plugin-keyword} (map plugin-id plugins)))
       (conj plugin-keyword))))
 
+(def ^:private completed-entry-plugin :scry.kaocha/completed-entry)
+
 (defn- ensure-runtime-plugins
-  "Ensure the plugins scry relies on are present. The capture-output plugin
-   provides per-test output; the filter plugin translates forwarded
-   `:kaocha/cli-options` (e.g. `:focus`) into `:kaocha.filter/*` directives.
-   Synthetic fallback and bare explicit `:config` maps may omit Kaocha's default
-   plugin chain, so ensure both here."
+  "Ensure required plugins and place the completion observer last.
+
+  The final observer must see capture-output and every configured post-test hook
+  before it snapshots a completed concrete leaf."
   [plugins]
-  (-> plugins
-      (ensure-plugin :kaocha.plugin/capture-output)
-      (ensure-plugin :kaocha.plugin/filter)))
+  (let [plugins (remove #(= completed-entry-plugin (plugin-id %)) plugins)]
+    (-> plugins
+        (ensure-plugin :kaocha.plugin/capture-output)
+        (ensure-plugin :kaocha.plugin/filter)
+        (conj completed-entry-plugin)
+        vec)))
 
 (defn- apply-runtime-defaults
   [cfg]
@@ -214,23 +242,48 @@
           focus
           [focus])))
 
+(defn- coerce-plugin-keyword
+  [plugin-selection]
+  (if (keyword? plugin-selection)
+    plugin-selection
+    ((requiring-resolve 'kaocha.runner/parse-kw) (str plugin-selection))))
+
+(defn- coerce-plugin
+  [plugin-selection]
+  (mapv coerce-plugin-keyword
+        (if (and (sequential? plugin-selection)
+                 (not (string? plugin-selection)))
+          plugin-selection
+          [plugin-selection])))
+
 (defn- coerce-kaocha-extra
   "Coerce known raw `:kaocha-extra` values to the types the Kaocha cli-options
    layer expects. Unknown keys are forwarded as-is (the documented `-X`
    mistyped-key trade-off)."
   [extra]
   (cond-> extra
-    (contains? extra :focus) (update :focus coerce-focus)))
+    (contains? extra :focus) (update :focus coerce-focus)
+    (contains? extra :plugin) (update :plugin coerce-plugin)))
+
+(defn- add-selected-plugins
+  [plugins selected]
+  (reduce (fn [plugins plugin-keyword]
+            (ensure-plugin plugins plugin-keyword))
+          plugins
+          selected))
 
 (defn- apply-kaocha-extra
   "Merge raw forwarded `:kaocha-extra` into the resolved config's
    `:kaocha/cli-options`, coercing known values first. Existing config
-   cli-options are authoritative on conflict (OQ2 merge-with-config-wins)."
+   cli-options are authoritative on conflict (OQ2 merge-with-config-wins).
+   Forwarded plugin selections are also activated in `:kaocha/plugins`."
   [cfg extra]
   (if (seq extra)
-    (update cfg :kaocha/cli-options
-            (fn [cli-options]
-              (merge (coerce-kaocha-extra extra) cli-options)))
+    (let [cli-options (merge (coerce-kaocha-extra extra)
+                             (:kaocha/cli-options cfg))]
+      (cond-> (assoc cfg :kaocha/cli-options cli-options)
+        (seq (:plugin cli-options))
+        (update :kaocha/plugins add-selected-plugins (:plugin cli-options))))
     cfg))
 
 (def ^:private default-cli-spec-plugins
@@ -278,46 +331,29 @@
             (str (:name (meta v))))))
 
 (defn- progress-reporter
+  "Report only synthetic suite/load errors.
+
+  Concrete completed entries are emitted by the adapter-owned final post-test
+  hook, after Kaocha's leaf state and capture output are finalized. Kaocha's
+  assertion-error events omit :var, so active concrete vars are tracked to keep
+  those errors on the completed-entry path."
   [callback]
-  (let [current-var (atom nil)
-        counts (atom {})]
+  (let [active-var (atom nil)]
     (fn [event]
       (case (:type event)
         :begin-test-var
-        (let [var-symbol (event-var-symbol event)]
-          (reset! current-var var-symbol)
-          (swap! counts assoc var-symbol {:pass 0 :fail 0 :error 0}))
+        (reset! active-var (event-var-symbol event))
 
-        :pass
-        (when-let [var-symbol @current-var]
-          (swap! counts update-in [var-symbol :pass] (fnil inc 0)))
-
-        :fail
-        (when-let [var-symbol @current-var]
-          (swap! counts update-in [var-symbol :fail] (fnil inc 0)))
+        :end-test-var
+        (reset! active-var nil)
 
         :error
-        (if-let [var-symbol @current-var]
-          (swap! counts update-in [var-symbol :error] (fnil inc 0))
-          ;; A suite-level error with no enclosing test var (e.g. a namespace
-          ;; load/compile failure) emits :error between :kaocha/begin-suite and
-          ;; :kaocha/end-suite with no test-var events. Fire the callback
-          ;; immediately so the synthetic suite-level progress label is printed
-          ;; during the run instead of being silently collapsed to a count.
+        (when (and (nil? @active-var)
+                   (nil? (event-var-symbol event)))
           (callback {:var nil
                      :ns nil
                      :status :error
                      :assertion-summary {:pass 0 :fail 0 :error 1}}))
-
-        :end-test-var
-        (let [var-symbol (event-var-symbol event)
-              {:keys [pass fail error] :as summary} (get @counts var-symbol
-                                                         {:pass 0 :fail 0 :error 0})]
-          (callback {:var var-symbol
-                     :ns (some-> var-symbol namespace symbol)
-                     :status (status fail error pass)
-                     :assertion-summary summary})
-          (reset! current-var nil))
 
         nil))))
 
@@ -325,7 +361,8 @@
   [cfg progress-callback]
   (cond-> cfg
     progress-callback
-    (update :kaocha/reporter conj (progress-reporter progress-callback))))
+    (-> (assoc ::progress-callback progress-callback)
+        (update :kaocha/reporter conj (progress-reporter progress-callback)))))
 
 (defn- discarding-writer
   "A writer that discards everything written to it, backed by a null output
@@ -418,7 +455,13 @@
      :test-paths         fallback test dirs when no :config or tests.edn exists
      :ns-patterns        fallback namespace-name regex strings
      :result-format      suite-scope formatting overrides
-     :progress-callback  optional function called after each completed test var
+     :progress-callback  optional synchronous function called once after each
+                         completed concrete test-var execution. It receives the
+                         full, unprojected canonical entry (assertions and
+                         merged captured output included) in execution order,
+                         after all preceding post-test hooks. A var executed
+                         multiple times produces multiple callbacks; synthetic
+                         suite/load errors may use a non-concrete entry.
      :kaocha-argv        a vector of raw `-m` CLI strings forwarded verbatim by
                          the scry CLI in Kaocha mode (every token that is not a
                          scry-owned flag: unknown `--flags`, their values, and
@@ -435,13 +478,17 @@
                          This option is `-m`-only; the `-X` map path uses
                          `:kaocha-extra`.
      :kaocha-extra       a map of raw Kaocha cli-options forwarded by the scry
-                         CLI's bounded pass-through (e.g. `:focus`). It is merged
-                         into the resolved config's :kaocha/cli-options with the
-                         resolved :config authoritative on conflict. Known values
-                         are coerced (`:focus` raw string/symbol/keyword scalar or
-                         collection becomes a vector of keywords); unknown keys are
-                         forwarded as-is, so a mistyped key surfaces as a runner or
-                         load error rather than an argument error.
+                         CLI's bounded pass-through (e.g. `:focus` and `:plugin`).
+                         It is merged into the resolved config's
+                         :kaocha/cli-options, with resolved :config authoritative on conflict.
+                         Known values are coerced: a `:focus` raw string/symbol/keyword
+                         scalar or collection becomes a vector of keywords;
+                         `:plugin` accepts a scalar or sequential selection and
+                         likewise becomes a vector of keywords. Selected plugins
+                         are activated in :kaocha/plugins before scry's completion
+                         observer is placed last. Unknown keys are forwarded as-is;
+                         a mistyped key surfaces as a runner or load error rather
+                         than an argument error.
 
    When :config is omitted, the current project's tests.edn is loaded if it
    exists; otherwise a synthetic :unit suite is built from :source-paths,
@@ -472,9 +519,9 @@
          selectors (concat (suite-selectors opts) (:suites parsed-argv))
          cfg (-> base-cfg
                  (select-suites selectors)
-                 apply-runtime-defaults
                  (apply-kaocha-extra (:kaocha-extra opts))
                  (apply-kaocha-extra (:cli-options parsed-argv))
+                 apply-runtime-defaults
                  (apply-progress-reporter (:progress-callback opts)))
          start (System/nanoTime)
          kaocha-result (capture/without-context

@@ -23,7 +23,8 @@
 
 ## Active focus
 
-- No open tasks.
+- No open Munera tasks.
+- CLI detailed failure artifacts are published incrementally and atomically after completed test vars, with core/Kaocha parity and final reconciliation.
 
 ## Conventions
 

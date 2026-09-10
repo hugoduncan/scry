@@ -23,7 +23,8 @@
 
 ## Active focus
 
-- Task 026 is open: incrementally and atomically publish detailed CLI failure artifacts after each completed test var, with core/Kaocha parity and final reconciliation.
+- No open Munera tasks.
+- CLI detailed failure artifacts are published incrementally and atomically after completed test vars, with core/Kaocha parity and final reconciliation.
 
 ## Conventions
 

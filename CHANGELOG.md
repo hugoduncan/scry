@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.61] - 2026-09-14
+
 - CLI failure artifacts now publish synchronously and atomically as each concrete failing or erroring var completes, in both core and optional Kaocha modes. Final `.edn` names are never exposed until complete; temporary files are internal and ignored by consumers.
 - CLI reconciliation retries contained artifact-publication failures and writes synthetic suite/load failures after a normal run. Earlier published artifacts survive later catchable runner errors and remain in `:result-files`; unresolved publication diagnostics now identify incremental versus final-reconciliation phases.
 - Forwarded Kaocha plugin selections now execute in both `-m --plugin` and `-X :kaocha-extra {:plugin ...}` modes, while scry's completed-entry observer remains last so incremental artifacts include preceding plugin changes.
